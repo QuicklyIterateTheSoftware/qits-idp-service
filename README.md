@@ -307,8 +307,10 @@ The rules around them:
   `bootstrap-publish` get `qits:ci-run` — publishing to qits-artifacts is CI's door, and
   `bootstrap-publish` is the short-lived identity the bootstrap commissions for its own publish
   phase and deletes when that phase ends; `ci-runner` gets `qits:ci-runner`, a CI runner's own
-  identity rather than any one run's; and `ci-runner-registration` gets
-  `qits:ci-runner-registration`, the credential a runner registers itself with. Agents and CI runs are domain-scoped, so neither
+  identity rather than any one run's; `ci-runner-registration` gets
+  `qits:ci-runner-registration`, the credential a runner registers itself with; and `test-client`
+  gets `qits:token-test`, an agent's own credential for commissioning test tokens (see "Test
+  clients" below). Agents and CI runs are domain-scoped, so neither
   inherits `qits:system` or `qits:admin`; their Git scope is their `git_refs`. **Any other kind gets no role at all** — only
   its own self-role — which is D12: an unknown kind is harmless, not refused. A credential may
   always mint and hand itself back (`DELETE` of its own id), whatever role its kind gives it.
@@ -335,9 +337,11 @@ The rules around them:
   `workspace` and `branch` may be stated; any other name is a 400. See `control/CommissionedClaims`.
 - **Its self-role is its own, never its owner's.** `clients/dyn-…` is stamped from the id in `sub`,
   so a credential commissioned by a service cannot walk through a door held open for that service.
-- **Only a service client may commission** — environment or database, never a commissioned one. A
-  commissioned credential authenticates here — so a context can hand its own credential back — but
-  `POST` refuses it, and the blast radius of a leaked one therefore stops at one context.
+- **Only a service client may commission** — environment or database, never a commissioned one,
+  with one exception: an agent (`qits:agent`) may commission a `test-client` for itself (see "Test
+  clients" below). A commissioned credential authenticates here — so a context can hand its own
+  credential back — but `POST` refuses it, and the blast radius of a leaked one therefore stops at
+  one context.
 - **Decommission is deleting the row**, and it is immediate: the credential mints nothing from the
   next request onward. **Tokens it already minted live out their `exp`**, because validation is
   offline against the JWKS and there is no revocation list. With the shipped hour that grace is an
@@ -405,10 +409,11 @@ The rules around them:
 - **Its roles are `CommissionRoles.forKind(contextKind)`, never the owner's** — the same code map a
   commissioned client of that kind gets. Its claims and Git refs are only what it stated, checked by
   the same rules as a commissioned client's, each a 400 with nothing written.
-- **Only a service client commissions** — environment or database, holding `qits:system`. A
-  commissioned client is 403, and a token cannot authenticate to `POST` at all: it is not a client.
-- **`GET` accepts `qits:system` or `qits:agent`**, like `GET /idp/api/clients`, and lists only the
-  caller's own.
+- **Only a service client commissions** — environment or database, holding `qits:system` — or a
+  test client, for `ci-run` and `ci-runner-registration` only. Any other commissioned client is 403,
+  and a token cannot authenticate to `POST` at all: it is not a client.
+- **`GET` accepts `qits:system`, `qits:agent` or `qits:token-test`**, like `GET
+  /idp/api/clients`, and lists only the caller's own.
 - **`DELETE` is the owner's, or the token's own.** The owner uses its Basic pair; a token presents
   itself as `Authorization: Bearer qits_tok_…` and may delete only the id it is. Another owner, a
   live token naming a different id, an unknown id and a malformed id are all the same 404; a bearer
@@ -424,6 +429,58 @@ The rules around them:
   edge verifies an ordinary JWT. That JWT lives `qits.idp.token-introspection-jwt-ttl-seconds` (300
   by default), which is the upper bound on how long a deleted token keeps working **behind** the
   edge; at the edge the bound is its own cache, `qits.edge.auth.token-cache-ttl-ms` (15 s).
+
+#### Test clients
+
+This exists so an agent can prove commissioned tokens live without ever holding `qits:system`
+(qits-439). An agent — a workspace's commissioned client, `qits:agent` — commissions a
+`test-client` for itself; the test client, whose one role is `qits:token-test`, commissions test
+tokens; the agent deletes the test client when it is done, and every token it owned is refused from
+the next introspection on.
+
+    # the agent commissions a test client, with its own Basic pair; 201
+    curl -s -u dyn-workspace-…:$AGENT_SECRET -H 'Content-Type: application/json' \
+      -d '{"contextKind":"test-client","contextId":"token-proof"}' \
+      http://qits-platform-idp:8080/idp/api/clients
+    # {"clientId":"dyn-test-client-token-proof-Zx…","secret":"…","owner":"dyn-workspace-…", …}
+
+    # the test client commissions a ci-run token; 201
+    curl -s -u dyn-test-client-token-proof-Zx…:$TEST_SECRET -H 'Content-Type: application/json' \
+      -d '{"contextKind":"ci-run","contextId":"proof-1","gitRefs":["refs/heads/ticket/x"]}' \
+      http://qits-platform-idp:8080/idp/api/tokens
+    # {"tokenId":"…","token":"qits_tok_…","owner":"dyn-test-client-token-proof-Zx…", …}
+
+    # the agent deletes the test client; 204 — and that token's introspection is now 404
+    curl -s -X DELETE -u dyn-workspace-…:$AGENT_SECRET \
+      http://qits-platform-idp:8080/idp/api/clients/dyn-test-client-token-proof-Zx…
+
+The rules:
+
+- **Who commissions one.** `POST /idp/api/clients` keeps its rule — a service client with
+  `qits:system` may commission any kind — and adds exactly one widening: a commissioned client
+  holding `qits:agent` may commission kind `test-client`, owned by itself. Every other kind from
+  such a caller, and every commissioned caller without `qits:agent` (a test client included), is
+  today's 403, `a commissioned client may not commission another`. Claims and Git refs are
+  validated as for any commission.
+- **The chain ends there.** `qits:token-test` opens token commissioning and nothing else, and a
+  test client cannot make a client of any kind — so what outlives an agent is at most one level of
+  test clients and their tokens, never a tree.
+- **Its audiences are its agent's.** A test client's owner is a commissioned client, which has no
+  audiences of its own, so it resolves one hop further: the agent's own owner's audiences, under
+  that owner's rule, plus `qits-platform` — exactly what the agent is issued, never more. Its tokens
+  resolve through it. If the chain cannot be resolved (the agent or the agent's owner is gone), it
+  gets `qits-platform` alone, never an error.
+- **`POST /idp/api/tokens`**: a test client may commission kinds `ci-run` and
+  `ci-runner-registration`, owned by itself; any other kind is 403, `a test client may commission
+  only ci-run and ci-runner-registration tokens`.
+- **`GET /idp/api/tokens`** lists its own; **`DELETE /idp/api/tokens/{tokenId}`** deletes its own,
+  under the ordinary owner rule.
+- **`POST /idp/api/tokens/introspect` is unchanged**: service clients only, a test client is 403.
+- **Cleanup.** The owner of a `test-client` row may `DELETE /idp/api/clients/{clientId}` with just
+  its Basic pair (`qits:agent` suffices); anyone else gets the same 404 as an unknown id. `GET
+  /idp/api/clients` already accepts `qits:agent`, so the agent sees its test clients. Tokens owned
+  by a deleted test client are refused at introspection with the 404 an owner that no longer exists
+  always gets.
 
 ## Users
 

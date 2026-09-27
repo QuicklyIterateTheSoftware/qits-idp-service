@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.CommissionRoles;
 import eu.wohlben.qits.idp.control.DynamicClients;
 import eu.wohlben.qits.idp.control.DynamicClients.Commissioned;
 import eu.wohlben.qits.idp.control.DynamicClients.StoredClient;
@@ -51,7 +52,8 @@ import org.jboss.resteasy.reactive.RestResponse;
  * value that is not.
  *
  * <p><b>Only a service client may commission</b> — environment or database, never a commissioned
- * one. A commissioned credential authenticates
+ * one, with one exception: an agent may commission a test client for itself ({@link
+ * #commissioner}). A commissioned credential authenticates
  * here (it has to, so a context can hand its own credential back), but {@code POST} refuses it:
  * a credential that could commission more credentials would outlive its own decommission through
  * the ones it made, and the blast radius of a leaked build-step secret would stop being one build.
@@ -147,11 +149,7 @@ public class IdpClientsController {
   @Consumes(MediaType.APPLICATION_JSON)
   public RestResponse<CommissionResponse> commission(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CommissionRequest request) {
-    IdpClient owner =
-        caller.staticOnly(
-            authorization,
-            "a commissioned client may not commission another",
-            BasicCaller.PLATFORM_SYSTEM);
+    IdpClient owner = commissioner(caller.authenticated(authorization), request);
     if (request == null) {
       throw OAuthException.invalidRequest(
           "a JSON body naming contextKind and contextId is required");
@@ -183,6 +181,42 @@ public class IdpClientsController {
   }
 
   /**
+   * Who may commission this request: a service client holding {@code qits:system}, for any kind —
+   * or an agent, for a test client and nothing else (qits-439).
+   *
+   * <p><b>The one widening.</b> A commissioned client holding {@code qits:agent} may commission
+   * kind {@link CommissionRoles#TEST_CLIENT}, owned by itself. That is how an agent proves
+   * commissioned tokens end to end on the live platform without ever holding {@code qits:system},
+   * and it is safe because of what the kind can reach: its one role, {@code qits:token-test}, opens
+   * token commissioning of kinds {@code ci-run} and {@code ci-runner-registration} and nothing
+   * else, and <b>the chain ends there</b> — a test client holds no {@code qits:agent}, so it is
+   * refused here like any other commissioned client and can make no client of any kind. The
+   * credential that outlives its agent's decommission is therefore at most one test client and its
+   * tokens, never a tree; and it is never wider than the agent, because its audiences are the
+   * agent's ({@code ClientRegistry}).
+   *
+   * <p>Every other kind from such a caller, a body with no kind, and every commissioned caller
+   * without {@code qits:agent} keep today's 403 and today's message. The kind is compared trimmed,
+   * the way {@link DynamicClients#commission} stores it. Claims and Git refs are validated exactly
+   * as for any commission, afterwards.
+   *
+   * @throws OAuthException {@code access_denied} (403)
+   */
+  private IdpClient commissioner(IdpClient authenticated, CommissionRequest request) {
+    if (caller.isServiceClient(authenticated)) {
+      return caller.requireRole(authenticated, BasicCaller.PLATFORM_SYSTEM);
+    }
+    boolean testClient =
+        request != null
+            && request.contextKind() != null
+            && CommissionRoles.TEST_CLIENT.equals(request.contextKind().trim());
+    if (testClient && authenticated.roles().contains(BasicCaller.AGENT)) {
+      return authenticated;
+    }
+    throw OAuthException.accessDenied("a commissioned client may not commission another");
+  }
+
+  /**
    * The caller's own live commissions — for reconciliation: a service compares this against its
    * live contexts at boot and periodically, and decommissions whatever it no longer recognises.
    * Leaked credentials are answered structurally here rather than by a TTL.
@@ -191,8 +225,8 @@ public class IdpClientsController {
    * another's, because a service's live contexts are its own business.
    *
    * <p><b>A read, so {@code qits:agent} is accepted too.</b> An agent keeps every read it had while
-   * it carried its owner's roles; only writes are restricted. It commissions nothing, so its own
-   * listing is empty — the answer it got before.
+   * it carried its owner's roles; only writes are restricted. The only thing it can commission is a
+   * test client ({@link #commissioner}), so its listing is those, or empty.
    */
   @GET
   public List<CommissionView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
@@ -252,6 +286,11 @@ public class IdpClientsController {
    *
    * <p>The caller must be the owner, or the credential itself. Anything else is a 404 — the same
    * answer as an id that never existed, so nobody maps other services' contexts from here.
+   *
+   * <p><b>An agent cleans up its own test clients</b> (qits-439): a caller holding {@code
+   * qits:agent} passes the role gate for a row of kind {@link CommissionRoles#TEST_CLIENT}, and the
+   * owner rule then decides — its own is 204, another agent's is the same 404. Any other row stays
+   * behind {@code qits:system} for such a caller, the 403 it always got.
    */
   @DELETE
   @Path("/{clientId}")
@@ -262,13 +301,27 @@ public class IdpClientsController {
     // A credential may always hand itself back. Its roles may be its kind's own fixed ones
     // (CommissionRoles, e.g. qits:agent) rather than its owner's — or none at all — and giving back
     // one's own credential needs no platform role either way.
-    if (!authenticated.clientId().equals(clientId)) {
+    if (!authenticated.clientId().equals(clientId)
+        && !agentCleaningUpATestClient(authenticated, clientId)) {
       caller.requireRole(authenticated, BasicCaller.PLATFORM_SYSTEM);
     }
     if (!dynamicClients.decommission(clientId, authenticated.clientId())) {
       throw OAuthException.notFound("no such commissioned client");
     }
     return Response.noContent().build();
+  }
+
+  /**
+   * Whether an agent is deleting a test client — the one row it may delete without {@code
+   * qits:system}. Whether it OWNS the row is {@link DynamicClients#decommission}'s to decide, so
+   * the answer to a test client that is not its own is the ordinary 404.
+   */
+  private boolean agentCleaningUpATestClient(IdpClient authenticated, String clientId) {
+    return authenticated.roles().contains(BasicCaller.AGENT)
+        && dynamicClients
+            .find(clientId)
+            .map(row -> CommissionRoles.TEST_CLIENT.equals(row.contextKind()))
+            .orElse(false);
   }
 
   private static CommissionView view(StoredClient client) {

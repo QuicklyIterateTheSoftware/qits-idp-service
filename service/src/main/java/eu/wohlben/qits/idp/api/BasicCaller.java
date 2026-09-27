@@ -1,6 +1,7 @@
 package eu.wohlben.qits.idp.api;
 
 import eu.wohlben.qits.idp.control.ClientRegistry;
+import eu.wohlben.qits.idp.control.CommissionRoles;
 import eu.wohlben.qits.idp.control.IdpClient;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,6 +44,12 @@ public class BasicCaller {
    */
   public static final String AGENT = "qits:agent";
 
+  /**
+   * The test client role (qits-439): commission, list and delete a test token of kind {@code
+   * ci-run} or {@code ci-runner-registration}, and nothing else — see {@code CommissionRoles}.
+   */
+  public static final String TOKEN_TEST = CommissionRoles.TOKEN_TEST;
+
   @Inject ClientRegistry registry;
 
   /**
@@ -72,6 +79,15 @@ public class BasicCaller {
       throw OAuthException.accessDenied(refusal);
     }
     return caller;
+  }
+
+  /**
+   * Whether an authenticated caller is a service client — environment or database — rather than a
+   * commissioned one. The routes that widen one door for one commissioned kind ask this first, so
+   * the widening can never reach a service client that lacks {@link #PLATFORM_SYSTEM}.
+   */
+  public boolean isServiceClient(IdpClient caller) {
+    return registry.isServiceClient(caller.clientId());
   }
 
   /** Require one machine role after the Basic pair has authenticated. */

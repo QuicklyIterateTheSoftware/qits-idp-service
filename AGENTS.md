@@ -119,8 +119,8 @@ standing example, and `@RolesAllowed("clients/<x>")` in a sibling service is wha
 (`service-client-identity-plan.md`, D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement` (`qits:agent`), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`) and
-`ci-runner-registration` (`qits:ci-runner-registration`) are the seven the jar ships, tested as
-shipped in
+`ci-runner-registration` (`qits:ci-runner-registration`) and `test-client` (`qits:token-test`)
+are the eight the jar ships, tested as shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):
 it is the bootstrap's own publishing identity, commissioned with `gitRefs: []` for its publish
@@ -136,7 +136,10 @@ merged with its owner's grants.
 **Every read route accepts `qits:agent`; no write route does** (user ruling 2026-09-12: agents keep
 every read and lose only write access). Today the one read route with a role check is `GET
 /api/clients` (`BasicCaller.requireAnyRole`); the others are public or session-based. A new read
-route with a role check accepts `BasicCaller.AGENT` too; a new write route does not. **The
+route with a role check accepts `BasicCaller.AGENT` too; a new write route does not. **The one
+write an agent has is its own test clients** (qits-439): `POST /api/clients` for kind
+`test-client` and `DELETE /api/clients/{id}` of a test client it owns — the narrowest credential
+that can commission a test token, so an agent never needs `qits:system`. README "Test clients". **The
 service-client management API (`/api/service-clients`) is the one deliberate exception**: every
 verb there, GET included, requires `qits:system` and refuses `qits:agent` — migrating a service's
 own secret is not a thing an agent's context has any business doing, so `IdpServiceClientsController`

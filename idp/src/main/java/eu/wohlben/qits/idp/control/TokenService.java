@@ -125,7 +125,9 @@ public class TokenService {
    * kind and Git refs are the row's, and whose audiences and audience rule are its owner's —
    * resolved here, now, the way {@link ClientRegistry} resolves them for a commissioned client,
    * with an empty request. So {@code aud} is an environment owner's whole list plus {@code
-   * qits-platform}, or just {@code qits-platform} for a database owner; {@code groups} ends with
+   * qits-platform}, or just {@code qits-platform} for a database owner — and for a token a test
+   * client owns, whatever that test client is issued, which is its agent's ({@link
+   * ClientRegistry}); {@code groups} ends with
    * {@code clients/<subject>}; and a service behind the edge verifies it against the JWKS like any
    * other token, with no second code path.
    *

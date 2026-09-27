@@ -39,6 +39,8 @@ import org.jboss.logging.Logger;
  * nothing, which is refused as {@code invalid_target}. <b>Its audience RULE also follows its
  * owner's</b> — {@link IdpClient.AudienceSource} — so a commission owned by a database client gets
  * the database's unchecked-copy-back rule and one owned by an environment client keeps today's.
+ * <b>A test client is owned by an agent, not a service</b>, and takes what that agent is issued,
+ * one hop further up — {@link #ownerAudiences}.
  *
  * <p><b>Roles and claims are NOT inherited by a commission any more</b> (D3, D12 of the plan). A
  * commission's roles are its context kind's fixed ones ({@link CommissionRoles}, code, no owner
@@ -161,11 +163,11 @@ public class ClientRegistry {
   }
 
   private IdpClient asClient(StoredClient stored) {
-    IdpClient owner = findServiceClient(stored.owner()).orElse(null);
+    OwnerAudiences owner = ownerAudiences(stored);
     return new IdpClient(
         stored.clientId(),
         ClientSecret.stored(stored.secretHash()),
-        owner == null ? List.of() : owner.audiences(),
+        owner.audiences(),
         // D12: the context kind's fixed role, or none — never the owner's (D3 removed that
         // inheritance for roles the same way it removed it for claims).
         CommissionRoles.forKind(stored.contextKind()),
@@ -174,6 +176,70 @@ public class ClientRegistry {
         stored.claims(),
         stored.contextKind(),
         stored.gitRefs(),
-        owner == null ? AudienceSource.ENVIRONMENT : owner.audienceSource());
+        owner.source());
+  }
+
+  /** The audiences a commission is issued, and the rule they are minted under. */
+  private record OwnerAudiences(List<String> audiences, AudienceSource source) {
+
+    /** An owner nobody can find: entitled to nothing, refused as {@code invalid_target}. */
+    static final OwnerAudiences NONE = new OwnerAudiences(List.of(), AudienceSource.ENVIRONMENT);
+
+    /**
+     * A test client whose chain broke: {@code qits-platform} alone, under the environment rule, so
+     * a request may name nothing else and an empty one gets exactly that.
+     */
+    static final OwnerAudiences PLATFORM_ONLY =
+        new OwnerAudiences(List.of(TokenService.PLATFORM_AUDIENCE), AudienceSource.ENVIRONMENT);
+
+    static OwnerAudiences of(IdpClient owner) {
+      return new OwnerAudiences(owner.audiences(), owner.audienceSource());
+    }
+  }
+
+  /**
+   * A commission's owner's audiences — its owning service client's, and for a {@link
+   * CommissionRoles#TEST_CLIENT} one hop further.
+   *
+   * <p><b>Every other kind is owned by a service client</b>, because only a service client may
+   * commission it, and that owner's audiences and rule are the answer — or nothing, when the owner
+   * is gone (the class javadoc).
+   *
+   * <p><b>A test client is owned by an agent</b> (qits-439): a commissioned client, which has no
+   * audiences of its own to read. So its audiences are the ones that agent itself is issued —
+   * the agent's own owner's, read the same way, exactly one hop and never a walk: a test client
+   * cannot commission a client, so no chain is ever longer, and a loop is impossible by
+   * construction rather than by a visited-set here. That keeps it <b>never wider than its
+   * agent</b>: the same list under the same rule. A test client commissioned directly by a service
+   * client (a system caller may commission any kind) takes that owner's, like any other kind.
+   *
+   * <p><b>When the chain cannot be resolved</b> — the agent is gone, or its own owner is — a test
+   * client gets {@code qits-platform} alone rather than an {@code invalid_target}: the owner asked
+   * for at least that much, and it is the one audience every token here carries anyway, so it
+   * widens nothing. Its tokens ({@link TokenService#forCommissionedToken}) resolve through this
+   * same method, because they ask {@link #find} for their owner.
+   */
+  private OwnerAudiences ownerAudiences(StoredClient stored) {
+    Optional<IdpClient> owner = findServiceClient(stored.owner());
+    if (owner.isPresent()) {
+      return OwnerAudiences.of(owner.get());
+    }
+    if (!CommissionRoles.TEST_CLIENT.equals(stored.contextKind())) {
+      return OwnerAudiences.NONE;
+    }
+    Optional<IdpClient> agentsOwner =
+        dynamicClients
+            .find(stored.owner())
+            // Defensive only: a test client cannot commission, so its owner is never one.
+            .filter(agent -> !CommissionRoles.TEST_CLIENT.equals(agent.contextKind()))
+            .flatMap(agent -> findServiceClient(agent.owner()));
+    if (agentsOwner.isEmpty()) {
+      // DEBUG: this runs on every mint and every introspection of a test client's tokens.
+      LOG.debugf(
+          "test client %s: owner chain from %s does not resolve, issuing qits-platform only",
+          LoggableClientId.of(stored.clientId()), LoggableClientId.of(stored.owner()));
+      return OwnerAudiences.PLATFORM_ONLY;
+    }
+    return OwnerAudiences.of(agentsOwner.get());
   }
 }

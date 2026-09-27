@@ -10,7 +10,7 @@ import java.util.Optional;
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
- * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Seven
+ * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Eight
  * kinds carry a role:
  *
  * <ul>
@@ -19,7 +19,9 @@ import java.util.Optional;
  *   <li>{@code ci-runner} gets {@code qits:ci-runner} — a CI runner's own identity, distinct from
  *       any one run's;
  *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a
- *       runner registers itself with, and nothing more.
+ *       runner registers itself with, and nothing more;
+ *   <li>{@code test-client} gets {@code qits:token-test} — the narrowest credential that can
+ *       commission a test token (qits-439), and the one kind an agent may commission itself.
  * </ul>
  *
  * <p>The same map applies to a commissioned token ({@link CommissionedTokens}) as to a commissioned
@@ -39,11 +41,27 @@ import java.util.Optional;
  * identity is therefore short-lived by construction and no permanent publishing identity is left
  * behind; nothing here enforces that lifetime, the bootstrap does.
  *
+ * <p><b>{@code test-client} is the one kind whose owner may be a commissioned client</b>, and the
+ * reason is the same kind of reasoning as {@code bootstrap-publish}'s. An agent has to prove
+ * commissioned tokens end to end on the live platform, and agents must never hold {@code
+ * qits:system}. So an agent ({@code qits:agent}) may commission exactly this kind at {@code POST
+ * /idp/api/clients}, and {@code qits:token-test} opens exactly one door: commissioning a token of
+ * kind {@code ci-run} or {@code ci-runner-registration} at {@code POST /idp/api/tokens}, and
+ * listing and deleting its own. It cannot make a client of any kind, so the chain ends there — a
+ * test client is never an owner of clients, only of tokens. Its audiences are its agent's, one hop
+ * further up ({@link ClientRegistry}).
+ *
  * <p>Only the roles are fixed here. A commission's claims are its own (D3, no owner merge — see
  * {@code CommissionedClaims}), and its audience rule follows its owner's (see {@link
  * IdpClient.AudienceSource}). Both are {@link ClientRegistry}'s.
  */
 public final class CommissionRoles {
+
+  /** The kind an agent may commission for itself (qits-439) — see the class javadoc. */
+  public static final String TEST_CLIENT = "test-client";
+
+  /** The {@link #TEST_CLIENT} kind's one role: commission, list and delete test tokens. */
+  public static final String TOKEN_TEST = "qits:token-test";
 
   private static final List<String> AGENT = List.of("qits:agent");
 
@@ -53,6 +71,8 @@ public final class CommissionRoles {
 
   private static final List<String> CI_RUNNER_REGISTRATION =
       List.of("qits:ci-runner-registration");
+
+  private static final List<String> TEST = List.of(TOKEN_TEST);
 
   /**
    * Looked up by key and never iterated, which is why {@link Map#of} is safe here: its iteration
@@ -71,7 +91,10 @@ public final class CommissionRoles {
           // A runner's own identity, and the narrower one it registers itself with. Neither is a
           // run, so neither holds qits:ci-run.
           "ci-runner", CI_RUNNER,
-          "ci-runner-registration", CI_RUNNER_REGISTRATION);
+          "ci-runner-registration", CI_RUNNER_REGISTRATION,
+          // An agent's own test credential: commissions ci-run and ci-runner-registration tokens
+          // and nothing else. Never qits:system — that is the whole point of the kind.
+          TEST_CLIENT, TEST);
 
   private CommissionRoles() {}
 

@@ -37,9 +37,10 @@ import org.junit.jupiter.api.Test;
  * (service-client-identity-plan.md, D3/D12): a commission's role is its context kind's fixed one
  * ({@code workspace}, {@code agent-container}, {@code refinement} → {@code qits:agent}; {@code
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
- * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}) or, for any
- * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the seven shipped kinds and an invented, deliberately unknown one rather
+ * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
+ * test-client} → {@code qits:token-test}) or, for any other kind, none at all beyond its own
+ * self-role. There is no longer a way to configure one, so these tests exercise the eight shipped
+ * kinds and an invented, deliberately unknown one rather
  * than a test-only configured kind.
  */
 @QuarkusTest
@@ -338,7 +339,8 @@ public class CommissionedGitRefsTest {
           "ci-run", "qits:ci-run",
           "bootstrap-publish", "qits:ci-run",
           "ci-runner", "qits:ci-runner",
-          "ci-runner-registration", "qits:ci-runner-registration");
+          "ci-runner-registration", "qits:ci-runner-registration",
+          "test-client", "qits:token-test");
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {

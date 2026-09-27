@@ -27,6 +27,8 @@ public class CommissionRolesTest {
     assertEquals(List.of("qits:ci-runner"), CommissionRoles.forKind("ci-runner"));
     assertEquals(
         List.of("qits:ci-runner-registration"), CommissionRoles.forKind("ci-runner-registration"));
+    // An agent's own test credential (qits-439): commissions test tokens, never qits:system.
+    assertEquals(List.of("qits:token-test"), CommissionRoles.forKind("test-client"));
   }
 
   @Test

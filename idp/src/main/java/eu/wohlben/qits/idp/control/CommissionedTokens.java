@@ -34,7 +34,8 @@ import org.jboss.logging.Logger;
  * The same kind and context rules ({@link Context}), the same claims rule ({@link
  * CommissionedClaims}), the same Git-refs rule ({@link GitRefs}), and at introspection the same
  * roles ({@link CommissionRoles#forKind}) — never the owner's. Only a service client commissions
- * one; that check is at the boundary, on the caller's credentials.
+ * one — or a test client ({@link CommissionRoles#TEST_CLIENT}), for the two kinds it may; that
+ * check is at the boundary, on the caller's credentials.
  *
  * <p><b>The value is never logged, never stored, never announced.</b> It exists in the commission
  * answer and nowhere else; the row holds {@link TokenValue#hash}. Log lines name the subject.
@@ -77,7 +78,8 @@ public class CommissionedTokens {
   /**
    * Commission a token for one context.
    *
-   * @param owner the client id of the caller, already authenticated as a service client
+   * @param owner the client id of the caller, already authenticated as a service client or a test
+   *     client
    * @param claims what this context is about, or null/empty for none — see {@link
    *     CommissionedClaims}
    * @param gitRefs the Git refs the token may push, or null for "no scope stated" — see {@link

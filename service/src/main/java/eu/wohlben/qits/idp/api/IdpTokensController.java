@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jboss.resteasy.reactive.RestResponse;
 
@@ -38,7 +39,8 @@ import org.jboss.resteasy.reactive.RestResponse;
  *
  * <p><b>The caller authenticates with its own Basic pair</b>, through {@link BasicCaller}, for the
  * reasons {@link IdpClientsController} gives: the platform's services already hold one, so it adds
- * nothing to configure. <b>Only a service client commissions</b> — a commissioned client is 403,
+ * nothing to configure. <b>Only a service client commissions</b> — or a test client, for the two
+ * kinds {@link #TEST_TOKEN_KINDS} (qits-439) — any other commissioned client is 403,
  * and a token cannot even authenticate here, because a token is not a client and has no id:secret
  * pair. That is what keeps a leaked token or a build step's credential from producing more access.
  *
@@ -56,6 +58,14 @@ public class IdpTokensController {
 
   /** The scheme a token presents itself under, and only on {@code DELETE} of its own id. */
   private static final String BEARER_PREFIX = "bearer ";
+
+  /**
+   * The kinds a test client may commission (qits-439): a run's token and a runner's registration
+   * token, the two an agent needs to prove the token path live. Never {@code workspace}, never
+   * {@code ci-runner} — a runner's standing identity is not a test artifact — and never a kind this
+   * service has not heard of.
+   */
+  private static final Set<String> TEST_TOKEN_KINDS = Set.of("ci-run", "ci-runner-registration");
 
   /**
    * Which context the token is for, and what that context is about. The same four members, with
@@ -134,14 +144,14 @@ public class IdpTokensController {
   @Consumes(MediaType.APPLICATION_JSON)
   public RestResponse<CommissionResponse> commission(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CommissionRequest request) {
-    IdpClient owner =
-        caller.staticOnly(
-            authorization,
-            "a commissioned client may not commission a token",
-            BasicCaller.PLATFORM_SYSTEM);
+    IdpClient owner = commissioner(caller.authenticated(authorization));
     if (request == null) {
       throw OAuthException.invalidRequest(
           "a JSON body naming contextKind and contextId is required");
+    }
+    if (!caller.isServiceClient(owner) && !testTokenKind(request.contextKind())) {
+      throw OAuthException.accessDenied(
+          "a test client may commission only ci-run and ci-runner-registration tokens");
     }
     Commissioned issued =
         tokens.commission(
@@ -170,12 +180,36 @@ public class IdpTokensController {
   }
 
   /**
+   * Who may commission a token: a service client holding {@code qits:system} — or a test client,
+   * a commissioned client holding {@code qits:token-test} (qits-439), for the kinds {@link
+   * #TEST_TOKEN_KINDS} alone, checked once the body is read. Every other commissioned client keeps
+   * today's 403.
+   *
+   * @throws OAuthException {@code access_denied} (403)
+   */
+  private IdpClient commissioner(IdpClient authenticated) {
+    if (caller.isServiceClient(authenticated)) {
+      return caller.requireRole(authenticated, BasicCaller.PLATFORM_SYSTEM);
+    }
+    if (authenticated.roles().contains(BasicCaller.TOKEN_TEST)) {
+      return authenticated;
+    }
+    throw OAuthException.accessDenied("a commissioned client may not commission a token");
+  }
+
+  /** Whether a test client may commission a token of this kind, compared trimmed, as stored. */
+  private static boolean testTokenKind(String contextKind) {
+    return contextKind != null && TEST_TOKEN_KINDS.contains(contextKind.trim());
+  }
+
+  /**
    * The live token behind this value, and a short JWT for it — or a 404.
    *
    * <p>The call the edge makes on a {@code qits_tok_} bearer, the counterpart of {@code POST
    * /idp/api/sessions/introspect} for a cookie, with <b>the identical caller rule</b>: a service
-   * client's Basic pair holding {@code qits:system}; a commissioned client is 403. A value that is
-   * not shaped like a token is refused before any store read ({@link
+   * client's Basic pair holding {@code qits:system}; a commissioned client is 403, a test client
+   * included — it commissions test tokens but never reads one back as the edge does. A value that
+   * is not shaped like a token is refused before any store read ({@link
    * CommissionedTokens#introspect}), so a JWT sent here by mistake costs nothing.
    *
    * <p><b>It also mints.</b> The answer carries {@code accessToken}, minted as {@link
@@ -233,20 +267,25 @@ public class IdpTokensController {
    * owner's.
    *
    * <p><b>A read, so {@code qits:agent} is accepted beside {@code qits:system}</b>, exactly as on
-   * {@code GET /idp/api/clients}: agents keep every read and lose only writes.
+   * {@code GET /idp/api/clients}: agents keep every read and lose only writes. And {@code
+   * qits:token-test}, so a test client sees the tokens it commissioned.
    */
   @GET
   public List<TokenView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient owner =
         caller.requireAnyRole(
-            caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT);
+            caller.authenticated(authorization),
+            BasicCaller.PLATFORM_SYSTEM,
+            BasicCaller.AGENT,
+            BasicCaller.TOKEN_TEST);
     return tokens.listOwned(owner.clientId()).stream().map(IdpTokensController::view).toList();
   }
 
   /**
    * Delete one token — the context ended. 204, and the very next introspection refuses it.
    *
-   * <p>Two callers may: <b>the owner</b>, with its Basic pair and {@code qits:system}; and <b>the
+   * <p>Two callers may: <b>the owner</b>, with its Basic pair and {@code qits:system} — or {@code
+   * qits:token-test}, a test client's own tokens (qits-439); and <b>the
    * token itself</b>, presented raw as {@code Authorization: Bearer qits_tok_…}, for its own id
    * only. A bearer that resolves to no live token is a 401, like any credential that does not
    * authenticate. Everything else — another owner, a live token naming a different id, an unknown
@@ -261,7 +300,10 @@ public class IdpTokensController {
     if (deleter == null) {
       deleter =
           caller
-              .requireRole(caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM)
+              .requireAnyRole(
+                  caller.authenticated(authorization),
+                  BasicCaller.PLATFORM_SYSTEM,
+                  BasicCaller.TOKEN_TEST)
               .clientId();
     }
     UUID id = parseId(tokenId);
