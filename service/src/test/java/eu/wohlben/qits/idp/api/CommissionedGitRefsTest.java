@@ -36,10 +36,11 @@ import org.junit.jupiter.api.Test;
  * filters on it. <b>Roles per kind are code now, not configuration</b>
  * (service-client-identity-plan.md, D3/D12): a commission's role is its context kind's fixed one
  * ({@code workspace}, {@code agent-container}, {@code refinement} → {@code qits:agent}; {@code
- * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}) or, for any other kind, none at all
- * beyond its own self-role. There is no longer a way to configure one, so these tests exercise the
- * five shipped kinds and an invented, deliberately unknown one rather than a test-only configured
- * kind.
+ * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
+ * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}) or, for any
+ * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
+ * these tests exercise the seven shipped kinds and an invented, deliberately unknown one rather
+ * than a test-only configured kind.
  */
 @QuarkusTest
 public class CommissionedGitRefsTest {
@@ -335,7 +336,9 @@ public class CommissionedGitRefsTest {
           "agent-container", "qits:agent",
           "refinement", "qits:agent",
           "ci-run", "qits:ci-run",
-          "bootstrap-publish", "qits:ci-run");
+          "bootstrap-publish", "qits:ci-run",
+          "ci-runner", "qits:ci-runner",
+          "ci-runner-registration", "qits:ci-runner-registration");
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {

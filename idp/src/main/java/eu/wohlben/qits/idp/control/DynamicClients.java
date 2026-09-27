@@ -73,6 +73,33 @@ public class DynamicClients {
     return kind != null && CONTEXT_KIND.matcher(kind).matches();
   }
 
+  /**
+   * A context kind and id as a commission names them, trimmed and checked — the one rule both
+   * credentials a context can be handed share: a commissioned client here and a commissioned token
+   * ({@link CommissionedTokens}). Both put the kind and a slug of the id into a generated name and
+   * store the id raw, so a second copy of the check would be a second place for the bounds to drift.
+   */
+  record Context(String kind, String id) {
+
+    /**
+     * @throws OAuthException {@code invalid_request} (400) when the kind is not a lowercase slug of
+     *     at most 32, or the id is blank or longer than the column
+     */
+    static Context validated(String contextKind, String contextId) {
+      String kind = contextKind == null ? "" : contextKind.trim();
+      String context = contextId == null ? "" : contextId.trim();
+      if (!CONTEXT_KIND.matcher(kind).matches()) {
+        throw OAuthException.invalidRequest(
+            "contextKind must be a lowercase slug of at most 32 characters");
+      }
+      if (context.isEmpty() || context.length() > CONTEXT_ID_LENGTH) {
+        throw OAuthException.invalidRequest(
+            "contextId is required and must be at most " + CONTEXT_ID_LENGTH + " characters");
+      }
+      return new Context(kind, context);
+    }
+  }
+
   /** How much of the context id is echoed into the client id, before the random tail. */
   private static final int ID_SLUG_LENGTH = 24;
 
@@ -121,16 +148,9 @@ public class DynamicClients {
       String contextId,
       Map<String, String> claims,
       List<String> gitRefs) {
-    String kind = contextKind == null ? "" : contextKind.trim();
-    String context = contextId == null ? "" : contextId.trim();
-    if (!CONTEXT_KIND.matcher(kind).matches()) {
-      throw OAuthException.invalidRequest(
-          "contextKind must be a lowercase slug of at most 32 characters");
-    }
-    if (context.isEmpty() || context.length() > CONTEXT_ID_LENGTH) {
-      throw OAuthException.invalidRequest(
-          "contextId is required and must be at most " + CONTEXT_ID_LENGTH + " characters");
-    }
+    Context validated = Context.validated(contextKind, contextId);
+    String kind = validated.kind();
+    String context = validated.id();
     // Validated BEFORE anything is generated or written: a refused claim must cost the caller a 400
     // and leave no row and no secret behind.
     Map<String, String> stated = CommissionedClaims.stated(claims);
@@ -309,8 +329,12 @@ public class DynamicClients {
     return ID_PREFIX + contextKind + "-" + slug(contextId) + "-" + randomToken(16);
   }
 
-  /** The context id reduced to what may appear in a client id: lowercase, {@code [a-z0-9-]}. */
-  private static String slug(String contextId) {
+  /**
+   * The context id reduced to what may appear in a generated name: lowercase, {@code [a-z0-9-]}, at
+   * most 24. Package-visible because a commissioned token's subject ({@link CommissionedTokens}) is
+   * built to the same grammar, and one slug rule is what keeps the two listings reading alike.
+   */
+  static String slug(String contextId) {
     StringBuilder slug = new StringBuilder();
     for (char c : contextId.toLowerCase(Locale.ROOT).toCharArray()) {
       boolean plain = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9');

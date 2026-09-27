@@ -302,7 +302,9 @@ The rules around them:
   configuration: `workspace`, `agent-container` and `refinement` get `qits:agent`; `ci-run` and
   `bootstrap-publish` get `qits:ci-run` — publishing to qits-artifacts is CI's door, and
   `bootstrap-publish` is the short-lived identity the bootstrap commissions for its own publish
-  phase and deletes when that phase ends. Agents and CI runs are domain-scoped, so neither
+  phase and deletes when that phase ends; `ci-runner` gets `qits:ci-runner`, a CI runner's own
+  identity rather than any one run's; and `ci-runner-registration` gets
+  `qits:ci-runner-registration`, the credential a runner registers itself with. Agents and CI runs are domain-scoped, so neither
   inherits `qits:system` or `qits:admin`; their Git scope is their `git_refs`. **Any other kind gets no role at all** — only
   its own self-role — which is D12: an unknown kind is harmless, not refused. A credential may
   always mint and hand itself back (`DELETE` of its own id), whatever role its kind gives it.

@@ -10,9 +10,20 @@ import java.util.Optional;
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
- * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Five
- * kinds carry a role: {@code workspace}, {@code agent-container} and {@code refinement} get {@code
- * qits:agent}; {@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run}. <b>Every other
+ * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Seven
+ * kinds carry a role:
+ *
+ * <ul>
+ *   <li>{@code workspace}, {@code agent-container} and {@code refinement} get {@code qits:agent};
+ *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run};
+ *   <li>{@code ci-runner} gets {@code qits:ci-runner} — a CI runner's own identity, distinct from
+ *       any one run's;
+ *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a
+ *       runner registers itself with, and nothing more.
+ * </ul>
+ *
+ * <p>The same map applies to a commissioned token ({@link CommissionedTokens}) as to a commissioned
+ * client: the kind decides the roles, whichever credential carries it. <b>Every other
  * kind — including one this service has never heard of — gets no role</b>, only its own {@code
  * clients/<id>} self-role, and that is deliberate rather than a refusal: keeping this a plain map,
  * with no reserved-namespace check needed, is what {@code D12} bought by making an unknown kind
@@ -38,6 +49,11 @@ public final class CommissionRoles {
 
   private static final List<String> CI_RUN = List.of("qits:ci-run");
 
+  private static final List<String> CI_RUNNER = List.of("qits:ci-runner");
+
+  private static final List<String> CI_RUNNER_REGISTRATION =
+      List.of("qits:ci-runner-registration");
+
   /**
    * Looked up by key and never iterated, which is why {@link Map#of} is safe here: its iteration
    * order is salted per JVM, so a reader that ever walks this map must sort or keep its own order.
@@ -51,7 +67,11 @@ public final class CommissionRoles {
           // The bootstrap's own publishing identity, for its publish phase only — same role as the
           // CI publisher because publishing is CI's door, deleted by the bootstrap at the end of
           // that phase. See the class javadoc.
-          "bootstrap-publish", CI_RUN);
+          "bootstrap-publish", CI_RUN,
+          // A runner's own identity, and the narrower one it registers itself with. Neither is a
+          // run, so neither holds qits:ci-run.
+          "ci-runner", CI_RUNNER,
+          "ci-runner-registration", CI_RUNNER_REGISTRATION);
 
   private CommissionRoles() {}
 

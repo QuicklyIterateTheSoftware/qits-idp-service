@@ -118,7 +118,9 @@ standing example, and `@RolesAllowed("clients/<x>")` in a sibling service is wha
 **A commissioned credential's roles are code, not a merge with its owner's**
 (`service-client-identity-plan.md`, D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement` (`qits:agent`), `ci-run`
-and `bootstrap-publish` (`qits:ci-run`) are the five the jar ships, tested as shipped in
+and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`) and
+`ci-runner-registration` (`qits:ci-runner-registration`) are the seven the jar ships, tested as
+shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):
 it is the bootstrap's own publishing identity, commissioned with `gitRefs: []` for its publish
@@ -362,6 +364,12 @@ Two things about the shipped V1:
   **Null and the empty string differ:** null is "no list stated" (no `git_refs` claim, every older
   row), the empty string is the empty list ("push nothing"). Keep that difference in any reader.
 
+**V9 is `idp_token`**, the commissioned tokens (qits-448): a new table rather than a kind column on
+`idp_client`, because a token is looked up by the hash of what a caller presents and has a
+generated uuid key and a separate readable `subject`. It has **no expiry column, by design** —
+every use is an introspection, so deleting the row is the whole revocation. `claims` and `git_refs`
+are V5's and V7's formats verbatim. See `CommissionedTokens` and `TokenValue`.
+
 ## Adding a dependency on another context
 
 Don't. This context has no compile-time dependency on any other qits module and must not grow one —
@@ -399,7 +407,7 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   without `gitRefs`, the empty list reaching the token as `[]`, each validation rule as a 400 with no
   row, the owner-only `PUT …/git-refs` (foreign or unknown is 404, the credential itself 403) and the
   next token after it, roles per kind (`agent-test` and `reserved-test` in the suite's config, and
-  the five shipped kinds as shipped, `bootstrap-publish` among them), and V7's column. `GitRefsTest`
+  the seven shipped kinds as shipped, `bootstrap-publish` among them), and V7's column. `GitRefsTest`
   is the same rules as plain unit
   tests; `CommissionRolesTest` is the code map itself, including that an unknown kind gets no role
   at all rather than a refusal — there is no deployment override to test, that config key is gone.
