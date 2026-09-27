@@ -413,6 +413,13 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   at all rather than a refusal — there is no deployment override to test, that config key is gone.
   The person tokens' `git_refs`
   are pinned in `CliOAuthTest` and `WorkstationOAuthTest`.
+- `CommissionedTokensApiTest` is the commissioned-token API end to end (qits-449), and
+  `CommissionedTokensTest` (under `control/`, a `@QuarkusTest` because `idp/` has no test tree) is
+  the control against the real store. The invariants: the value is `qits_tok_` + 43 base64url
+  characters and the row holds only its hash, a non-token string is refused without a store read,
+  only a service client commissions, the listing is the caller's own and never carries a value,
+  only the owner or the token itself (`Bearer qits_tok_…`) deletes, and a deleted token is refused
+  on the very next introspection.
 - `UserAuthenticationTest` is the user surface end to end, and its cases are the invariants: a
   register token makes exactly one account, the two bootstrap roles are granted as rows, the cookie
   carries exactly the attributes the plan fixed, a session introspects until it is revoked and not

@@ -1,0 +1,227 @@
+package eu.wohlben.qits.idp.api;
+
+import eu.wohlben.qits.idp.control.CommissionedTokens;
+import eu.wohlben.qits.idp.control.CommissionedTokens.Commissioned;
+import eu.wohlben.qits.idp.control.CommissionedTokens.StoredToken;
+import eu.wohlben.qits.idp.control.IdpClient;
+import eu.wohlben.qits.idp.error.OAuthException;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.jboss.resteasy.reactive.RestResponse;
+
+/**
+ * Commissioned tokens: {@code /idp/api/tokens}, where a service client gets an opaque bearer for one
+ * dynamic context and takes it back when the context ends.
+ *
+ * <p>The commission API's shape again, for the third credential: {@code POST} commissions, {@code
+ * GET} lists what the caller commissioned so a crash leaks nothing nobody can see, and {@code
+ * DELETE} ends one. The lifetime model — no expiry, deleting the row is the whole revocation — is in
+ * {@link CommissionedTokens}; this class is the boundary.
+ *
+ * <p><b>The caller authenticates with its own Basic pair</b>, through {@link BasicCaller}, for the
+ * reasons {@link IdpClientsController} gives: the platform's services already hold one, so it adds
+ * nothing to configure. <b>Only a service client commissions</b> — a commissioned client is 403, and
+ * a token cannot even authenticate here, because a token is not a client and has no id:secret pair.
+ * That is what keeps a leaked token or a build step's credential from producing more access.
+ *
+ * <p><b>The one exception is a token handing itself back.</b> {@code DELETE} also accepts {@code
+ * Authorization: Bearer qits_tok_…} — the raw token — and deletes the row if, and only if, that
+ * token is the one the path names. A context that knows it is finishing can end its own credential
+ * without going through its owner, exactly as a commissioned client may decommission itself.
+ *
+ * <p><b>The value appears in the {@code POST} answer and nowhere else</b> — no log line, no event,
+ * no listing. The store holds its hash.
+ */
+@Path("/api/tokens")
+@Produces(MediaType.APPLICATION_JSON)
+public class IdpTokensController {
+
+  /** The scheme a token presents itself under, and only on {@code DELETE} of its own id. */
+  private static final String BEARER_PREFIX = "bearer ";
+
+  /**
+   * Which context the token is for, and what that context is about. The same four members, with
+   * the same rules, as a commissioned client's {@link IdpClientsController.CommissionRequest}:
+   * {@code claims} and {@code gitRefs} are optional, and absent means "states nothing".
+   */
+  public record CommissionRequest(
+      String contextKind, String contextId, Map<String, String> claims, List<String> gitRefs) {}
+
+  /**
+   * The answer to a commission. <b>The token is in this response and nowhere else</b> — the store
+   * holds a hash — so a caller that loses it deletes the row and commissions again.
+   */
+  public record CommissionResponse(
+      String tokenId,
+      String token,
+      String subject,
+      String owner,
+      String contextKind,
+      String contextId,
+      Map<String, String> claims,
+      List<String> gitRefs,
+      String createdAt) {}
+
+  /** One live token, as the owner's reconcile reads it. No value, ever. */
+  public record TokenView(
+      String tokenId,
+      String subject,
+      String owner,
+      String contextKind,
+      String contextId,
+      Map<String, String> claims,
+      List<String> gitRefs,
+      String createdAt) {}
+
+  @Inject BasicCaller caller;
+
+  @Inject CommissionedTokens tokens;
+
+  /**
+   * Commission a token for one context.
+   *
+   * <p>201 with the value, and no {@code Location} header for the reason {@link
+   * IdpClientsController#commission} gives. <b>{@code RestResponse<CommissionResponse>}, not a bare
+   * {@code Response}</b>: a {@code Response} carries its entity as an {@code Object}, and the native
+   * image then has no type to register and answers 500 while the JVM suite stays green.
+   */
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
+  public RestResponse<CommissionResponse> commission(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CommissionRequest request) {
+    IdpClient owner =
+        caller.staticOnly(
+            authorization,
+            "a commissioned client may not commission a token",
+            BasicCaller.PLATFORM_SYSTEM);
+    if (request == null) {
+      throw OAuthException.invalidRequest(
+          "a JSON body naming contextKind and contextId is required");
+    }
+    Commissioned issued =
+        tokens.commission(
+            owner.clientId(),
+            request.contextKind(),
+            request.contextId(),
+            request.claims(),
+            request.gitRefs());
+    StoredToken token = issued.token();
+    return RestResponse.ResponseBuilder.create(
+            Response.Status.CREATED,
+            new CommissionResponse(
+                token.id().toString(),
+                issued.value(),
+                token.subject(),
+                token.owner(),
+                token.contextKind(),
+                token.contextId(),
+                token.claims(),
+                token.gitRefs(),
+                token.createdAt().toString()))
+        // The body holds a credential. Same rule as the token response and the clients door.
+        .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        .header("Pragma", "no-cache")
+        .build();
+  }
+
+  /**
+   * The caller's own live tokens — the reconciliation read. Never a value, and never another
+   * owner's.
+   *
+   * <p><b>A read, so {@code qits:agent} is accepted beside {@code qits:system}</b>, exactly as on
+   * {@code GET /idp/api/clients}: agents keep every read and lose only writes.
+   */
+  @GET
+  public List<TokenView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
+    IdpClient owner =
+        caller.requireAnyRole(
+            caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT);
+    return tokens.listOwned(owner.clientId()).stream().map(IdpTokensController::view).toList();
+  }
+
+  /**
+   * Delete one token — the context ended. 204, and the very next introspection refuses it.
+   *
+   * <p>Two callers may: <b>the owner</b>, with its Basic pair and {@code qits:system}; and <b>the
+   * token itself</b>, presented raw as {@code Authorization: Bearer qits_tok_…}, for its own id
+   * only. A bearer that resolves to no live token is a 401, like any credential that does not
+   * authenticate. Everything else — another owner, a live token naming a different id, an unknown
+   * id, an id that is not a uuid — is the same 404, so nobody maps other services' contexts here.
+   */
+  @DELETE
+  @Path("/{tokenId}")
+  public Response delete(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @PathParam("tokenId") String tokenId) {
+    String deleter = bearerToken(authorization).map(this::subjectOf).orElse(null);
+    if (deleter == null) {
+      deleter =
+          caller
+              .requireRole(caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM)
+              .clientId();
+    }
+    UUID id = parseId(tokenId);
+    if (id == null || !tokens.delete(id, deleter)) {
+      throw OAuthException.notFound("no such commissioned token");
+    }
+    return Response.noContent().build();
+  }
+
+  /** The raw value of a {@code Bearer} header, or empty when the header is anything else. */
+  private static Optional<String> bearerToken(String authorization) {
+    if (authorization == null
+        || !authorization.toLowerCase(Locale.ROOT).startsWith(BEARER_PREFIX)) {
+      return Optional.empty();
+    }
+    return Optional.of(authorization.substring(BEARER_PREFIX.length()).trim());
+  }
+
+  /**
+   * The subject of the live token this value is, which {@link CommissionedTokens#delete} accepts as
+   * the token itself.
+   *
+   * @throws OAuthException {@code invalid_client} (401) when the value is no live token
+   */
+  private String subjectOf(String value) {
+    return tokens
+        .introspect(value)
+        .map(StoredToken::subject)
+        .orElseThrow(() -> OAuthException.invalidClient("token authentication failed"));
+  }
+
+  /** The path's id, or null when it is not a uuid — answered like an unknown id. */
+  private static UUID parseId(String tokenId) {
+    try {
+      return tokenId == null ? null : UUID.fromString(tokenId);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
+  private static TokenView view(StoredToken token) {
+    return new TokenView(
+        token.id().toString(),
+        token.subject(),
+        token.owner(),
+        token.contextKind(),
+        token.contextId(),
+        token.claims(),
+        token.gitRefs(),
+        token.createdAt().toString());
+  }
+}

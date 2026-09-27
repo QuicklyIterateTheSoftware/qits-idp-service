@@ -29,6 +29,9 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `GET /idp/api/clients` | the caller's own live commissions. |
 | `DELETE /idp/api/clients/{clientId}` | decommission one. |
 | `PUT /idp/api/clients/{clientId}/git-refs` | replace the Git refs one commission may push. Owner only. |
+| `POST /idp/api/tokens` | commission an opaque token for one dynamic context. Basic, a service client holding `qits:system`. |
+| `GET /idp/api/tokens` | the caller's own live tokens, never a value. |
+| `DELETE /idp/api/tokens/{tokenId}` | delete one — the owner, or the token itself as `Bearer qits_tok_…`. |
 | `POST /idp/api/service-clients` | create a database row for a service client id. Basic, a service client holding `qits:system`. |
 | `POST /idp/api/service-clients/{id}/secret` | rotate its secret; the old one stays valid fifteen minutes. |
 | `GET /idp/api/service-clients` / `.../{id}` | migration progress: which registry (or both) holds an id. |
@@ -344,6 +347,62 @@ The rules around them:
   mints nothing. A caller that lost the secret decommissions and commissions again.
 - **The id reads in a listing** — `dyn-<kind>-<context slug>-<random>` — and cannot collide with a
   service client's name, because config is resolved first and no static id carries the prefix.
+
+### Commissioned tokens
+
+The third credential, beside service clients and commissioned clients: an **opaque token** a
+service client commissions for one dynamic context — the same `contextKind` and `contextId` a
+commissioned client is bound to, with the same optional `claims` and `gitRefs`. It carries nothing
+inside; the only way to learn anything from one is to ask this service, and that is the point. A
+commissioned client's JWT is verified offline, so a deleted client's last token lives out its `exp`;
+a deleted token is refused on the very next introspection.
+
+The owner authenticates with **HTTP Basic carrying its own client id and secret**, as on the
+commission API.
+
+    # commission — the token is in this answer and nowhere else
+    curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
+      -d '{"contextKind":"ci-runner","contextId":"runner-7","gitRefs":[]}' \
+      http://qits-platform-idp:8080/idp/api/tokens
+    # 201
+    # {"tokenId":"5b1c…","token":"qits_tok_Qm9…","subject":"tok-ci-runner-runner-7-kF3…",
+    #  "owner":"prod-qits-ci","contextKind":"ci-runner","contextId":"runner-7","claims":{},
+    #  "gitRefs":[],"createdAt":"2026-09-27T11:02:03.412Z"}
+
+    # what this caller has out — for reconciling orphans; never a value
+    curl -s -u prod-qits-ci:$SECRET http://qits-platform-idp:8080/idp/api/tokens
+    # 200 [{"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…","owner":"prod-qits-ci", …}]
+
+    # delete — the owner; 204
+    curl -s -X DELETE -u prod-qits-ci:$SECRET \
+      http://qits-platform-idp:8080/idp/api/tokens/5b1c…
+
+    # self-delete — the token hands itself back, presented raw; 204
+    curl -s -X DELETE -H "Authorization: Bearer qits_tok_Qm9…" \
+      http://qits-platform-idp:8080/idp/api/tokens/5b1c…
+
+The rules around them:
+
+- **A token has no expiry.** There is no TTL and no deadline column: its lifetime is its context's,
+  exactly like a commissioned client's. **Deleting it is the whole revocation, and it is immediate
+  for the next introspection** — nothing caches a token here.
+- **The value is `qits_tok_` plus 32 random bytes, base64url**, so a hop recognises a token without
+  asking — the edge sends a `qits_tok_` bearer to introspection and anything else to the JWKS check,
+  and never the other way round. The row holds a SHA-256 of it; a dump of the store mints nothing.
+  The value is returned once and never logged; a caller that lost it deletes and commissions again.
+- **The subject is `tok-<kind>-<context slug>-<random>`**, disjoint from a commissioned client's
+  `dyn-…` and from every service client's name.
+- **Its roles are `CommissionRoles.forKind(contextKind)`, never the owner's** — the same code map a
+  commissioned client of that kind gets. Its claims and Git refs are only what it stated, checked by
+  the same rules as a commissioned client's, each a 400 with nothing written.
+- **Only a service client commissions** — environment or database, holding `qits:system`. A
+  commissioned client is 403, and a token cannot authenticate to `POST` at all: it is not a client.
+- **`GET` accepts `qits:system` or `qits:agent`**, like `GET /idp/api/clients`, and lists only the
+  caller's own.
+- **`DELETE` is the owner's, or the token's own.** The owner uses its Basic pair; a token presents
+  itself as `Authorization: Bearer qits_tok_…` and may delete only the id it is. Another owner, a
+  live token naming a different id, an unknown id and a malformed id are all the same 404; a bearer
+  that is no live token is a 401.
 
 ## Users
 
