@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.control;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens.StoredToken;
 import eu.wohlben.qits.idp.control.SigningKeys.SigningKey;
 import eu.wohlben.qits.idp.error.OAuthException;
 import io.smallrye.jwt.build.Jwt;
@@ -9,6 +10,7 @@ import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -49,10 +51,24 @@ public class TokenService {
   /** What a caller gets back, before it is dressed as an RFC 6749 token response. */
   public record IssuedToken(String accessToken, long expiresInSeconds, List<String> audiences) {}
 
+  /**
+   * An introspected commissioned token's JWT, with the {@code groups} it carries — the kind's roles
+   * and the token's own {@code clients/<subject>} — so an introspection answer can state them
+   * without the caller decoding the token it was just handed.
+   */
+  public record CommissionedTokenGrant(IssuedToken token, List<String> groups) {}
+
   @Inject Issuer issuer;
 
   @ConfigProperty(name = "qits.idp.token-ttl-seconds")
   long tokenTtlSeconds;
+
+  /**
+   * How long the JWT an introspection of a commissioned token answers with is good for — the upper
+   * bound on how long a deleted token keeps working behind the edge. See the key's comment.
+   */
+  @ConfigProperty(name = "qits.idp.token-introspection-jwt-ttl-seconds")
+  long introspectionJwtTtlSeconds;
 
   /** Workstation access tokens deliberately live far less long than service credentials. */
   @ConfigProperty(name = "qits.idp.workstation.access-token-ttl-seconds")
@@ -95,8 +111,66 @@ public class TokenService {
   public IssuedToken clientCredentials(
       String clientId, String secret, List<String> requestedAudiences) {
     IdpClient client = clients.authenticate(clientId, secret);
-
     List<String> audiences = resolveAudiences(client, requestedAudiences);
+    return new IssuedToken(signFor(client, audiences, tokenTtlSeconds), tokenTtlSeconds, audiences);
+  }
+
+  /**
+   * The short JWT an introspection of a commissioned token answers with (qits-450), together with
+   * the {@code groups} it carries.
+   *
+   * <p><b>It is minted exactly as {@link #clientCredentials} would mint for a commissioned client
+   * of the same kind</b>, because it is built as one: an {@link IdpClient} whose id is the token's
+   * subject, whose roles are {@link CommissionRoles#forKind} (never the owner's), whose claims,
+   * kind and Git refs are the row's, and whose audiences and audience rule are its owner's —
+   * resolved here, now, the way {@link ClientRegistry} resolves them for a commissioned client,
+   * with an empty request. So {@code aud} is an environment owner's whole list plus {@code
+   * qits-platform}, or just {@code qits-platform} for a database owner; {@code groups} ends with
+   * {@code clients/<subject>}; and a service behind the edge verifies it against the JWKS like any
+   * other token, with no second code path.
+   *
+   * <p><b>The one difference is its lifetime</b>: {@code
+   * qits.idp.token-introspection-jwt-ttl-seconds}, not {@code qits.idp.token-ttl-seconds}.
+   * Deleting the row refuses the next introspection at once, but a JWT already handed out behind
+   * the edge lives out its {@code exp}; this TTL is the upper bound on that.
+   *
+   * @return empty when the token's owner no longer exists in any registry — the token is then
+   *     refused like a deleted one, since there is no owner to take audiences from
+   * @throws OAuthException {@code invalid_target} (400) when the owner is an environment client
+   *     with no configured audience — the same refusal its own commissioned clients get
+   */
+  public Optional<CommissionedTokenGrant> forCommissionedToken(StoredToken token) {
+    IdpClient owner = clients.find(token.owner()).orElse(null);
+    if (owner == null) {
+      LOG.warnf(
+          "token %s refused: its owner %s no longer exists",
+          LoggableClientId.of(token.subject()), LoggableClientId.of(token.owner()));
+      return Optional.empty();
+    }
+    IdpClient asClient =
+        new IdpClient(
+            token.subject(),
+            // Never authenticated: the value was already matched by its hash in CommissionedTokens.
+            null,
+            owner.audiences(),
+            CommissionRoles.forKind(token.contextKind()),
+            token.claims(),
+            token.contextKind(),
+            token.gitRefs(),
+            owner.audienceSource());
+    List<String> audiences = resolveAudiences(asClient, List.of());
+    String jwt = signFor(asClient, audiences, introspectionJwtTtlSeconds);
+    return Optional.of(
+        new CommissionedTokenGrant(
+            new IssuedToken(jwt, introspectionJwtTtlSeconds, audiences),
+            List.copyOf(ClientRoles.mintedFor(asClient))));
+  }
+
+  /**
+   * A client token's claims, signed: the one shape {@link #clientCredentials} and {@link
+   * #forCommissionedToken} share, so the two cannot drift.
+   */
+  private String signFor(IdpClient client, List<String> audiences, long ttlSeconds) {
     Instant now = Instant.now();
     SigningKey key = signingKeys.signing();
 
@@ -111,7 +185,7 @@ public class TokenService {
             // grantable nowhere — see ClientRoles.
             .groups(ClientRoles.mintedFor(client))
             .issuedAt(now)
-            .expiresAt(now.plusSeconds(tokenTtlSeconds));
+            .expiresAt(now.plusSeconds(ttlSeconds));
     // The granted claims, verbatim. The idp does not interpret these values.
     client.claims().forEach(token::claim);
     // A commissioned client's kind and Git refs (principal-bound-git-refs-plan.md, C1). This is not
@@ -124,8 +198,7 @@ public class TokenService {
       token.claim(ClaimNames.GIT_REFS, client.gitRefs());
     }
 
-    String jwt = token.jws().keyId(key.kid()).sign(key.privateKey());
-    return new IssuedToken(jwt, tokenTtlSeconds, audiences);
+    return token.jws().keyId(key.kid()).sign(key.privateKey());
   }
 
   /**

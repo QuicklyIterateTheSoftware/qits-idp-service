@@ -19,16 +19,16 @@ import org.jboss.logging.Logger;
  * opaque bearer, verified here on every use.
  *
  * <p><b>Why a third credential.</b> A commissioned client is an id and a secret that mints JWTs,
- * and a JWT is verified offline against the JWKS: deleting the client stops the minting, but a token
- * it minted a second earlier keeps working until its {@code exp} (the grace recorded on {@code
- * qits.idp.token-ttl-seconds}). A commissioned token has no claims inside it at all. The only way to
- * learn anything from one is to ask here, so the row is the single truth, and deleting it is
- * revocation that is immediate for the very next introspection.
+ * and a JWT is verified offline against the JWKS: deleting the client stops the minting, but a
+ * token it minted a second earlier keeps working until its {@code exp} (the grace recorded on
+ * {@code qits.idp.token-ttl-seconds}). A commissioned token has no claims inside it at all. The
+ * only way to learn anything from one is to ask here, so the row is the single truth, and deleting
+ * it is revocation that is immediate for the very next introspection.
  *
  * <p><b>No expiry and no TTL.</b> The lifetime is the context's, exactly as for a commissioned
- * client: the owner that commissioned the token deletes it when the context ends, or the token hands
- * itself back. Deleting the row is the whole revocation; there is no deadline column to enforce and
- * no second way for a token to end.
+ * client: the owner that commissioned the token deletes it when the context ends, or the token
+ * hands itself back. Deleting the row is the whole revocation; there is no deadline column to
+ * enforce and no second way for a token to end.
  *
  * <p><b>What a token carries is decided exactly as for a commissioned client of the same kind.</b>
  * The same kind and context rules ({@link Context}), the same claims rule ({@link
@@ -82,9 +82,9 @@ public class CommissionedTokens {
    *     CommissionedClaims}
    * @param gitRefs the Git refs the token may push, or null for "no scope stated" — see {@link
    *     GitRefs}
-   * @throws OAuthException {@code invalid_request} (400) when the kind or id is not one this service
-   *     will put in a subject and a row, a stated claim is not one it will grant, or the Git refs
-   *     break a rule
+   * @throws OAuthException {@code invalid_request} (400) when the kind or id is not one this
+   *     service will put in a subject and a row, a stated claim is not one it will grant, or the
+   *     Git refs break a rule
    */
   public Commissioned commission(
       String owner,
@@ -111,8 +111,8 @@ public class CommissionedTokens {
     row.createdAt = Instant.now();
 
     // A bare insert, so DbRetry.inNewTx rather than DbRetry.call, for the reason DynamicClients
-    // gives: a commit whose acknowledgement was lost is REPORTED, not repeated, because repeating it
-    // would leave a second live token in the store that no owner ever heard of.
+    // gives: a commit whose acknowledgement was lost is REPORTED, not repeated, because repeating
+    // it would leave a second live token in the store that no owner ever heard of.
     DbRetry.runInNewTx("commission an idp token", () -> repository.persist(row));
 
     StoredToken stored = toStored(row);
@@ -131,15 +131,15 @@ public class CommissionedTokens {
   /**
    * The live token behind this value, or empty.
    *
-   * <p><b>A value that is not shaped like a token costs nothing</b>: no hash and no store read, so a
-   * JWT or a stray header sent here by mistake is answered in memory. Otherwise the value is hashed
-   * and looked up by that hash.
+   * <p><b>A value that is not shaped like a token costs nothing</b>: no hash and no store read, so
+   * a JWT or a stray header sent here by mistake is answered in memory. Otherwise the value is
+   * hashed and looked up by that hash.
    *
-   * <p><b>There is no cache, deliberately.</b> {@link DynamicClients} caches because a token request
-   * is the platform's whole call graph; this read is behind the edge's own short cache instead, and
-   * the promise it keeps is the opposite one — a deleted row is refused on the very next call. A
-   * cache here would turn that into "after the entry ages out", which is the JWT's {@code exp}
-   * problem this credential exists to avoid.
+   * <p><b>There is no cache, deliberately.</b> {@link DynamicClients} caches because a token
+   * request is the platform's whole call graph; this read is behind the edge's own short cache
+   * instead, and the promise it keeps is the opposite one — a deleted row is refused on the very
+   * next call. A cache here would turn that into "after the entry ages out", which is the JWT's
+   * {@code exp} problem this credential exists to avoid.
    */
   public Optional<StoredToken> introspect(String value) {
     if (!TokenValue.isToken(value)) {
@@ -176,9 +176,9 @@ public class CommissionedTokens {
    * Delete the token, if {@code caller} is allowed to.
    *
    * <p>Allowed is the owner that commissioned it, or the token itself — {@code caller} equal to its
-   * own subject, which is how the boundary names a token that presented itself. Anyone else gets the
-   * same answer as an id that does not exist, the rule {@link DynamicClients#decommission} keeps, so
-   * nobody learns which contexts other services hold.
+   * own subject, which is how the boundary names a token that presented itself. Anyone else gets
+   * the same answer as an id that does not exist, the rule {@link DynamicClients#decommission}
+   * keeps, so nobody learns which contexts other services hold.
    *
    * @return false when there is no such row, or the caller may not delete it
    */

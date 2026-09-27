@@ -32,6 +32,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `POST /idp/api/tokens` | commission an opaque token for one dynamic context. Basic, a service client holding `qits:system`. |
 | `GET /idp/api/tokens` | the caller's own live tokens, never a value. |
 | `DELETE /idp/api/tokens/{tokenId}` | delete one — the owner, or the token itself as `Bearer qits_tok_…`. |
+| `POST /idp/api/tokens/introspect` | what the edge asks a `qits_tok_` bearer about; answers the token and a short JWT for it. Basic, a service client holding `qits:system`. |
 | `POST /idp/api/service-clients` | create a database row for a service client id. Basic, a service client holding `qits:system`. |
 | `POST /idp/api/service-clients/{id}/secret` | rotate its secret; the old one stays valid fifteen minutes. |
 | `GET /idp/api/service-clients` / `.../{id}` | migration progress: which registry (or both) holds an id. |
@@ -381,6 +382,15 @@ commission API.
     curl -s -X DELETE -H "Authorization: Bearer qits_tok_Qm9…" \
       http://qits-platform-idp:8080/idp/api/tokens/5b1c…
 
+    # introspect — what the edge asks; answers the token and a JWT minted for it
+    curl -s -u prod-qits-edge:$SECRET -H 'Content-Type: application/json' \
+      -d '{"token":"qits_tok_Qm9…"}' \
+      http://qits-platform-idp:8080/idp/api/tokens/introspect
+    # 200
+    # {"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…",
+    #  "roles":["qits:ci-runner","clients/tok-ci-runner-runner-7-kF3…"],"claims":{},"gitRefs":[],
+    #  "contextKind":"ci-runner","contextId":"runner-7","accessToken":"eyJ…","expiresIn":300}
+
 The rules around them:
 
 - **A token has no expiry.** There is no TTL and no deadline column: its lifetime is its context's,
@@ -403,6 +413,17 @@ The rules around them:
   itself as `Authorization: Bearer qits_tok_…` and may delete only the id it is. Another owner, a
   live token naming a different id, an unknown id and a malformed id are all the same 404; a bearer
   that is no live token is a 401.
+- **Introspection is the session door's twin, and it also mints.** `POST
+  /idp/api/tokens/introspect` takes the caller rule of `POST /idp/api/sessions/introspect` verbatim —
+  a service client holding `qits:system`, a commissioned client 403 — and answers one 404, `no live
+  token for that value`, for an unknown value, a deleted row and an owner that no longer exists. A
+  value without the prefix is refused before any store read. The 200 carries `accessToken`: a JWT
+  minted exactly as `/idp/token` would mint one for a commissioned client of that kind — `sub` the
+  token's subject, `aud` its owner's audiences plus `qits-platform`, `groups` its kind's roles plus
+  `clients/<subject>`, its own `claims`, `context_kind` and `git_refs` — so the service behind the
+  edge verifies an ordinary JWT. That JWT lives `qits.idp.token-introspection-jwt-ttl-seconds` (300
+  by default), which is the upper bound on how long a deleted token keeps working **behind** the
+  edge; at the edge the bound is its own cache, `qits.edge.auth.token-cache-ttl-ms` (15 s).
 
 ## Users
 

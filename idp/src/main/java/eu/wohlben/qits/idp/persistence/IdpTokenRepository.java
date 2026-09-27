@@ -11,8 +11,8 @@ import java.util.UUID;
 public class IdpTokenRepository implements PanacheRepositoryBase<IdpToken, UUID> {
 
   /**
-   * The token with this fingerprint, or null. A bearer presents a value, never an id, so the hash is
-   * the only lookup introspection has — which is also why the column is unique.
+   * The token with this fingerprint, or null. A bearer presents a value, never an id, so the hash
+   * is the only lookup introspection has — which is also why the column is unique.
    */
   public IdpToken findByHash(String tokenHash) {
     return find("tokenHash", tokenHash).firstResult();

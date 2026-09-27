@@ -16,12 +16,15 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
 /**
  * The commissioned-token API end to end (qits-449): a service client commissions an opaque token
  * for a context, lists its own, and deletes one — or the token deletes itself — after which the
- * very next introspection refuses it.
+ * very next introspection refuses it. And introspection itself (qits-450): a service client turns a
+ * value into the identity behind it and a short JWT minted as for a commissioned client of that
+ * kind, verified here against the published JWKS like any other token.
  *
  * <p>The owners are the suite's static clients, {@code test-broad} and {@code test-narrow}, as in
  * {@link CommissionedClientsTest}. Every test names its own {@code contextKind}, because the suite
@@ -227,7 +230,130 @@ public class CommissionedTokensApiTest {
     assertEquals(List.of(), listedIds(OWNER, OWNER_SECRET, "tok-bad-claim"));
   }
 
+  // --- introspection (qits-450) -----------------------------------------------------------------
+
+  @Test
+  public void introspectionAnswersTheTokenAndAJwtMintedAsForACommissionedClient() throws Exception {
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"ci-run\",\"contextId\":\"tok-introspect\","
+                    + "\"claims\":{\"project\":\"qits\"},\"gitRefs\":[\"refs/heads/a\"]}")
+            .statusCode(201)
+            .extract();
+    String subject = issued.path("subject");
+
+    ExtractableResponse<?> answer =
+        introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+            .statusCode(200)
+            .header("Cache-Control", "no-store")
+            .body("tokenId", equalTo(issued.path("tokenId")))
+            .body("subject", equalTo(subject))
+            .body("roles", equalTo(List.of("qits:ci-run", "clients/" + subject)))
+            .body("claims.project", equalTo("qits"))
+            .body("gitRefs", equalTo(List.of("refs/heads/a")))
+            .body("contextKind", equalTo("ci-run"))
+            .body("contextId", equalTo("tok-introspect"))
+            .body("expiresIn", equalTo(300))
+            .extract();
+
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-deployments");
+    assertEquals(subject, claims.getSubject());
+    assertEquals(
+        List.of("qits:ci-run", "clients/" + subject),
+        claims.getStringListClaimValue("groups"),
+        "the kind's role and the token's own self-role; never the owner's");
+    assertEquals(
+        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
+        PublishedJwks.audienceOf(claims),
+        "the owner's whole list, plus qits-platform");
+    assertEquals("ci-run", claims.getClaimValueAsString("context_kind"));
+    assertEquals(List.of("refs/heads/a"), claims.getStringListClaimValue("git_refs"));
+    assertEquals("qits", claims.getClaimValueAsString("project"), "the stated claim, verbatim");
+    assertEquals(
+        300L,
+        claims.getExpirationTime().getValue() - claims.getIssuedAt().getValue(),
+        "qits.idp.token-introspection-jwt-ttl-seconds, not the client token's hour");
+  }
+
+  @Test
+  public void aTokenThatStatedNoRefsCarriesNoGitRefsClaim() throws Exception {
+    String token = commission(OWNER, OWNER_SECRET, "tok-introspect-bare", "ctx").path("token");
+
+    JwtClaims claims =
+        PublishedJwks.verify(
+            introspect(basic(OWNER, OWNER_SECRET), token)
+                .statusCode(200)
+                .extract()
+                .path("accessToken"),
+            "prod-qits-ci");
+    assertFalse(claims.hasClaim("git_refs"), "no list stated, no claim — as for a client");
+    assertFalse(claims.hasClaim("project"), "and no owner claim inherited");
+  }
+
+  @Test
+  public void aDeletedTokenIsA404OnTheVeryNextIntrospection() {
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "tok-introspect-gone", "ctx");
+    introspect(basic(OWNER, OWNER_SECRET), issued.path("token")).statusCode(200);
+
+    delete(basic(OWNER, OWNER_SECRET), issued.path("tokenId")).statusCode(204);
+
+    introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+        .statusCode(404)
+        .body("error", equalTo("not_found"));
+  }
+
+  @Test
+  public void onlyAServiceClientIntrospects() {
+    String token = commission(OWNER, OWNER_SECRET, "tok-introspect-who", "ctx").path("token");
+    ExtractableResponse<?> client = commissionClient("tok-introspect-who", "ctx-client");
+
+    introspect(basic(client.path("clientId"), client.path("secret")), token)
+        .statusCode(403)
+        .body("error", equalTo("access_denied"));
+    introspect("Bearer " + token, token).statusCode(401);
+    given()
+        .contentType(ContentType.JSON)
+        .body("{\"token\":\"" + token + "\"}")
+        .when()
+        .post("/idp/api/tokens/introspect")
+        .then()
+        .statusCode(401);
+  }
+
+  @Test
+  public void garbageAndJwtsAre404AndABlankValueIs400() {
+    introspect(basic(OWNER, OWNER_SECRET), "qits_tok_" + "A".repeat(43))
+        .statusCode(404)
+        .body("error", equalTo("not_found"));
+    introspect(basic(OWNER, OWNER_SECRET), "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln")
+        .statusCode(404)
+        .body("error", equalTo("not_found"));
+    introspect(basic(OWNER, OWNER_SECRET), "   ")
+        .statusCode(400)
+        .body("error", equalTo("invalid_request"));
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", basic(OWNER, OWNER_SECRET))
+        .body("{}")
+        .when()
+        .post("/idp/api/tokens/introspect")
+        .then()
+        .statusCode(400);
+  }
+
   // --- helpers ------------------------------------------------------------------------------
+
+  private static ValidatableResponse introspect(String authorization, String token) {
+    return given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", authorization)
+        .body("{\"token\":\"" + token + "\"}")
+        .when()
+        .post("/idp/api/tokens/introspect")
+        .then();
+  }
 
   static ExtractableResponse<?> commission(
       String owner, String secret, String contextKind, String contextId) {

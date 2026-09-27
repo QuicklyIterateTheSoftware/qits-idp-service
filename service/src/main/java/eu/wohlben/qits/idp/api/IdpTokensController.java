@@ -4,6 +4,7 @@ import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.CommissionedTokens.Commissioned;
 import eu.wohlben.qits.idp.control.CommissionedTokens.StoredToken;
 import eu.wohlben.qits.idp.control.IdpClient;
+import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -25,19 +26,21 @@ import java.util.UUID;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
- * Commissioned tokens: {@code /idp/api/tokens}, where a service client gets an opaque bearer for one
- * dynamic context and takes it back when the context ends.
+ * Commissioned tokens: {@code /idp/api/tokens}, where a service client gets an opaque bearer for
+ * one dynamic context and takes it back when the context ends.
  *
  * <p>The commission API's shape again, for the third credential: {@code POST} commissions, {@code
  * GET} lists what the caller commissioned so a crash leaks nothing nobody can see, and {@code
- * DELETE} ends one. The lifetime model — no expiry, deleting the row is the whole revocation — is in
- * {@link CommissionedTokens}; this class is the boundary.
+ * DELETE} ends one. {@code POST /introspect} is the fourth verb, the edge's: it turns a value into
+ * the identity behind it and a short JWT for the service behind the edge. The lifetime model — no
+ * expiry, deleting the row is the whole revocation — is in {@link CommissionedTokens}; this class
+ * is the boundary.
  *
  * <p><b>The caller authenticates with its own Basic pair</b>, through {@link BasicCaller}, for the
  * reasons {@link IdpClientsController} gives: the platform's services already hold one, so it adds
- * nothing to configure. <b>Only a service client commissions</b> — a commissioned client is 403, and
- * a token cannot even authenticate here, because a token is not a client and has no id:secret pair.
- * That is what keeps a leaked token or a build step's credential from producing more access.
+ * nothing to configure. <b>Only a service client commissions</b> — a commissioned client is 403,
+ * and a token cannot even authenticate here, because a token is not a client and has no id:secret
+ * pair. That is what keeps a leaked token or a build step's credential from producing more access.
  *
  * <p><b>The one exception is a token handing itself back.</b> {@code DELETE} also accepts {@code
  * Authorization: Bearer qits_tok_…} — the raw token — and deletes the row if, and only if, that
@@ -88,17 +91,44 @@ public class IdpTokensController {
       List<String> gitRefs,
       String createdAt) {}
 
+  /**
+   * The value the edge read off a {@code Bearer} header. In a JSON body rather than a path or query
+   * because it is a credential, and a URL is written to access logs on both sides.
+   */
+  public record IntrospectRequest(String token) {}
+
+  /**
+   * What a live token is, and a JWT that says the same thing to the service behind the edge.
+   *
+   * <p>{@code roles} are exactly the {@code groups} of {@code accessToken} — the kind's fixed roles
+   * plus the token's own {@code clients/<subject>} — so the edge can build its identity headers
+   * without decoding what it was just handed. {@code expiresIn} is the JWT's lifetime in seconds;
+   * the token itself has none.
+   */
+  public record IntrospectionResponse(
+      String tokenId,
+      String subject,
+      List<String> roles,
+      Map<String, String> claims,
+      List<String> gitRefs,
+      String contextKind,
+      String contextId,
+      String accessToken,
+      long expiresIn) {}
+
   @Inject BasicCaller caller;
 
   @Inject CommissionedTokens tokens;
+
+  @Inject TokenService tokenService;
 
   /**
    * Commission a token for one context.
    *
    * <p>201 with the value, and no {@code Location} header for the reason {@link
    * IdpClientsController#commission} gives. <b>{@code RestResponse<CommissionResponse>}, not a bare
-   * {@code Response}</b>: a {@code Response} carries its entity as an {@code Object}, and the native
-   * image then has no type to register and answers 500 while the JVM suite stays green.
+   * {@code Response}</b>: a {@code Response} carries its entity as an {@code Object}, and the
+   * native image then has no type to register and answers 500 while the JVM suite stays green.
    */
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
@@ -137,6 +167,65 @@ public class IdpTokensController {
         .header(HttpHeaders.CACHE_CONTROL, "no-store")
         .header("Pragma", "no-cache")
         .build();
+  }
+
+  /**
+   * The live token behind this value, and a short JWT for it — or a 404.
+   *
+   * <p>The call the edge makes on a {@code qits_tok_} bearer, the counterpart of {@code POST
+   * /idp/api/sessions/introspect} for a cookie, with <b>the identical caller rule</b>: a service
+   * client's Basic pair holding {@code qits:system}; a commissioned client is 403. A value that is
+   * not shaped like a token is refused before any store read ({@link
+   * CommissionedTokens#introspect}), so a JWT sent here by mistake costs nothing.
+   *
+   * <p><b>It also mints.</b> The answer carries {@code accessToken}, minted as {@link
+   * TokenService#forCommissionedToken} describes — exactly what a commissioned client of that kind
+   * would get, with the short {@code qits.idp.token-introspection-jwt-ttl-seconds} lifetime — so
+   * the service behind the edge verifies an ordinary JWT and needs no second code path for tokens.
+   *
+   * <p><b>A refusal is one 404 for every cause</b> — unknown value, deleted row, an owner that no
+   * longer exists — in the shape the sessions door gives, for the same reason: the only question is
+   * "is there a live token behind this", and a finer answer would let a caller probe the store.
+   *
+   * <p>{@code RestResponse<IntrospectionResponse>}, never a bare {@code Response}, for the native
+   * image reason {@link #commission} gives. Logged at DEBUG only, by subject, never by value.
+   */
+  @POST
+  @Path("/introspect")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public RestResponse<IntrospectionResponse> introspect(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, IntrospectRequest request) {
+    caller.staticOnly(
+        authorization,
+        "a commissioned client may not introspect tokens",
+        BasicCaller.PLATFORM_SYSTEM);
+    if (request == null || request.token() == null || request.token().isBlank()) {
+      throw OAuthException.invalidRequest("a JSON body naming the token is required");
+    }
+    StoredToken token =
+        tokens.introspect(request.token()).orElseThrow(IdpTokensController::noLiveToken);
+    TokenService.CommissionedTokenGrant grant =
+        tokenService.forCommissionedToken(token).orElseThrow(IdpTokensController::noLiveToken);
+    return RestResponse.ResponseBuilder.create(
+            Response.Status.OK,
+            new IntrospectionResponse(
+                token.id().toString(),
+                token.subject(),
+                grant.groups(),
+                token.claims(),
+                token.gitRefs(),
+                token.contextKind(),
+                token.contextId(),
+                grant.token().accessToken(),
+                grant.token().expiresInSeconds()))
+        // The body carries a bearer. Never cached here; the edge's cache is its own decision.
+        .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        .header("Pragma", "no-cache")
+        .build();
+  }
+
+  private static OAuthException noLiveToken() {
+    return OAuthException.notFound("no live token for that value");
   }
 
   /**
