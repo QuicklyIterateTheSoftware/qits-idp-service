@@ -45,8 +45,8 @@
              Both are published by qits-integrations-quarkus. The url is a property so the image
              build can point it at the address the builder container can actually reach — see
              docker/Dockerfile and .qits-maven-settings.xml. -->
-        <qits.db-core.version>2026.917.65806</qits.db-core.version>
-        <qits.arch-rules.version>2026.917.65806</qits.arch-rules.version>
+        <qits.db-core.version>2026.929.140626</qits.db-core.version>
+        <qits.arch-rules.version>2026.929.140626</qits.arch-rules.version>
         <!-- The user-story framework (test scope): this module's story catalogue —
              api/TokenIssuanceBootstrapIT plus the classes under api/../stories/ — is written as
              @UserStory methods, so a run that boots the packaged artifact also regenerates
