@@ -15,7 +15,10 @@ import java.util.Optional;
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container} and {@code refinement} get {@code qits:agent};
- *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run};
+ *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run} — since the CI-runners
+ *       campaign's closing release (qits-444, 2026-09-30), qits-ci commissions {@code ci-run} as a
+ *       token ({@link CommissionedTokens}) rather than as a client; {@code bootstrap-publish} is
+ *       still commissioned as a client, unchanged;
  *   <li>{@code ci-runner} gets {@code qits:ci-runner} — a CI runner's own identity, distinct from
  *       any one run's;
  *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a

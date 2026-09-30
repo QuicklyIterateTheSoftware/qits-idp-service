@@ -311,7 +311,11 @@ The rules around them:
   `qits:ci-runner-registration`, the credential a runner registers itself with. Agents and CI runs are domain-scoped, so neither
   inherits `qits:system` or `qits:admin`; their Git scope is their `git_refs`. **Any other kind gets no role at all** — only
   its own self-role — which is D12: an unknown kind is harmless, not refused. A credential may
-  always mint and hand itself back (`DELETE` of its own id), whatever role its kind gives it.
+  always mint and hand itself back (`DELETE` of its own id), whatever role its kind gives it. Since
+  the CI-runners campaign's closing release (qits-444, 2026-09-30), qits-ci commissions `ci-run` as a
+  **token** (see "Commissioned tokens" below) rather than as a client — a run has no long-lived
+  process to hand a client pair to any more — while `bootstrap-publish` is still commissioned as a
+  client, unchanged.
 - **Reads accept `qits:agent`; writes do not.** Agents keep every read they have and lose only
   write access (user ruling 2026-09-12). Here that is `GET /idp/api/clients`, which accepts
   `qits:system` or `qits:agent` — not `qits:ci-run`, so a CI run's credential gets 403 there.
