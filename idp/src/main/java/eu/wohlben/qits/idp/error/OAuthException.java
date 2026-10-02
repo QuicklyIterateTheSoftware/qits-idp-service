@@ -44,6 +44,15 @@ public class OAuthException extends RuntimeException {
     return new OAuthException("invalid_client", 401, description);
   }
 
+  /**
+   * A bearer was presented and is not one this idp issued and still honours — bad signature, wrong
+   * issuer or audience, expired, or not a JWT at all (RFC 6750 §3.1). 401, like {@link
+   * #invalidClient}: it is authentication that failed.
+   */
+  public static OAuthException invalidToken(String description) {
+    return new OAuthException("invalid_token", 401, description);
+  }
+
   public static OAuthException unsupportedGrantType(String description) {
     return new OAuthException("unsupported_grant_type", 400, description);
   }

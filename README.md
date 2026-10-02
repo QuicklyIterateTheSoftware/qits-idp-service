@@ -207,6 +207,12 @@ trusted, while an issuer with no secret would mint identity for whoever asks.
 commission API next to it: the caller must be a service client — environment or database, never
 commissioned — holding `qits:system`.
 
+**The two `GET`s also accept a bearer** (qits-162): a JWT this idp issued, with `aud` including
+`qits-platform`, whose `groups` hold `qits:agent`, `qits:system` or `qits:admin` — verified in-process
+against the published signing keys (`BearerCaller`). A bearer holding none of them is 403; one that
+does not verify is 401 `invalid_token`. Every write stays Basic-only, so a bearer there is 401: an
+agent keeps every read and gains no write.
+
     # create — the secret is in this answer and nowhere else
     curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
       -d '{"clientId":"dev-qits-ci"}' \

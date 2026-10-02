@@ -251,6 +251,133 @@ public class IdpServiceClientsControllerTest {
     assertFalse(claims.hasClaim("branch"));
   }
 
+  // --- bearer reads (qits-162): an agent keeps every read and gains no write ------------------
+
+  @Test
+  public void anAgentBearerReadsBothRoutesAndNoSecret() {
+    String id = "svc-bearer-read";
+    create(id).statusCode(201);
+    String agent = bearer(commissionedToken("workspace", "bearer-read"));
+
+    String one =
+        given()
+            .header("Authorization", agent)
+            .when()
+            .get("/idp/api/service-clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("clientId", equalTo(id))
+            .body("source", equalTo("database"))
+            .extract()
+            .asString();
+    String all =
+        given()
+            .header("Authorization", agent)
+            .when()
+            .get("/idp/api/service-clients")
+            .then()
+            .statusCode(200)
+            .body("find { it.clientId == '" + id + "' }.source", equalTo("database"))
+            .extract()
+            .asString();
+    for (String body : List.of(one, all)) {
+      assertFalse(body.toLowerCase().contains("secret"), "a read never carries a secret: " + body);
+    }
+  }
+
+  @Test
+  public void aSystemOrAdminBearerReadsToo() {
+    for (String[] pair :
+        List.of(
+            new String[] {ADMIN, ADMIN_SECRET}, // qits:system
+            new String[] {"test-no-system", "test-no-system-secret"})) { // qits:admin
+      String token =
+          token(pair[0], pair[1], "&audience=qits-platform")
+              .statusCode(200)
+              .extract()
+              .path("access_token");
+      given()
+          .header("Authorization", bearer(token))
+          .when()
+          .get("/idp/api/service-clients")
+          .then()
+          .statusCode(200);
+    }
+  }
+
+  @Test
+  public void aBearerWithoutAReadRoleIsForbidden() {
+    // A ci-run commission carries qits:ci-run and its own clients/<id> — none of the three.
+    String ciRun = bearer(commissionedToken("ci-run", "bearer-no-role"));
+    given()
+        .header("Authorization", ciRun)
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(403)
+        .body("error", equalTo("access_denied"));
+    given()
+        .header("Authorization", ciRun)
+        .when()
+        .get("/idp/api/service-clients/prod-qits-ci")
+        .then()
+        .statusCode(403)
+        .body("error", equalTo("access_denied"));
+  }
+
+  @Test
+  public void aBearerThatDoesNotVerifyIsUnauthenticated() {
+    String good = commissionedToken("workspace", "bearer-tampered");
+    String[] parts = good.split("\\.");
+    // Same header and claims, someone else's signature: the last character flipped.
+    String sig = parts[2];
+    String forged =
+        parts[0] + "." + parts[1] + "." + sig.substring(0, sig.length() - 2)
+            + (sig.charAt(sig.length() - 2) == 'A' ? 'B' : 'A') + sig.charAt(sig.length() - 1);
+    for (String header : List.of(bearer(forged), bearer("not-a-jwt"), "Bearer ")) {
+      given()
+          .header("Authorization", header)
+          .when()
+          .get("/idp/api/service-clients")
+          .then()
+          .statusCode(401)
+          .body("error", equalTo("invalid_token"));
+    }
+  }
+
+  @Test
+  public void anAgentBearerIsRefusedOnEveryWrite() {
+    String id = "svc-bearer-write";
+    String secret = create(id).statusCode(201).extract().path("secret");
+    String agent = bearer(commissionedToken("workspace", "bearer-write"));
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", agent)
+        .body("{\"clientId\":\"svc-bearer-created\"}")
+        .when()
+        .post("/idp/api/service-clients")
+        .then()
+        .statusCode(401);
+    given()
+        .header("Authorization", agent)
+        .when()
+        .post("/idp/api/service-clients/" + id + "/secret")
+        .then()
+        .statusCode(401);
+    given()
+        .header("Authorization", agent)
+        .when()
+        .delete("/idp/api/service-clients/" + id)
+        .then()
+        .statusCode(401);
+
+    // Nothing moved: no row was created, the row was neither rotated nor deleted.
+    get("svc-bearer-created").statusCode(404);
+    get(id).statusCode(200).body("rotatedAt", org.hamcrest.Matchers.nullValue());
+    token(id, secret, "&audience=qits-deployments").statusCode(200);
+  }
+
   // --- helpers --------------------------------------------------------------------------------
 
   private static ValidatableResponse create(String clientId) {
@@ -293,6 +420,28 @@ public class IdpServiceClientsControllerTest {
         .when()
         .post("/idp/token")
         .then();
+  }
+
+  /** A commission of test-broad's of this kind, and the token it mints for {@code qits-platform}. */
+  private static String commissionedToken(String kind, String contextId) {
+    var pair =
+        given()
+            .contentType(ContentType.JSON)
+            .header("Authorization", basic(ADMIN, ADMIN_SECRET))
+            .body("{\"contextKind\":\"" + kind + "\",\"contextId\":\"" + contextId + "\"}")
+            .when()
+            .post("/idp/api/clients")
+            .then()
+            .statusCode(201)
+            .extract();
+    return token(pair.path("clientId"), pair.path("secret"), "&audience=qits-platform")
+        .statusCode(200)
+        .extract()
+        .path("access_token");
+  }
+
+  private static String bearer(String token) {
+    return "Bearer " + token;
   }
 
   private static String basic(String clientId, String secret) {

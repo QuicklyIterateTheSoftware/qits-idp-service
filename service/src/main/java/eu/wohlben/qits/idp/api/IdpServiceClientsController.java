@@ -30,9 +30,14 @@ import org.jboss.resteasy.reactive.RestResponse;
  *
  * <p><b>Auth is the same Basic pair every machine surface here uses</b> ({@link BasicCaller}), and
  * the caller must be a service client itself — environment or database, never commissioned — and
- * hold {@code qits:system}. There is no exception for a read: unlike the commission API next door,
- * nothing here accepts {@link BasicCaller#AGENT}, because migrating an id's secret is not a thing
- * an agent's context has any business doing.
+ * hold {@code qits:system}. Every write — create, rotate, delete — accepts that and nothing else:
+ * migrating an id's secret is not a thing an agent's context has any business doing.
+ *
+ * <p><b>The two reads also accept a bearer</b> ({@link BearerCaller}): a JWT this idp issued whose
+ * {@code groups} hold {@link #READ_ROLES} — {@code qits:agent}, {@code qits:system} or {@code
+ * qits:admin}. An agent keeps every read and gains no write (user ruling 2026-09-12, qits-162), and
+ * the reads carry no secret, so there is nothing for a bearer to strip. A Basic caller on a read is
+ * still held to the service-client rule above, unchanged.
  *
  * <p><b>An id that exists only in the environment registry may still be created here</b> (201): that
  * is the ordinary shape of a cutover (C5) — the deployer finds no database row, so it asks for one,
@@ -55,7 +60,12 @@ public class IdpServiceClientsController {
   /** {@code GET}'s answer, singular or in a list. Never a secret. */
   public record ServiceClientView(String clientId, String source, String createdAt, String rotatedAt) {}
 
+  /** Any one of these, in a bearer's {@code groups}, reads both GET routes. */
+  static final String[] READ_ROLES = {BasicCaller.AGENT, BasicCaller.PLATFORM_SYSTEM, "qits:admin"};
+
   @Inject BasicCaller caller;
+
+  @Inject BearerCaller bearer;
 
   @Inject ServiceClients serviceClients;
 
@@ -126,7 +136,7 @@ public class IdpServiceClientsController {
   public ServiceClientView get(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {
-    requireSystemCaller(authorization);
+    requireReader(authorization);
     boolean inEnvironment = environmentClients.ids().contains(clientId);
     Optional<StoredServiceClient> db = serviceClients.find(clientId);
     if (!inEnvironment && db.isEmpty()) {
@@ -139,7 +149,7 @@ public class IdpServiceClientsController {
   @GET
   public java.util.List<ServiceClientView> list(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
-    requireSystemCaller(authorization);
+    requireReader(authorization);
     Set<String> ids = new LinkedHashSet<>(environmentClients.ids());
     serviceClients.list().forEach(row -> ids.add(row.clientId()));
     return ids.stream()
@@ -169,9 +179,20 @@ public class IdpServiceClientsController {
   }
 
   /**
+   * A read: a bearer holding one of {@link #READ_ROLES}, or the write rule's Basic caller. The
+   * header's scheme decides which; a bearer is never tried as Basic or the other way round.
+   */
+  private void requireReader(String authorization) {
+    if (BearerCaller.isBearer(authorization)) {
+      bearer.requireAnyRole(authorization, READ_ROLES);
+      return;
+    }
+    requireSystemCaller(authorization);
+  }
+
+  /**
    * Basic, a service client (environment or database, never commissioned), holding {@code
-   * qits:system} — every verb here, uniformly, because there is no read among them an agent or a
-   * commissioned context has reason to make.
+   * qits:system} — every write here, and a Basic read.
    */
   private IdpClient requireSystemCaller(String authorization) {
     return caller.staticOnly(
