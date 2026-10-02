@@ -41,9 +41,8 @@ class IssuerTest {
   }
 
   @Test
-  void theLegacyIssuerIsStillAcceptedBesideTheDerivedOne() {
+  void onlyTheDerivedIssuerIsAccepted() {
     assertArrayEquals(
-        new String[] {"https://idp.qits.example.test", "http://qits-platform-idp:8080/idp"},
-        issuer("example.test").accepted());
+        new String[] {"https://idp.qits.example.test"}, issuer("example.test").accepted());
   }
 }
