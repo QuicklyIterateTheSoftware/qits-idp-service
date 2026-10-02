@@ -28,12 +28,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class Issuer {
 
-  /**
-   * The issuer every token carried before qits-730 derived it, accepted on read for as long as such
-   * a token can still be alive (an hour). Goes in qits-730 wave 3, once no token carries it.
-   */
-  public static final String LEGACY = "http://qits-platform-idp:8080/idp";
-
   /** The platform's domain, as qits-deployments states it. Nothing stated means a local build. */
   @ConfigProperty(name = PlatformHostname.QITS_DOMAIN)
   Optional<String> domain;
@@ -53,12 +47,9 @@ public class Issuer {
     return PlatformHostname.issuer(PlatformHostname.domainOrLocal(domain.orElse(null)));
   }
 
-  /**
-   * Every {@code iss} a token this idp minted may carry: the derived issuer, and {@link #LEGACY}
-   * while tokens minted before the derivation can still be unexpired.
-   */
+  /** Every {@code iss} a token this idp minted may carry: the one derived issuer. */
   public String[] accepted() {
-    return new String[] {url(), LEGACY};
+    return new String[] {url()};
   }
 
   /**

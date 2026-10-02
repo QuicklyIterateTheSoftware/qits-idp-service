@@ -19,9 +19,9 @@ import java.util.Map;
  * the JWKS. Both are public and unauthenticated — that is what they are for.
  *
  * <p>Paths are relative to {@code quarkus.rest.path=/idp}, so this class serves {@code
- * /idp/.well-known/openid-configuration} and {@code /idp/jwks}. A consumer configured with
- * auth-server-url {@code http://qits-platform-idp:8080/idp} finds the first by OIDC's own
- * derivation and follows the document to the rest.
+ * /idp/.well-known/openid-configuration} and {@code /idp/jwks}. A consumer configured with this
+ * idp's auth-server-url finds the first by OIDC's own derivation and follows the document to the
+ * rest.
  */
 @Path("/")
 @Produces(MediaType.APPLICATION_JSON)

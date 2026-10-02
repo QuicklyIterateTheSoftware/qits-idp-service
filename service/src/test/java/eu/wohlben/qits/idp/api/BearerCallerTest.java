@@ -3,7 +3,6 @@ package eu.wohlben.qits.idp.api;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import eu.wohlben.qits.idp.control.Issuer;
 import eu.wohlben.qits.idp.control.SigningKeys;
 import eu.wohlben.qits.idp.control.SigningKeys.SigningKey;
 import eu.wohlben.qits.idp.control.TokenService;
@@ -17,9 +16,8 @@ import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
 /**
- * The issuers a bearer may carry across the qits-730 cutover: the derived one, and the legacy
- * configured one while tokens minted before the cutover can still be alive. Anything else is a
- * token from somebody else's idp, even when it is signed with this one's key.
+ * The one issuer a bearer may carry (qits-730): the derived one. Anything else is a token from
+ * somebody else's idp, even when it is signed with this one's key.
  */
 @QuarkusTest
 public class BearerCallerTest {
@@ -53,11 +51,14 @@ public class BearerCallerTest {
   }
 
   @Test
-  public void aTokenMintedBeforeTheCutoverIsStillAccepted() throws Exception {
-    JwtClaims claims =
-        bearers.requireAnyRole(
-            "Bearer " + signedWithIssuer("http://qits-platform-idp:8080/idp"), ROLE);
-    assertEquals(Issuer.LEGACY, claims.getIssuer());
+  public void aTokenCarryingTheLegacyIssuerIsNowRefused() {
+    OAuthException refused =
+        assertThrows(
+            OAuthException.class,
+            () ->
+                bearers.requireAnyRole(
+                    "Bearer " + signedWithIssuer("http://qits-platform-idp:8080/idp"), ROLE));
+    assertEquals(401, refused.statusCode());
   }
 
   @Test
