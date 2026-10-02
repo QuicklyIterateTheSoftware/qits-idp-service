@@ -1,6 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
-import java.util.Locale;
+import eu.wohlben.qits.idp.control.PlatformHostname;
 
 /**
  * The platform's domain, and every browser-facing name this service composes from it.
@@ -20,6 +20,10 @@ import java.util.Locale;
  * {@link #WEBAUTHN_ORIGINS} and {@link #WEBAUTHN_RP_ID} are config keys the extension resolves on
  * its own — so {@link DerivedBrowserHosts} has to compose them as configuration while
  * {@link BrowserSso} composes the rest as objects. Same source, two consumers, one file.
+ *
+ * <p>The grammar's constants themselves — project slug, host label, the local default — live in
+ * {@link PlatformHostname} in the domain module, because the token issuer ({@code
+ * https://idp.qits.<domain>}) is composed from them there too. They are aliased here, not repeated.
  */
 final class PlatformDomain {
 
@@ -35,7 +39,7 @@ final class PlatformDomain {
    * carries the slug too. It is env-less — there is no {@code <env>} label in front of it any more
    * — which is exactly the move that invalidated the three addresses this class replaced.
    */
-  static final String PROJECT = "qits";
+  static final String PROJECT = PlatformHostname.PROJECT;
 
   /**
    * The developer's domain, and the default when nothing states one.
@@ -43,14 +47,14 @@ final class PlatformDomain {
    * <p>A single label, which is what tells the two installations apart below: a public domain has a
    * dot in it and {@code localhost} does not.
    */
-  static final String LOCAL = "localhost";
+  static final String LOCAL = PlatformHostname.LOCAL;
 
   /**
    * This service's host label — {@code host: idp} in {@code .config/qits/deployments.yml}, which is
    * what the edge routes {@code /idp/login} at. The two have to agree, and this is the side that
    * can be read from Java.
    */
-  private static final String HOST = "idp";
+  private static final String HOST = PlatformHostname.HOST;
 
   /** Where a local build listens. {@code quarkus.http.port}'s own default. */
   private static final int LOCAL_PORT = 8080;
@@ -65,7 +69,7 @@ final class PlatformDomain {
 
   /** The stated domain, normalised. Empty when nothing was stated, which is a refusal upstream. */
   static String stated(String raw) {
-    return raw == null ? "" : raw.strip().toLowerCase(Locale.ROOT);
+    return PlatformHostname.stated(raw);
   }
 
   /**

@@ -39,16 +39,16 @@ import org.junit.jupiter.api.BeforeAll;
  * <p>Every service on qits is configured with exactly one string about identity: the idp's address.
  * From it OIDC derives {@code /.well-known/openid-configuration} by its own rule, and from that
  * document a consumer reads the token endpoint and the JWKS. The {@code iss} it will then compare
- * against is spelled <b>once</b>, in {@code qits.idp.issuer} — two sources for that one string is
- * exactly how a consumer ends up rejecting a token whose {@code iss} differs from the discovery
- * document's {@code issuer} by one character.
+ * against has <b>one</b> source, {@code Issuer.url()}, derived from the platform's domain as {@code
+ * https://idp.qits.<domain>} and configured nowhere — two sources for that one string is exactly
+ * how a consumer ends up rejecting a token whose {@code iss} differs from the discovery document's
+ * {@code issuer} by one character.
  *
  * <p><b>The endpoints are NOT that string, and this suite used to insist they were.</b> The rule
  * read "one key, and every advertised URL derived from it", which was sound while the idp's
  * identifier and its address were the same text. Deleting the platform plane ended that: the
- * address became {@code <env>-qits-platform-idp} and the issuer deliberately stayed
- * {@code qits-platform-idp}, because a string compared for equality cannot be covered by a DNS
- * alias. Deriving the endpoints from the issuer across that split published a {@code jwks_uri} on a
+ * address became {@code <env>-qits-platform-idp} while the issuer stayed {@code qits-platform-idp}
+ * until qits-730 derived it from the domain. Deriving the endpoints from the issuer across that split published a {@code jwks_uri} on a
  * dead host — invisible to every running consumer, which had it cached, and fatal to any service
  * booting for the first time. So the endpoints hang off {@code qits.idp.endpoint-base} now and the
  * story asserts the two are different strings.
@@ -129,11 +129,10 @@ public class BootstrapDocumentsIT {
       a consumer to is somewhere that answers.
 
       The `issuer` it advertises is a different string, and that is deliberate rather than a
-      mistake: the idp is IDENTIFIED by `http://qits-platform-idp:8080/idp`, a name it stopped
-      answering on when the platform plane was deleted, and moving an identifier that is compared
-      for equality would reject every token already in flight. An address can be moved and an
-      identifier cannot, so they are two values. What must not drift is `iss` itself, and it has
-      exactly one source.
+      mistake: the idp is IDENTIFIED by `https://idp.qits.<domain>`, derived from the platform's
+      domain (`https://idp.qits.localhost` here, where none is stated) and configured nowhere.
+      The issuer is compared and the address is dialled, so they are two values. What must not
+      drift is `iss` itself, and it has exactly one source.
 
       Then it fetches the JWKS, holding no credential of any kind, and that has to work: a service
       fetches the keys at BOOT, before it holds a token, and a JWKS behind a bearer would be a

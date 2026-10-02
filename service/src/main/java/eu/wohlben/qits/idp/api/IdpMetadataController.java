@@ -32,7 +32,8 @@ public class IdpMetadataController {
   @Inject SigningKeys signingKeys;
 
   /**
-   * The discovery document. The {@code issuer} member is {@code qits.idp.issuer} and every endpoint
+   * The discovery document. The {@code issuer} member is the derived {@code
+   * https://idp.qits.<domain>} ({@link Issuer#url()}) and every endpoint
    * is derived from {@code qits.idp.endpoint-base} — an identifier and an address, which on this
    * platform are different strings. Deriving the endpoints from the issuer is what advertised a
    * {@code jwks_uri} on the deleted plane's bare alias; see {@link Issuer} for the whole of it.

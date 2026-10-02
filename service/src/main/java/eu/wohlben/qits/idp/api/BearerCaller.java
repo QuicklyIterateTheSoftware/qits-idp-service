@@ -31,7 +31,8 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
  * warns about: the keys are already loaded at boot, and verifying against them is a lookup.
  *
  * <p>The checks are the ones every consumer makes ({@code PublishedJwks} in the suite is the same
- * shape over HTTP): RS256 only, {@code iss} is {@link Issuer#url()}, {@code aud} includes {@link
+ * shape over HTTP): RS256 only, {@code iss} is one of {@link Issuer#accepted()} (the derived issuer,
+ * or the legacy one while pre-qits-730 tokens can be alive), {@code aud} includes {@link
  * TokenService#PLATFORM_AUDIENCE} — which every token minted here carries — and {@code exp} and
  * {@code sub} are required.
  *
@@ -94,7 +95,9 @@ public class BearerCaller {
           .setJwsAlgorithmConstraints(
               new AlgorithmConstraints(
                   ConstraintType.PERMIT, AlgorithmIdentifiers.RSA_USING_SHA256))
-          .setExpectedIssuer(issuer.url())
+          // Both the derived issuer and the legacy one: a token minted before qits-730 derived the
+          // issuer stays valid for its whole lifetime. See Issuer#accepted.
+          .setExpectedIssuers(true, issuer.accepted())
           .setExpectedAudience(TokenService.PLATFORM_AUDIENCE)
           .setRequireExpirationTime()
           .setRequireSubject()

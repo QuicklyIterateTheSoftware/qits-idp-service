@@ -260,11 +260,16 @@ unmatched path under `/idp` with `200 text/html`, so the list — `/api,/q,/.wel
 a 404. Get it wrong and an OIDC consumer caches a page as its discovery document. Adding a literal
 route means adding its entry and its `IdpPackagedSurfaceIT` case in the same commit.
 
-The issuer string is spelled **once**, in `qits.idp.issuer`, and `Issuer` normalises it. The
-discovery document's `token_endpoint` and `jwks_uri` are derived from it, and so is every token's
-`iss`. Never configure an endpoint separately: a consumer rejects a token whose `iss` differs from
-the discovery document's `issuer` by one character, and two config keys is how that character
-appears.
+The issuer is **derived, never configured** (qits-730): `https://idp.qits.<QITS_DOMAIN>` — no path,
+no trailing slash, `https://idp.qits.localhost` with no domain stated — composed in `Issuer.url()`
+from `PlatformHostname`, the hostname grammar `PlatformDomain` reuses. It is the discovery
+document's `issuer` and every token's `iss`, and it is an IDENTIFIER: nothing dials it. Never add
+a config key or a properties default for it — a configurable issuer is how an address once got read
+as an issuer and every machine token was refused. The ADDRESS is `qits.idp.endpoint-base`
+(`Issuer.endpointBase()`), and `token_endpoint`, `jwks_uri` and `authorization_endpoint` hang off
+that. `BearerCaller` also accepts `Issuer.LEGACY` (`http://qits-platform-idp:8080/idp`, the old
+configured issuer) so tokens minted before the cutover live out their hour; it goes in qits-730
+wave 3.
 
 ## Untrusted input
 
@@ -521,11 +526,11 @@ the exporter being off.
   would draw arrows into whichever story happened to be open. It is disabled, and no story claims
   its absence either — an `assertNoEdgesTo` over an exporter the profile switched off would be a
   claim about the profile.
-- **A consumer cannot follow the advertised absolute URLs.** `qits.idp.issuer` names
-  `http://qits-platform-idp:8080/idp`, and a `@TestProfile` cannot point it at the launched process:
-  the port is ephemeral and the overrides are computed before the process exists.
+- **A consumer cannot follow the advertised absolute URLs.** `qits.idp.endpoint-base` names
+  `http://dev-qits-platform-idp:8080/idp`, and a `@TestProfile` cannot point it at the launched
+  process: the port is ephemeral and the overrides are computed before the process exists.
   `BootstrapDocumentsIT` therefore reads the document's *derivation* and addresses the paths on the
-  real port. That the document derives its endpoints from the one issuer string is proven; that a
+  real port. That the document derives its endpoints from the one endpoint base is proven; that a
   consumer resolves the host is a deployment fact.
 
 **Labels.** A commissioned client id is `dyn-<kind>-<slug>-<22 base64url chars>` — readable on

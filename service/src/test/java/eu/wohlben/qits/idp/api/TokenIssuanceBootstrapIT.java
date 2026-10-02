@@ -160,8 +160,8 @@ public class TokenIssuanceBootstrapIT {
       and to prove it, stands a mock idp where this service really is. Here there is no mock:
       the issuer itself is running, packaged exactly as it deploys.
 
-      A platform service reaches it the way OIDC says to. It knows one string — the issuer,
-      `http://qits-platform-idp:8080/idp` — derives the discovery document from it, and follows
+      A platform service reaches it the way OIDC says to. It knows one string — the idp's address,
+      `http://dev-qits-platform-idp:8080/idp` — derives the discovery document from it, and follows
       the document to the token endpoint and to the JWKS. Then it presents the credential pair
       its deployment gave it and asks for the one audience it means to call.
 
@@ -187,10 +187,9 @@ public class TokenIssuanceBootstrapIT {
     // reached by following this document rather than by knowing a path.
     //
     // TWO STRINGS COME BACK, not one. `issuer` is what the consumer will compare a token's `iss`
-    // against, and the endpoints hang off the ADDRESS this service answers on — which is not the
-    // same text, because the plane deletion moved the address and deliberately left the identifier
-    // behind. Deriving the endpoints from the identifier across that split is what published a
-    // jwks_uri on a host nothing resolves.
+    // against — https://idp.qits.<domain>, derived from the domain (qits-730) — and the endpoints
+    // hang off the ADDRESS this service answers on, which is not the same text. Deriving the
+    // endpoints from the identifier is what once published a jwks_uri on a host nothing resolves.
     given()
         .get("/idp/.well-known/openid-configuration")
         .then()
@@ -202,7 +201,7 @@ public class TokenIssuanceBootstrapIT {
         .body("id_token_signing_alg_values_supported", hasItem("RS256"));
     story
         .note(
-            "the consumer knows ONE string — the issuer — and follows its discovery document to the"
+            "the consumer knows ONE string — the idp's address — and follows its discovery document to the"
                 + " token endpoint and the JWKS; every path below is read off it, never known")
         .as("discovery-read");
 
@@ -245,7 +244,7 @@ public class TokenIssuanceBootstrapIT {
     // publishes, over HTTP, resolving the key by the token's own kid. Verifying against a key this
     // JVM could reach in-process would pass even if the published document were empty.
     JwtClaims claims = PublishedJwks.verify(token, AUDIENCE);
-    assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the configured issuer");
+    assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the issuer derived from the domain");
     assertEquals(CLIENT, claims.getSubject(), "sub is the client that authenticated");
     assertEquals(
         List.of(

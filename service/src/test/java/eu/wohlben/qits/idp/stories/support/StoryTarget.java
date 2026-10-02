@@ -183,14 +183,14 @@ public final class StoryTarget {
   // --- the issuer, and what it derives ----------------------------------------------------------
 
   /**
-   * The shipped {@code qits.idp.issuer}. The launched process reads the jar's own default, so this
-   * is the string a consumer configures rather than one this suite invented.
+   * The derived issuer: {@code https://idp.qits.<domain>}, and no {@code QITS_DOMAIN} is stated for
+   * the launched process, so the domain is {@code localhost}. Nothing configures it (qits-730).
    *
    * <p>It is an IDENTIFIER: the {@code iss} of every token and the {@code issuer} member of the
    * discovery document, compared for equality and dialled by nothing. {@link #ENDPOINT_BASE} is
    * the address, and the two are deliberately different strings on this platform.
    */
-  public static final String ISSUER = "http://qits-platform-idp:8080/idp";
+  public static final String ISSUER = "https://idp.qits.localhost";
 
   /**
    * The shipped {@code qits.idp.endpoint-base}: what the discovery document's endpoints hang off,

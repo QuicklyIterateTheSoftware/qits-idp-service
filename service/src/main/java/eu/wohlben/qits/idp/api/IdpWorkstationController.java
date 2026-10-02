@@ -261,13 +261,11 @@ public class IdpWorkstationController {
    *
    * <p>The CLI's own page is compared against strings BUILT FROM CONFIGURATION — never assembled
    * from anything in the request — so there is no spelling of {@code redirect_uri} that can widen
-   * it. Two spellings are accepted because this installation has two true names for itself: the
-   * origin a browser reaches ({@link PlatformDomain#canonicalOrigin}, derived from the stated
-   * domain, which is what the person's browser will actually load) and {@code qits.idp.issuer},
-   * which every deployment so far
-   * sets to the platform-network address services dial. They are usually different hosts, and a
-   * tool configured from the discovery document knows only the second, so refusing it would make
-   * the documented {@code <issuer>/connect/cli} wrong in practice.
+   * it. Two spellings are accepted because this installation answers on two addresses: the origin a
+   * browser reaches ({@link PlatformDomain#canonicalOrigin}, derived from the stated domain, which
+   * is what the person's browser will actually load) and the endpoint base the discovery document
+   * advertises. The ISSUER is not one of them: it is an identifier with no path, and {@code
+   * <issuer>/connect/cli} names no page this service serves.
    *
    * <p>A loopback URI stays allowed for both clients, under the rules it always had.
    */
@@ -284,17 +282,17 @@ public class IdpWorkstationController {
   /**
    * Every exact spelling of the code page this installation answers to.
    *
-   * <p>Three, because a client may have arrived at any of them and a {@code redirect_uri} is
-   * matched by exact string: the browser origin, the ADDRESS the discovery document now advertises,
-   * and the ISSUER the document advertised while the two were one value. The last is kept for a
-   * client built against that document and costs nothing — it is a name this installation answers
-   * to, not a name anything has to resolve.
+   * <p>Two, because a client may have arrived at either and a {@code redirect_uri} is matched by
+   * exact string: the browser origin, and the ADDRESS the discovery document advertises. The issuer
+   * spelling that used to be a third went with qits-730: the issuer is now {@code
+   * https://idp.qits.<domain>} with no {@code /idp} path, so {@code <issuer>/connect/cli} is not a
+   * page, and on a public installation the canonical origin entry already is the page it would
+   * have named.
    */
   private Set<String> cliPages() {
     Set<String> pages = new LinkedHashSet<>();
     pages.add(browserSso.canonicalOrigin() + prefix() + CLI_PAGE_PATH);
     pages.add(issuer.endpointBase() + CLI_PAGE_PATH);
-    pages.add(issuer.url() + CLI_PAGE_PATH);
     return pages;
   }
 
@@ -306,8 +304,8 @@ public class IdpWorkstationController {
    *
    * <p>It used to be read off the issuer, which held only while the issuer WAS that base. It is not
    * any more: the issuer is an identifier this service is known by and the base is the address it
-   * answers on. Both happen to carry {@code /idp} today, so this was a latent read rather than a
-   * live bug — the kind that becomes one the first time an identifier is spelled without a path.
+   * answers on. Both carried {@code /idp} until qits-730 spelled the issuer without a path, which
+   * is exactly when reading the prefix off it would have become a live bug.
    */
   private String prefix() {
     String path = URI.create(issuer.endpointBase()).getRawPath();

@@ -49,10 +49,9 @@
 #                           the only symptom is `invalid_client` in the caller's log. The client ids
 #                           are the names each service is DIALED by: prod-qits-ci,
 #                           qits-platform-artifacts, prod-qits-workspaces.
-#   QITS_IDP_ISSUER         the `iss` of every token and the base of every advertised endpoint.
-#                           Defaults to http://qits-platform-idp:8080/idp, which is what consumers
-#                           on qits-net use. Change it and EVERY consumer's configured issuer must
-#                           change with it; a mismatch is rejected at validation.
+#   QITS_DOMAIN             the platform's domain. The `iss` of every token is DERIVED from it —
+#                           https://idp.qits.<domain>, never configured (qits-730) — as is the
+#                           whole browser boundary. qits-deployments sets it on every container.
 #   QITS_OBSERVABILITY_URL  where OTLP export goes; absent qits-observability, the exporter logs a
 #                           warning per export loudly enough to bury real lines
 #                           (OTEL_SDK_DISABLED=true is the escape hatch).

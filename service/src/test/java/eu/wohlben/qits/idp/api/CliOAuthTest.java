@@ -38,9 +38,10 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The addresses are the SHIPPED ones, not test-only overrides. The canonical origin is
  * {@code http://localhost:8080} — what {@link PlatformDomain} derives with no domain stated — and
- * {@code qits.idp.issuer} is the platform-network name, and this suite pins both spellings of the
- * code page: an installation has two true names for itself and a CLI configured from the discovery
- * document knows only the second.
+ * the endpoint base is the platform-network address the discovery document advertises, and this
+ * suite pins both spellings of the code page: an installation answers on two addresses and a CLI
+ * configured from the discovery document knows only the second. The issuer is not a third: it is
+ * {@code https://idp.qits.<domain>} with no path (qits-730), so it names no page.
  */
 @QuarkusTest
 public class CliOAuthTest {
@@ -53,7 +54,10 @@ public class CliOAuthTest {
   /** The page a browser loads, built from the canonical origin. */
   private static final String PAGE = "http://localhost:8080/idp/connect/cli";
 
-  /** The same page named the way the discovery document names this service. */
+  /** The same page on the address the discovery document advertises. */
+  private static final String ADDRESS_PAGE = PublishedJwks.ENDPOINT_BASE + "/connect/cli";
+
+  /** The issuer with the page's path hung off it — a page this service does not serve. */
   private static final String ISSUER_PAGE = PublishedJwks.ISSUER + "/connect/cli";
 
   private static final String VERIFIER =
@@ -158,16 +162,37 @@ public class CliOAuthTest {
   }
 
   @Test
-  public void theIssuerSpellingOfThePageIsAcceptedToo() {
+  public void theAddressSpellingOfThePageIsAcceptedToo() {
     Sessions.Opened session = signedInSession();
-    String code = authorize(session.token(), ISSUER_PAGE, VERIFIER, null);
+    String code = authorize(session.token(), ADDRESS_PAGE, VERIFIER, null);
     // And it stays bound to the spelling it was approved with: the redirect URI is compared
     // byte-for-byte at exchange, so the two names are two grants rather than one.
     token(CLIENT, "authorization_code", PAGE, code, VERIFIER, null)
         .then()
         .statusCode(400)
         .body("error", equalTo("invalid_grant"));
-    token(CLIENT, "authorization_code", ISSUER_PAGE, code, VERIFIER, null).then().statusCode(200);
+    token(CLIENT, "authorization_code", ADDRESS_PAGE, code, VERIFIER, null).then().statusCode(200);
+  }
+
+  @Test
+  public void theIssuerIsNotASpellingOfThePage() {
+    Sessions.Opened session = signedInSession();
+    // The issuer is an identifier with no path since qits-730; <issuer>/connect/cli is not a page
+    // this service serves, so it is refused like any other foreign target.
+    given()
+        .redirects()
+        .follow(false)
+        .cookie(SessionCookie.NAME, session.token())
+        .queryParam("response_type", "code")
+        .queryParam("client_id", CLIENT)
+        .queryParam("redirect_uri", ISSUER_PAGE)
+        .queryParam("code_challenge", challenge(VERIFIER))
+        .queryParam("code_challenge_method", "S256")
+        .when()
+        .get("/idp/authorize")
+        .then()
+        .statusCode(400)
+        .body("error", equalTo("invalid_request"));
   }
 
   @Test

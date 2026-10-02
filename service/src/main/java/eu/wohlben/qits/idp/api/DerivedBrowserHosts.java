@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.PlatformHostname;
 import io.smallrye.config.ConfigSourceContext;
 import io.smallrye.config.ConfigSourceFactory;
 import io.smallrye.config.ConfigValue;
@@ -37,10 +38,11 @@ public class DerivedBrowserHosts implements ConfigSourceFactory {
 
   /**
    * The platform-wide name for the one stated fact. qits-deployments propagates it into every
-   * container; the bootstrap CLI takes it as {@code --domain}. This is the ONLY place this service
-   * reads it.
+   * container; the bootstrap CLI takes it as {@code --domain}. The browser boundary reads it only
+   * here; the one other reader is {@code Issuer}, which derives the token issuer from the same value
+   * through the same {@code PlatformHostname} normalisation.
    */
-  static final String QITS_DOMAIN = "QITS_DOMAIN";
+  static final String QITS_DOMAIN = PlatformHostname.QITS_DOMAIN;
 
   private static final int ORDINAL = 275;
 

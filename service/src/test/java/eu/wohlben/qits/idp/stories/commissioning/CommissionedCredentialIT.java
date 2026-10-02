@@ -222,7 +222,7 @@ public class CommissionedCredentialIT {
     // presented TO, because that is who fetches the JWKS in the real flow — not the minter.
     NetworkCapture.actor(StoryTarget.VALIDATOR);
     JwtClaims claims = PublishedJwks.verify(token, StoryTarget.ARTIFACTS_AUDIENCE);
-    assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the one configured issuer");
+    assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the one derived issuer");
     assertEquals(
         clientId, claims.getSubject(), "sub is the commissioned id, never the owner's");
     assertEquals(

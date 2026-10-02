@@ -80,7 +80,7 @@ The token is RS256, carries a `kid`, and says:
 
 | claim | value |
 |---|---|
-| `iss` | `qits.idp.issuer` |
+| `iss` | `https://idp.qits.<QITS_DOMAIN>` — derived from the domain, never configured |
 | `sub` | the client id |
 | `aud` | always a JSON array, always including `qits-platform` — see below |
 | `iat`, `exp`, `jti` | issued now, valid for `qits.idp.token-ttl-seconds` (3600 by default) |

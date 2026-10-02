@@ -1,6 +1,7 @@
 package eu.wohlben.qits.idp.control;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
@@ -10,28 +11,32 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * <p>They were one string for as long as the idp answered on one name. The {@code iss} of every
  * token was also the address a consumer dialled, so deriving {@code <issuer>/jwks} from it could
  * not be wrong. Deleting the platform plane ended that: the idp's bare alias {@code
- * qits-platform-idp} stopped resolving and its address became {@code <env>-qits-platform-idp},
- * while the issuer deliberately did NOT move — a string compared for equality cannot be covered by
- * a second DNS alias and cannot hold two values, so moving it would have rejected every token in
- * flight.
- *
- * <p><b>The discovery document kept deriving from the issuer through that change, which is the
- * defect this class exists to fix.</b> It advertised {@code jwks_uri} and {@code token_endpoint} on
- * a host that no longer resolves, so a consumer that had cached nothing — a service booting for the
- * first time — followed the document to an {@code UnknownHostException} and rolled back. A running
- * consumer never noticed, because its JWKS was already cached; only a fresh boot paid, which is why
- * this survived a working platform.
+ * qits-platform-idp} stopped resolving and its address became {@code <env>-qits-platform-idp}.
+ * The discovery document kept deriving its endpoints from the issuer through that change, so a
+ * consumer that had cached nothing followed it to an {@code UnknownHostException} and rolled back.
  *
  * <p>So: {@link #url()} is an IDENTIFIER and is compared, {@link #endpointBase()} is an ADDRESS and
  * is dialled. They are allowed to differ and on this platform they do. The one thing that must
  * still hold is that the {@code issuer} member of the discovery document and the {@code iss} of a
  * token are the same string, and both come from {@link #url()}.
+ *
+ * <p><b>The issuer is derived from the domain, never configured</b> (owner rule, qits-730): {@code
+ * https://idp.qits.<QITS_DOMAIN>}, see {@link PlatformHostname#issuer(String)}. A configurable
+ * issuer is a string some other service can be handed the wrong half of — an address read as an
+ * identifier refuses every machine token — and a derived one has exactly one value per domain.
  */
 @ApplicationScoped
 public class Issuer {
 
-  @ConfigProperty(name = "qits.idp.issuer")
-  String configured;
+  /**
+   * The issuer every token carried before qits-730 derived it, accepted on read for as long as such
+   * a token can still be alive (an hour). Goes in qits-730 wave 3, once no token carries it.
+   */
+  public static final String LEGACY = "http://qits-platform-idp:8080/idp";
+
+  /** The platform's domain, as qits-deployments states it. Nothing stated means a local build. */
+  @ConfigProperty(name = PlatformHostname.QITS_DOMAIN)
+  Optional<String> domain;
 
   /**
    * Where a consumer reaches this service, which is not necessarily what it is called.
@@ -43,9 +48,17 @@ public class Issuer {
   @ConfigProperty(name = "qits.idp.endpoint-base")
   String endpointBase;
 
-  /** The issuer string: {@code qits.idp.issuer} trimmed, with any trailing slash removed. */
+  /** The issuer string: {@code https://idp.qits.<domain>}, derived from {@code QITS_DOMAIN}. */
   public String url() {
-    return trimmed(configured);
+    return PlatformHostname.issuer(PlatformHostname.domainOrLocal(domain.orElse(null)));
+  }
+
+  /**
+   * Every {@code iss} a token this idp minted may carry: the derived issuer, and {@link #LEGACY}
+   * while tokens minted before the derivation can still be unexpired.
+   */
+  public String[] accepted() {
+    return new String[] {url(), LEGACY};
   }
 
   /**

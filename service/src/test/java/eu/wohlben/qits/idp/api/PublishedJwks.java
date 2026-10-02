@@ -23,10 +23,11 @@ import org.jose4j.keys.resolvers.JwksVerificationKeyResolver;
 public final class PublishedJwks {
 
   /**
-   * The issuer the shipped {@code qits.idp.issuer} default names, which the suite runs on. It is
-   * the {@code iss} claim and the discovery document's {@code issuer} member, and nothing dials it.
+   * The issuer derived from the domain — {@code https://idp.qits.<domain>} — with no {@code
+   * QITS_DOMAIN} stated, which is the suite's case. It is the {@code iss} claim and the discovery
+   * document's {@code issuer} member, nothing dials it, and nothing configures it (qits-730).
    */
-  public static final String ISSUER = "http://qits-platform-idp:8080/idp";
+  public static final String ISSUER = "https://idp.qits.localhost";
 
   /**
    * The address the shipped {@code qits.idp.endpoint-base} default names — every advertised

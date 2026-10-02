@@ -116,7 +116,7 @@ public class IdpPackagedSurfaceIT {
         .get("/idp/.well-known/openid-configuration")
         .then()
         .statusCode(200)
-        .body("issuer", equalTo("http://qits-platform-idp:8080/idp"))
+        .body("issuer", equalTo("https://idp.qits.localhost"))
         .body("jwks_uri", equalTo("http://dev-qits-platform-idp:8080/idp/jwks"));
 
     // qits-platform-edge routes by declared route and keeps the path, so there is no unprefixed

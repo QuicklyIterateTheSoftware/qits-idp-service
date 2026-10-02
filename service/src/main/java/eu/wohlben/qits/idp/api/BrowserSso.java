@@ -170,12 +170,12 @@ public class BrowserSso {
   /**
    * The origin a browser actually reaches this idp on — scheme and authority, no trailing slash.
    *
-   * <p><b>Not the issuer.</b> {@code qits.idp.issuer} is the address services dial over the
-   * platform network ({@code http://qits-platform-idp:8080/idp} in every deployment shipped so
-   * far), and no browser can resolve that name. Anything a person's browser is sent to — the
-   * sign-in bounce, and the CLI code page a {@code redirect_uri} may name — is built from this
-   * instead. Neither is taken from the request, which is the property that matters — the issuer is
-   * configuration and this one is derived from the stated domain ({@link
+   * <p><b>Not the issuer.</b> The issuer ({@code Issuer#url()}, {@code https://idp.qits.<domain>})
+   * is an identifier that tokens carry and nothing dials; on a public installation it happens to
+   * spell the same origin, locally it does not ({@code http://localhost:8080} here). Anything a
+   * person's browser is sent to — the sign-in bounce, and the CLI code page a {@code redirect_uri}
+   * may name — is built from this. Neither is taken from the request, which is the property that
+   * matters: both are derived from the stated domain ({@link
    * PlatformDomain#canonicalOrigin(String)}), and a browser's {@code Host} header reaches neither.
    */
   String canonicalOrigin() {

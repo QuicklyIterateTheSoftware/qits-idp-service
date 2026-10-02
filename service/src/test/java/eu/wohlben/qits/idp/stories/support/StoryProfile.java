@@ -89,9 +89,9 @@ import java.util.Map;
  * validate one, which would be a circular boot dependency the moment the signing-key load and the
  * commission call met. So there is no self-fetch to reach for here, and the {@code @TestProfile}'s
  * inability to know the launched port (it is computed before the process exists) costs this
- * catalogue nothing. It would cost the {@code qits.idp.issuer} seam something: an issuer pointed at
- * the launched process would let a story fetch the discovery document by following the advertised
- * absolute URL rather than by knowing the path. {@code BootstrapDocumentsIT} states that gap where
+ * catalogue nothing. It would cost the {@code qits.idp.endpoint-base} seam something: a base
+ * pointed at the launched process would let a story fetch the discovery document by following the
+ * advertised absolute URL rather than by knowing the path. {@code BootstrapDocumentsIT} states that gap where
  * it hits it.
  */
 public class StoryProfile implements QuarkusTestProfile {
