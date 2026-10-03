@@ -35,8 +35,12 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
  * {@code aud} includes {@link TokenService#PLATFORM_AUDIENCE} — which every token minted here
  * carries — and {@code exp} and {@code sub} are required.
  *
- * <p><b>Reads only.</b> No write route accepts a bearer: an agent keeps every read and gains no
- * write (user ruling 2026-09-12), and a write here moves a credential.
+ * <p><b>Reads only, with one exception.</b> No write route accepts a bearer: an agent keeps every
+ * read and gains no write (user ruling 2026-09-12), and a write here moves a credential. The one
+ * exception is {@code POST /idp/api/gc/service-clients} ({@code IdpGcController}, qits-878), and
+ * only for a {@code qits:system} bearer whose {@code sub} is itself a service client: that door can
+ * only remove credentials, never issue or change one, so a bearer there grants no new access. Do
+ * not widen that to any other write.
  */
 @ApplicationScoped
 public class BearerCaller {

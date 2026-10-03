@@ -143,6 +143,13 @@ verb there, GET included, requires `qits:system` and refuses `qits:agent` — mi
 own secret is not a thing an agent's context has any business doing, so `IdpServiceClientsController`
 calls `BasicCaller.staticOnly` rather than `requireAnyRole` throughout.
 
+**`POST /api/gc/service-clients` is the one write that takes a bearer** (qits-878,
+`IdpGcController`): a `qits:system` bearer from this idp whose `sub` is a service client, beside the
+usual Basic pair. It is safe there and nowhere else because the door can only remove credentials —
+the service clients no `GET /deployments/api/claims/idp-clients` claim names, past a six-hour grace,
+never the caller's own (`UnclaimedServiceClientCollector`). An empty claim set is a 400 that
+deletes nothing. Do not let that bearer reach any other write.
+
 **`BasicCaller.SYSTEM`'s VALUE is `qits:system`** — the open calling model's one
 service-to-service role, which is what every service client's fixed roles are. No service client
 holds `qits:admin`, and nothing here mints `qits-platform:system`. The constant's name is the seam it gates (the
