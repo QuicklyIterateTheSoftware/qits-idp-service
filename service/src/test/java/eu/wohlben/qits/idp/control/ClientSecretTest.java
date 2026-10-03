@@ -1,10 +1,12 @@
 package eu.wohlben.qits.idp.control;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -66,5 +68,34 @@ public class ClientSecretTest {
     ClientSecret secret = ClientSecret.serviceClient(ClientSecret.hash("only"), null, null, null);
     assertFalse(secret.matches(null), "a null candidate never matches");
     assertTrue(secret.usable());
+  }
+
+  @Test
+  public void matchNamesWhichSourceAcceptedEachHash() {
+    ClientSecret secret =
+        ClientSecret.serviceClient(
+            ClientSecret.hash("current"),
+            ClientSecret.hash("previous"),
+            Instant.now().plus(15, ChronoUnit.MINUTES),
+            ClientSecret.hash("environment"));
+
+    assertEquals(Optional.of(ClientSecret.Source.CURRENT), secret.match("current"));
+    assertEquals(Optional.of(ClientSecret.Source.PREVIOUS), secret.match("previous"));
+    assertEquals(Optional.of(ClientSecret.Source.LEGACY), secret.match("environment"));
+    assertEquals(Optional.empty(), secret.match("wrong"), "no hash accepts this");
+  }
+
+  @Test
+  public void matchIsEmptyOnceThePreviousHashHasExpired() {
+    ClientSecret secret =
+        ClientSecret.serviceClient(
+            ClientSecret.hash("current"),
+            ClientSecret.hash("previous"),
+            Instant.now().minus(1, ChronoUnit.SECONDS),
+            null);
+
+    assertEquals(Optional.of(ClientSecret.Source.CURRENT), secret.match("current"));
+    assertEquals(
+        Optional.empty(), secret.match("previous"), "the grace window (D4) has closed");
   }
 }

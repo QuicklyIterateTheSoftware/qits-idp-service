@@ -8,6 +8,8 @@ import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
 /**
@@ -33,11 +35,27 @@ import org.jboss.logging.Logger;
  * <p><b>The commission's context kind and Git refs ride along</b> on the {@link IdpClient}, and
  * {@link TokenService} stamps them as {@code context_kind} and {@code git_refs}. A service client
  * has neither, so its token carries neither.
+ *
+ * <p><b>Which secret a service client authenticated with is logged once per boot</b> (qits-880,
+ * release 1): {@code service client &lt;id&gt; authenticated with its &lt;current|previous|kept
+ * environment&gt; secret}. The point is to prove, before release 2 retires the legacy hash {@link
+ * ClientSecret} still carries for the environment registry qits-163 retired, that no service
+ * client still presents that kept secret rather than its database one. Commissioned clients are
+ * not logged here: they are many and ephemeral, and {@link ClientSecret#stored} never carries more
+ * than one source anyway.
  */
 @ApplicationScoped
 public class ClientRegistry {
 
   private static final Logger LOG = Logger.getLogger(ClientRegistry.class);
+
+  /**
+   * {@code clientId + "\0" + source}, once logged. Bounded by the number of live service clients
+   * times three sources — nowhere near the churn a cache eviction policy would be worth guarding
+   * against — and reset only by a restart, which is the point: one line per secret a process has
+   * ever seen accepted.
+   */
+  private final Set<String> loggedServiceClientSecrets = ConcurrentHashMap.newKeySet();
 
   /**
    * A service client's fixed roles (D3): {@code qits:system}, the open calling model's
@@ -87,7 +105,9 @@ public class ClientRegistry {
    */
   public IdpClient authenticate(String clientId, String secret) {
     IdpClient client = find(clientId).orElse(null);
-    if (client == null || !client.secretMatches(secret)) {
+    Optional<ClientSecret.Source> matched =
+        client == null ? Optional.empty() : client.secretMatch(secret);
+    if (client == null || matched.isEmpty()) {
       LOG.warnf(
           "client authentication failed for %s: %s",
           LoggableClientId.of(clientId),
@@ -96,7 +116,17 @@ public class ClientRegistry {
               : (client.usable() ? "wrong secret" : "no secret configured"));
       throw OAuthException.invalidClient("client authentication failed");
     }
+    if (isServiceClient(clientId)) {
+      logServiceClientSecretOnce(clientId, matched.get());
+    }
     return client;
+  }
+
+  /** The once-per-process line {@link #authenticate}'s class javadoc documents. */
+  private void logServiceClientSecretOnce(String clientId, ClientSecret.Source source) {
+    if (loggedServiceClientSecrets.add(clientId + "\0" + source)) {
+      LOG.infof("service client %s authenticated with its %s secret", clientId, source.label());
+    }
   }
 
   /** A service client: fixed roles and claims in code, the database's secret rule. */

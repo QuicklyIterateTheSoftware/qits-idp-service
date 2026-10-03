@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A client's shared secret, and the one operation anything here needs from it: does a presented
@@ -35,14 +36,38 @@ import java.util.List;
  * {@link java.security.SecureRandom} and is never chosen by anyone, so there is no guessing to slow
  * down — only a cost on the token path, which is the platform's whole call graph. A one-way
  * function is what the row needs and all it needs.
+ *
+ * <p><b>Which hash matched is now reported, not just whether one did</b> (qits-880, release 1):
+ * {@link #match} names the {@link Source}, so {@link ClientRegistry} can log it. The point is to
+ * prove, before qits-880's release 2 retires the legacy hash for good, that no service client still
+ * presents the kept environment secret rather than its database one — a thing "it authenticated"
+ * alone cannot show.
  */
 public final class ClientSecret {
 
   /** Names the scheme in the stored value, so a second one can be added without a migration. */
   private static final String SHA256_PREFIX = "sha-256:";
 
+  /** Which of a service client's up-to-three hashes matched, and the label a log line uses for it. */
+  public enum Source {
+    CURRENT("current"),
+    PREVIOUS("previous"),
+    LEGACY("kept environment");
+
+    private final String label;
+
+    Source(String label) {
+      this.label = label;
+    }
+
+    /** The word {@code <current|previous|kept environment>} takes in the log line. */
+    public String label() {
+      return label;
+    }
+  }
+
   /** One hash this secret accepts, and until when — null means no expiry. */
-  private record Hash(String value, Instant validUntil) {
+  private record Hash(String value, Instant validUntil, Source source) {
     boolean live(Instant now) {
       return validUntil == null || validUntil.isAfter(now);
     }
@@ -56,7 +81,8 @@ public final class ClientSecret {
 
   /** A commissioned client's secret, as the row holds it. No previous hash: commissions never rotate. */
   public static ClientSecret stored(String hash) {
-    return new ClientSecret(hash == null ? List.of() : List.of(new Hash(hash, null)));
+    return new ClientSecret(
+        hash == null ? List.of() : List.of(new Hash(hash, null, Source.CURRENT)));
   }
 
   /**
@@ -75,13 +101,13 @@ public final class ClientSecret {
       String currentHash, String previousHash, Instant previousValidUntil, String legacyHash) {
     List<Hash> hashes = new ArrayList<>(3);
     if (currentHash != null && !currentHash.isBlank()) {
-      hashes.add(new Hash(currentHash, null));
+      hashes.add(new Hash(currentHash, null, Source.CURRENT));
     }
     if (previousHash != null && !previousHash.isBlank() && previousValidUntil != null) {
-      hashes.add(new Hash(previousHash, previousValidUntil));
+      hashes.add(new Hash(previousHash, previousValidUntil, Source.PREVIOUS));
     }
     if (legacyHash != null && !legacyHash.isBlank()) {
-      hashes.add(new Hash(legacyHash, null));
+      hashes.add(new Hash(legacyHash, null, Source.LEGACY));
     }
     return new ClientSecret(List.copyOf(hashes));
   }
@@ -102,17 +128,25 @@ public final class ClientSecret {
 
   /** Whether {@code candidate} is this secret, by any live source. False when {@link #usable()} is false. */
   public boolean matches(String candidate) {
+    return match(candidate).isPresent();
+  }
+
+  /**
+   * Which live source {@code candidate} matched, or empty when none did — unknown, wrong, or a
+   * hash whose grace has expired. Constant-time per hash, via {@link #equal}.
+   */
+  public Optional<Source> match(String candidate) {
     if (candidate == null || hashes.isEmpty()) {
-      return false;
+      return Optional.empty();
     }
     String candidateHash = hash(candidate);
     Instant now = Instant.now();
     for (Hash hash : hashes) {
       if (hash.live(now) && equal(hash.value(), candidateHash)) {
-        return true;
+        return Optional.of(hash.source());
       }
     }
-    return false;
+    return Optional.empty();
   }
 
   private static boolean equal(String one, String other) {

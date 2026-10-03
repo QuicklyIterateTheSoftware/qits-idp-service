@@ -2,6 +2,7 @@ package eu.wohlben.qits.idp.control;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * One client the idp will issue for: its id, its shared secret, its roles, and the structured
@@ -49,5 +50,14 @@ public record IdpClient(
    */
   public boolean secretMatches(String candidate) {
     return secret != null && secret.matches(candidate);
+  }
+
+  /**
+   * Which of this client's live hashes {@code candidate} matched, or empty when none did. Same
+   * rule as {@link #secretMatches}, naming the {@link ClientSecret.Source} instead of a boolean —
+   * see {@link ClientRegistry#authenticate} for why that is worth knowing.
+   */
+  public Optional<ClientSecret.Source> secretMatch(String candidate) {
+    return secret == null ? Optional.empty() : secret.match(candidate);
   }
 }
