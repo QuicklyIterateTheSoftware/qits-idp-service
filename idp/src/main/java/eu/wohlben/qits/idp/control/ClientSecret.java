@@ -37,22 +37,25 @@ import java.util.Optional;
  * down — only a cost on the token path, which is the platform's whole call graph. A one-way
  * function is what the row needs and all it needs.
  *
- * <p><b>Which hash matched is now reported, not just whether one did</b> (qits-880, release 1):
- * {@link #match} names the {@link Source}, so {@link ClientRegistry} can log it. The point is to
- * prove, before qits-880's release 2 retires the legacy hash for good, that no service client still
- * presents the kept environment secret rather than its database one — a thing "it authenticated"
- * alone cannot show.
+ * <p><b>Which hash matched is reported, not just whether one did</b> (qits-880, release 1):
+ * {@link #match} names the {@link Source}, so {@link ClientRegistry} can log it.
+ *
+ * <p><b>There used to be a third hash, and qits-880's release 2 retired it.</b> qits-163's hotfix
+ * kept an environment client's old environment secret as {@code legacy_secret_hash} on its row and
+ * accepted it here with no expiry. Release 1 logged which source each service client
+ * authenticated with, to show nothing still presented that kept secret; release 2 stopped reading
+ * the column. The column and its data stay — V11 is applied, and a rollback to release 1 must find
+ * them intact to accept the kept secret again — but nothing here trusts them any more.
  */
 public final class ClientSecret {
 
   /** Names the scheme in the stored value, so a second one can be added without a migration. */
   private static final String SHA256_PREFIX = "sha-256:";
 
-  /** Which of a service client's up-to-three hashes matched, and the label a log line uses for it. */
+  /** Which of a service client's up-to-two hashes matched, and the label a log line uses for it. */
   public enum Source {
     CURRENT("current"),
-    PREVIOUS("previous"),
-    LEGACY("kept environment");
+    PREVIOUS("previous");
 
     private final String label;
 
@@ -60,7 +63,7 @@ public final class ClientSecret {
       this.label = label;
     }
 
-    /** The word {@code <current|previous|kept environment>} takes in the log line. */
+    /** The word {@code <current|previous>} takes in the log line. */
     public String label() {
       return label;
     }
@@ -94,20 +97,15 @@ public final class ClientSecret {
    *     the grace has already been dropped from the row
    * @param previousValidUntil when {@code previousHash} stops being accepted; ignored when {@code
    *     previousHash} is null
-   * @param legacyHash the environment secret a row kept when the environment registry was retired
-   *     (qits-163), or null; no expiry, a rotation clears it from the row
    */
   public static ClientSecret serviceClient(
-      String currentHash, String previousHash, Instant previousValidUntil, String legacyHash) {
-    List<Hash> hashes = new ArrayList<>(3);
+      String currentHash, String previousHash, Instant previousValidUntil) {
+    List<Hash> hashes = new ArrayList<>(2);
     if (currentHash != null && !currentHash.isBlank()) {
       hashes.add(new Hash(currentHash, null, Source.CURRENT));
     }
     if (previousHash != null && !previousHash.isBlank() && previousValidUntil != null) {
       hashes.add(new Hash(previousHash, previousValidUntil, Source.PREVIOUS));
-    }
-    if (legacyHash != null && !legacyHash.isBlank()) {
-      hashes.add(new Hash(legacyHash, null, Source.LEGACY));
     }
     return new ClientSecret(List.copyOf(hashes));
   }

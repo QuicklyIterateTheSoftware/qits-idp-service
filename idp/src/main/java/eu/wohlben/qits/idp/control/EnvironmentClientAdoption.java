@@ -32,19 +32,18 @@ import org.jboss.logging.Logger;
  * transaction. The client keeps working with the secret it already has, and from then on it is an
  * ordinary database service client: {@code qits:system}, {@code clients/<id>}, {@code project=*}.
  *
- * <p><b>An id that already had a row keeps that row, and keeps its environment secret too.</b>
- * Before qits-163 such an id authenticated with either secret, and its caller may well hold the
- * environment one — live, {@code dev-qits-edge} did, and lost every token the moment the registry
- * went. So when the environment secret matches neither of the row's own hashes, its hash goes into
- * {@code legacy_secret_hash}, which {@link ClientSecret#serviceClient} accepts beside them until the
- * next rotation clears it. An installation that already ran the adoption before that column existed
- * runs this pass on its own, once, guarded by {@code idp_adoption.legacy_adopted_at}; a first
- * adoption does both in one transaction.
+ * <p><b>An id that already had a row keeps that row, and only that row's own secret.</b> qits-163's
+ * hotfix used to keep such an id's environment secret too, as {@code legacy_secret_hash} — live,
+ * {@code dev-qits-edge} still held the environment one and lost every token the moment the registry
+ * went — with a second pass guarded by {@code idp_adoption.legacy_adopted_at}. qits-880's release 2
+ * retired both: nothing accepts the kept secret any more ({@link ClientSecret}), so nothing here
+ * writes it, and the second pass is gone. The columns stay, unread and unwritten, because V11 is
+ * applied and a rollback to release 1 needs their data intact.
  *
- * <p><b>What it leaves alone.</b> A row whose environment secret already matches. An id
- * with no secret is skipped, because it could never authenticate. An id that is not a valid service
- * client id is skipped with a warning. And once the marker exists, nothing here runs again, even if
- * a later boot still sets the variables.
+ * <p><b>What it leaves alone.</b> Every existing row. An id with no secret is skipped, because it
+ * could never authenticate. An id that is not a valid service client id is skipped with a warning.
+ * And once the marker exists, nothing here runs again, even if a later boot still sets the
+ * variables.
  *
  * <p><b>The keys are read exactly as the retired {@code IdpClients} read them</b>: {@code
  * Config.getOptionalValues("qits.idp.clients")} and {@code
@@ -81,12 +80,10 @@ public class EnvironmentClientAdoption {
   void adoptOnce() {
     // A cheap read on every boot after the first, so the configuration is not even looked at once
     // the marker exists.
-    if (DbRetry.inNewTx("check idp adoption marker", markerRepository::complete)) {
+    if (DbRetry.inNewTx("check idp adoption marker", markerRepository::adopted)) {
       return;
     }
-    Map<String, String> secrets = configuredSecrets();
-    adopt(secrets);
-    keepEnvironmentSecrets(secrets);
+    adopt(configuredSecrets());
   }
 
   /**
@@ -100,7 +97,6 @@ public class EnvironmentClientAdoption {
    * @return the ids that got a row, in list order; empty when the marker was already there
    */
   List<String> adopt(Map<String, String> secrets) {
-    Map<String, String> plaintexts = new LinkedHashMap<>();
     Map<String, String> hashes = new LinkedHashMap<>();
     secrets.forEach(
         (id, secret) -> {
@@ -113,11 +109,9 @@ public class EnvironmentClientAdoption {
                 LoggableClientId.of(id));
             return;
           }
-          plaintexts.put(id, secret);
           hashes.put(id, ClientSecret.hash(secret));
         });
     Instant now = Instant.now();
-    List<String> kept = new ArrayList<>();
     List<String> adopted =
         DbRetry.inNewTx(
             "adopt environment service clients",
@@ -128,14 +122,9 @@ public class EnvironmentClientAdoption {
                 return null;
               }
               List<String> inserted = new ArrayList<>();
-              kept.clear();
               hashes.forEach(
                   (id, hash) -> {
-                    IdpServiceClient existing = repository.findById(id);
-                    if (existing != null) {
-                      if (keepIfMismatched(existing, plaintexts.get(id))) {
-                        kept.add(id);
-                      }
+                    if (repository.findById(id) != null) {
                       return;
                     }
                     IdpServiceClient row = new IdpServiceClient();
@@ -149,94 +138,17 @@ public class EnvironmentClientAdoption {
               IdpAdoption marker = new IdpAdoption();
               marker.id = IdpAdoptionRepository.ID;
               marker.adoptedAt = now;
-              marker.legacyAdoptedAt = now;
               markerRepository.persist(marker);
               return inserted;
             });
     if (adopted == null) {
       return List.of();
     }
-    logKept(kept);
     LOG.infof(
         "adopted %d environment service client(s) into the database: %s",
         adopted.size(),
         String.join(",", adopted.stream().map(LoggableClientId::of).toList()));
     return List.copyOf(adopted);
-  }
-
-  /**
-   * The second pass on its own, for an installation whose adoption ran before {@code
-   * legacy_secret_hash} existed: every configured id whose row's own hashes do not match its
-   * environment secret gets that secret's hash as {@code legacy_secret_hash}. Runs once, guarded by
-   * {@code idp_adoption.legacy_adopted_at}; does nothing when the marker row is absent, because then
-   * {@link #adopt} has not run and does this pass itself.
-   *
-   * <p>Package-visible for {@code EnvironmentClientAdoptionTest}, for the same reason as {@link
-   * #adopt}.
-   *
-   * @return the ids that got a legacy hash, in list order; empty when the pass already ran
-   */
-  List<String> keepEnvironmentSecrets(Map<String, String> secrets) {
-    Map<String, String> plaintexts = new LinkedHashMap<>();
-    secrets.forEach(
-        (id, secret) -> {
-          if (secret != null && !secret.isBlank() && validId(id)) {
-            plaintexts.put(id, secret);
-          }
-        });
-    Instant now = Instant.now();
-    List<String> kept =
-        DbRetry.inNewTx(
-            "keep environment secrets of existing service clients",
-            () -> {
-              // Re-checked inside the write, like the first pass.
-              IdpAdoption marker = markerRepository.findById(IdpAdoptionRepository.ID);
-              if (marker == null || marker.legacyAdoptedAt != null) {
-                return null;
-              }
-              List<String> updated = new ArrayList<>();
-              plaintexts.forEach(
-                  (id, secret) -> {
-                    IdpServiceClient row = repository.findById(id);
-                    if (row != null && keepIfMismatched(row, secret)) {
-                      updated.add(id);
-                    }
-                  });
-              marker.legacyAdoptedAt = now;
-              return updated;
-            });
-    if (kept == null) {
-      return List.of();
-    }
-    logKept(kept);
-    return List.copyOf(kept);
-  }
-
-  /**
-   * Set {@code legacy_secret_hash} when {@code secret} matches neither of the row's own live hashes,
-   * judged by the same {@link ClientSecret#serviceClient} the token path uses. Inside the caller's
-   * transaction; the row is managed, so the assignment is the write.
-   *
-   * @return whether the row got a legacy hash
-   */
-  private static boolean keepIfMismatched(IdpServiceClient row, String secret) {
-    if (ClientSecret.serviceClient(
-            row.secretHash, row.previousSecretHash, row.previousValidUntil, null)
-        .matches(secret)) {
-      return false;
-    }
-    row.legacySecretHash = ClientSecret.hash(secret);
-    return true;
-  }
-
-  private static void logKept(List<String> kept) {
-    if (kept.isEmpty()) {
-      return;
-    }
-    LOG.infof(
-        "kept the environment secret of %d service client(s) that already had a database row: %s",
-        kept.size(),
-        String.join(",", kept.stream().map(LoggableClientId::of).toList()));
   }
 
   /** Every id on {@code qits.idp.clients}, with its configured secret or null. */

@@ -15,10 +15,4 @@ public class IdpAdoptionRepository implements PanacheRepositoryBase<IdpAdoption,
   public boolean adopted() {
     return findById(ID) != null;
   }
-
-  /** Whether both passes ran: the marker exists and carries {@code legacy_adopted_at}. */
-  public boolean complete() {
-    IdpAdoption marker = findById(ID);
-    return marker != null && marker.legacyAdoptedAt != null;
-  }
 }

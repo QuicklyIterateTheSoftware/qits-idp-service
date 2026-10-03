@@ -21,7 +21,7 @@ public class ClientSecretTest {
   @Test
   public void aDatabaseServiceClientAcceptsItsCurrentHash() {
     ClientSecret secret =
-        ClientSecret.serviceClient(ClientSecret.hash("current"), null, null, null);
+        ClientSecret.serviceClient(ClientSecret.hash("current"), null, null);
     assertTrue(secret.matches("current"));
     assertFalse(secret.matches("wrong"));
   }
@@ -32,8 +32,7 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().plus(15, ChronoUnit.MINUTES),
-            null);
+            Instant.now().plus(15, ChronoUnit.MINUTES));
 
     assertTrue(secret.matches("current"), "the fresh secret");
     assertTrue(secret.matches("previous"), "the rotated-out one, still inside its grace");
@@ -45,27 +44,15 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().minus(1, ChronoUnit.SECONDS),
-            null);
+            Instant.now().minus(1, ChronoUnit.SECONDS));
 
     assertTrue(secret.matches("current"));
     assertFalse(secret.matches("previous"), "the grace window (D4) has closed");
   }
 
   @Test
-  public void aKeptEnvironmentSecretAuthenticatesBesideTheDatabaseOne() {
-    ClientSecret secret =
-        ClientSecret.serviceClient(
-            ClientSecret.hash("current"), null, null, ClientSecret.hash("environment"));
-
-    assertTrue(secret.matches("current"), "the row's own secret");
-    assertTrue(secret.matches("environment"), "the environment secret it kept (qits-163)");
-    assertFalse(secret.matches("wrong"));
-  }
-
-  @Test
   public void aNullCandidateNeverMatches() {
-    ClientSecret secret = ClientSecret.serviceClient(ClientSecret.hash("only"), null, null, null);
+    ClientSecret secret = ClientSecret.serviceClient(ClientSecret.hash("only"), null, null);
     assertFalse(secret.matches(null), "a null candidate never matches");
     assertTrue(secret.usable());
   }
@@ -76,12 +63,10 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().plus(15, ChronoUnit.MINUTES),
-            ClientSecret.hash("environment"));
+            Instant.now().plus(15, ChronoUnit.MINUTES));
 
     assertEquals(Optional.of(ClientSecret.Source.CURRENT), secret.match("current"));
     assertEquals(Optional.of(ClientSecret.Source.PREVIOUS), secret.match("previous"));
-    assertEquals(Optional.of(ClientSecret.Source.LEGACY), secret.match("environment"));
     assertEquals(Optional.empty(), secret.match("wrong"), "no hash accepts this");
   }
 
@@ -91,8 +76,7 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().minus(1, ChronoUnit.SECONDS),
-            null);
+            Instant.now().minus(1, ChronoUnit.SECONDS));
 
     assertEquals(Optional.of(ClientSecret.Source.CURRENT), secret.match("current"));
     assertEquals(

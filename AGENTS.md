@@ -185,12 +185,13 @@ listed for adoption with no secret.
   skipped and existing rows untouched. The keys are read with raw `Config` lookups in that class
   alone — the same lookups the retired `IdpClients` made, so the env spellings
   (`QITS_IDP_CLIENT_DEV_QITS_CI_SECRET`) resolve as before — and never again once the marker exists.
-  It is the only reader of those keys; do not add another. **An existing row whose own hashes do not
-  match its environment secret gets that secret's hash as `legacy_secret_hash` (V11)**, accepted
-  beside the row's own by `ClientSecret.serviceClient`: the retired registry accepted either, and the
-  live edge still held the environment one. A rotation clears it — that is how it retires. The pass
-  is guarded by `idp_adoption.legacy_adopted_at`, set by a first adoption in the same transaction or
-  by `keepEnvironmentSecrets` on an installation that adopted before V11.
+  It is the only reader of those keys; do not add another. **qits-163's hotfix also kept an existing
+  row's mismatched environment secret as `legacy_secret_hash` (V11)**, accepted with no expiry and
+  guarded by `idp_adoption.legacy_adopted_at`; **qits-880's release 2 retired it**: nothing accepts,
+  reads or writes either column any more (release 1 logged which secret each service client
+  authenticated with, to prove nobody still presented the kept one). The columns and their data stay
+  — V11 is applied, and a rollback to release 1 accepts the kept secret again only if the data is
+  intact — so never null them out, and do not drop them without a migration of their own.
 
 ## Package and module conventions
 
@@ -317,7 +318,8 @@ kind column on `idp_client`, because a service client has no owner and no contex
 environment clients were moved into `idp_service_client` (qits-163, `EnvironmentClientAdoption`).
 V8's header still talks about environment clients; it is applied, so it stays as it is. **V11 adds
 `idp_service_client.legacy_secret_hash` and `idp_adoption.legacy_adopted_at`** — the environment
-secret a pre-existing row keeps until its next rotation, and the marker for that second pass.
+secret a pre-existing row kept, and the marker for that second pass. Neither is read or written
+since qits-880's release 2; both stay mapped so the entities still match the schema.
 
 **One column set in V3 is not a design and must not be treated as one.** `idp_webauthn_credential`
 is exactly `WebAuthnCredentialRecord.RequiredPersistedData` from quarkus-security-webauthn, read off

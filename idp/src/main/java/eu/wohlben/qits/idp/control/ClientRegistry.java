@@ -37,12 +37,12 @@ import org.jboss.logging.Logger;
  * has neither, so its token carries neither.
  *
  * <p><b>Which secret a service client authenticated with is logged once per boot</b> (qits-880,
- * release 1): {@code service client <id> authenticated with its <current|previous|kept
- * environment> secret}. The point is to prove, before release 2 retires the legacy hash {@link
- * ClientSecret} still carries for the environment registry qits-163 retired, that no service
- * client still presents that kept secret rather than its database one. Commissioned clients are
- * not logged here: they are many and ephemeral, and {@link ClientSecret#stored} never carries more
- * than one source anyway.
+ * release 1): {@code service client <id> authenticated with its <current|previous> secret}. It was
+ * added to prove that no service client still presented the environment secret qits-163 kept as
+ * {@code legacy_secret_hash}; release 2 stopped accepting that one (see {@link ClientSecret}), and
+ * the line stays because which of a rotation's two secrets a caller still presents is worth seeing
+ * on its own. Commissioned clients are not logged here: they are many and ephemeral, and {@link
+ * ClientSecret#stored} never carries more than one source anyway.
  */
 @ApplicationScoped
 public class ClientRegistry {
@@ -51,7 +51,7 @@ public class ClientRegistry {
 
   /**
    * {@code clientId + "\0" + source}, once logged. Bounded by the number of live service clients
-   * times three sources — nowhere near the churn a cache eviction policy would be worth guarding
+   * times two sources — nowhere near the churn a cache eviction policy would be worth guarding
    * against — and reset only by a restart, which is the point: one line per secret a process has
    * ever seen accepted.
    */
@@ -133,8 +133,7 @@ public class ClientRegistry {
   private static IdpClient asServiceClient(StoredServiceClient db) {
     return new IdpClient(
         db.clientId(),
-        ClientSecret.serviceClient(
-            db.secretHash(), db.previousSecretHash(), db.previousValidUntil(), db.legacySecretHash()),
+        ClientSecret.serviceClient(db.secretHash(), db.previousSecretHash(), db.previousValidUntil()),
         SERVICE_CLIENT_ROLES,
         SERVICE_CLIENT_CLAIMS,
         null,

@@ -26,9 +26,11 @@ public class IdpAdoption extends PanacheEntityBase {
   public Instant adoptedAt;
 
   /**
-   * When the second pass ran: an id whose existing row did not match its environment secret got
-   * that secret's hash as {@code legacy_secret_hash}. Null: not yet, which is the state every
-   * installation that ran V10's adoption before this column existed starts in.
+   * When qits-163's second pass ran: an id whose existing row did not match its environment secret
+   * got that secret's hash as {@code legacy_secret_hash}. Nothing reads or writes it since qits-880's
+   * release 2 retired that pass; it is mapped only because V11 created the column and the mapping
+   * keeps the entity matching the schema. A rollback to release 1 reads it again — null there means
+   * the pass runs once.
    */
   @Column(name = "legacy_adopted_at")
   public Instant legacyAdoptedAt;

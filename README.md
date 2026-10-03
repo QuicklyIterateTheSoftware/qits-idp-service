@@ -210,18 +210,19 @@ secret:
 
     adopted 2 environment service client(s) into the database: dev-qits-ci,dev-qits-workspaces
 
-**An id that already had a row keeps accepting its environment secret.** Before qits-163 such an id
-authenticated with either secret, and its caller may still hold the environment one — live,
-`dev-qits-edge` did, and got `invalid_client` the moment the registry went. So when the environment
-secret matches neither of the row's own hashes, its hash is stored as `legacy_secret_hash` (V11) and
-accepted beside them. **The next rotation clears it**: after `POST
-/idp/api/service-clients/{id}/secret` the caller holds a database secret and only that works. An
-installation that adopted before V11 runs this pass once on its own, guarded by
-`idp_adoption.legacy_adopted_at`, and logs ids only:
+**An id that already had a row authenticates only with that row's own secret.** qits-163's hotfix
+used to keep such an id's mismatched environment secret as `legacy_secret_hash` (V11), accepted with
+no expiry — live, `dev-qits-edge` still held the environment one. qits-880 retired it in two
+releases: release 1 logged which secret each service client authenticated with,
 
-    kept the environment secret of 1 service client(s) that already had a database row: dev-qits-edge
+    service client dev-qits-edge authenticated with its current secret
 
-Once the marker is complete nothing reads those keys again. The `audiences`, `roles` and
+once per secret per boot, to prove nothing still presented the kept one; release 2 stopped accepting
+it. The line stays, naming `current` or `previous`. The `legacy_secret_hash` and
+`idp_adoption.legacy_adopted_at` columns stay too, unread and unwritten, so that a rollback to
+release 1 finds the data it would accept.
+
+Once the marker exists nothing reads those keys again. The `audiences`, `roles` and
 `claims.<name>` keys are not read at all.
 
 ### Commissioned clients

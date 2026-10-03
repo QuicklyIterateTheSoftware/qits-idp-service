@@ -44,7 +44,9 @@ public class IdpServiceClient extends PanacheEntityBase {
   /**
    * The hash of the environment secret this client still held when the environment registry was
    * retired, for a row that existed before that and whose own hashes did not match it (qits-163).
-   * Accepted beside {@link #secretHash} until the next rotation clears it. Null for every other row.
+   * <b>No longer accepted, read or written</b> since qits-880's release 2: it is mapped only because
+   * V11 created the column and the mapping keeps the entity matching the schema. The data is left
+   * untouched on purpose, so a rollback to release 1 accepts it again.
    */
   @Column(name = "legacy_secret_hash", length = 255)
   public String legacySecretHash;

@@ -63,7 +63,6 @@ public class ServiceClients {
       String secretHash,
       String previousSecretHash,
       Instant previousValidUntil,
-      String legacySecretHash,
       String createdBy,
       Instant createdAt,
       Instant rotatedAt) {}
@@ -160,8 +159,11 @@ public class ServiceClients {
   /**
    * Replace the secret. The old hash becomes {@code previous_secret_hash}, valid for {@link
    * #PREVIOUS_SECRET_GRACE} (D4) — a start-first rollback to the predecessor container must not be
-   * locked out the moment its successor rotates. A kept environment secret ({@code
-   * legacy_secret_hash}, qits-163) is cleared outright: it gets no grace.
+   * locked out the moment its successor rotates.
+   *
+   * <p>{@code legacy_secret_hash} (qits-163) is deliberately left as it is. Nothing accepts it since
+   * qits-880's release 2, and nothing here writes it either: an untouched column is what lets a
+   * rollback to release 1, which did accept it, accept it again.
    *
    * @return empty when there is no such row
    */
@@ -181,9 +183,6 @@ public class ServiceClients {
               row.previousValidUntil = now.plus(PREVIOUS_SECRET_GRACE);
               row.secretHash = newHash;
               row.rotatedAt = now;
-              // The kept environment secret (qits-163) is retired by the first rotation: the
-              // caller now holds a database secret, and the old one has no reason left to work.
-              row.legacySecretHash = null;
               return toStored(row);
             });
     if (updated == null) {
@@ -289,7 +288,6 @@ public class ServiceClients {
         row.secretHash,
         row.previousSecretHash,
         row.previousValidUntil,
-        row.legacySecretHash,
         row.createdBy,
         row.createdAt,
         row.rotatedAt);
