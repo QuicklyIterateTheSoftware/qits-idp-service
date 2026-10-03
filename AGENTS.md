@@ -19,14 +19,13 @@ about the client can be proven by a `@QuarkusTest` (see `IdpPackagedSurfaceIT`).
 **The one thing it now needs besides Maven Central** is the platform's own Maven repository, for
 `qits-db-core` and `qits-arch-rules` — the patient driver every connection opens through, and the
 test that refuses to let the datasource baseline go missing. `<repositories>` in the root pom points
-at `${qits.maven.repository.url}` (the developer-host address by default); the image build overrides
-it with `--build-arg QITS_MAVEN_REPOSITORY_URL`, and `.qits-maven-settings.xml` mirrors the
-`qits-maven` repository id onto that address — an exact id match, which is what gets past Maven's
-`external:http:*` blocker without permitting arbitrary HTTP repositories. The build runs on the
-platform builder now (`build: true` + buildctl, the wrapper's qits-buildkit-plan.md), whose RUNs
-execute on the platform network — so the address the build-arg carries is `$QITS_MAVEN_REGISTRY_URL`
-and no host networking is involved. Those three files move together; a third platform jar needs
-none of them again.
+at `${qits.maven.repository.url}` (`https://registry.qits.wohlben.eu/artifacts/maven/maven` by
+default), which answers 401 without the commissioned client; `.qits-maven-settings.xml` mirrors the
+`qits-maven` repository id onto it — an exact id match, which is what gets past Maven's
+`external:http:*` blocker without permitting arbitrary HTTP repositories. `docker/Dockerfile` derives
+both that address and Central's from the one `QITS_DOMAIN` build-arg the CI recipe passes
+(`registry.qits.$QITS_DOMAIN`, `mirror.qits.$QITS_DOMAIN`). Those three files move together; a third
+platform jar needs none of them again.
 
 **The baseline is not a formality here.** Every other service asks this one for a token, so a
 postgres cutover that fails this pool fails the platform's whole call graph rather than one
