@@ -16,12 +16,10 @@ import java.util.Map;
  *
  * <h2>Why the PACKAGED artifact, and not a {@code @QuarkusTest}</h2>
  *
- * <p>The suite's clients come from {@code src/test/resources/application.properties}, which is not
- * in the jar. The launched process reads the <b>shipped</b> registry instead — the {@code
- * qits.idp.clients} list, the audience lists, the roles lines, the hour-long token lifetime and the
- * issuer string, all from the {@code idp} jar's {@code META-INF/microprofile-config.properties} — so
- * what these stories pin is the deployment's own configuration rather than a fixture that resembles
- * it. Every key below is a <b>runtime</b> key, because a packaged process takes its configuration as
+ * <p>The suite's settings come from {@code src/test/resources/application.properties}, which is not
+ * in the jar. The launched process reads the <b>shipped</b> defaults instead — the hour-long token
+ * lifetime, the endpoint base, and the roles a service client gets in code — so what these stories
+ * pin is the deployment's own behaviour rather than a fixture that resembles it. Every key below is a <b>runtime</b> key, because a packaged process takes its configuration as
  * {@code -D} arguments on an artifact that was already built and a build-time key here would be
  * silently ignored.
  *
@@ -38,23 +36,15 @@ import java.util.Map;
  *       system property rather than a static field</b>: a test profile is instantiated in more than
  *       one classloader, so a field written by one copy is not the field the other reads, while the
  *       process has exactly one property table.
- *   <li><b>two client secrets</b>, and only two. Every static client ships WITHOUT one and is
- *       therefore unusable, which is the safe direction and not an oversight — so the third shipped
- *       client, {@link StoryTarget#ARTIFACTS}, is deliberately given none and is what {@code
- *       FrontDoorRefusalsIT} runs its "a blank secret is unusable, never open" arm against. Pinning
- *       that against the real shipped default rather than a fixture is the same discipline {@code
- *       IdpTokenTest} keeps in the {@code @QuarkusTest} suite.
+ *   <li><b>the clients, as the one-time adoption's input</b> (qits-163). The jar ships no service
+ *       client; a live installation's configured ones were moved into the database once, at the
+ *       first start of that version, and this profile hands the launched process the same input:
+ *       {@code qits.idp.clients} and a secret per id. Every id with a secret becomes a row. {@link
+ *       StoryTarget#ARTIFACTS} is deliberately given none, so it is never adopted and is what {@code
+ *       FrontDoorRefusalsIT} runs its "no secret is unusable, never open" arm against. {@link
+ *       StoryTarget#ROLE_THIEF} is also configured with a roles line naming another client's
+ *       self-role, which nothing reads any more — {@code ReservedRoleNamespaceIT} shows it.
  * </ul>
- *
- * <h2>The one client this profile INVENTS, and why it has to</h2>
- *
- * <p>{@link StoryTarget#ROLE_THIEF} is a deployment that configured another client's minted
- * self-role. It cannot be expressed as a request — the guard is on <i>configuration</i>, read where
- * roles are read — so telling that story at all costs a client that is not on the shipped list, and
- * therefore costs restating {@code qits.idp.clients}: the list is what says an id exists, so an id
- * cannot be added without it. The three shipped ids are restated <b>verbatim</b> beside it, which is
- * the same one concession {@code src/test/resources/application.properties} makes and for the same
- * reason. Nothing else here re-declares a shipped setting.
  *
  * <h2>One thing is OFF, and it is the only thing this process would otherwise dial</h2>
  *
@@ -113,13 +103,11 @@ public class StoryProfile implements QuarkusTestProfile {
     overrides.put("QITS_RESOURCE_DB_USERNAME", EmbeddedPg.USER);
     overrides.put("QITS_RESOURCE_DB_PASSWORD", EmbeddedPg.PASSWORD);
 
-    // Two secrets. The third shipped client gets none, on purpose — see the class javadoc.
+    // The adoption's input (qits-163): the list, and a secret for every id but ARTIFACTS — see the
+    // class javadoc. Each id with a secret becomes a database row at the first start.
     overrides.put("qits.idp.client." + StoryTarget.CI + ".secret", StoryTarget.CI_SECRET);
     overrides.put(
         "qits.idp.client." + StoryTarget.WORKSPACES + ".secret", StoryTarget.WORKSPACES_SECRET);
-
-    // The one invented client, and the list restatement it costs. The three shipped ids first, in
-    // the jar's own order, then the fourth.
     overrides.put(
         "qits.idp.clients",
         String.join(
@@ -130,9 +118,7 @@ public class StoryProfile implements QuarkusTestProfile {
             StoryTarget.ROLE_THIEF));
     overrides.put(
         "qits.idp.client." + StoryTarget.ROLE_THIEF + ".secret", StoryTarget.ROLE_THIEF_SECRET);
-    overrides.put(
-        "qits.idp.client." + StoryTarget.ROLE_THIEF + ".audiences",
-        StoryTarget.DEPLOYMENTS_AUDIENCE);
+    // Configured, and not read: a service client's roles are code. ReservedRoleNamespaceIT shows it.
     overrides.put(
         "qits.idp.client." + StoryTarget.ROLE_THIEF + ".roles", StoryTarget.ROLE_THIEF_ROLES);
 

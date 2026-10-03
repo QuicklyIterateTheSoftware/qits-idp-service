@@ -50,8 +50,8 @@ import org.jboss.resteasy.reactive.RestResponse;
  * depend on which service is asking. See {@code CommissionedClaims} for why the wildcard is the one
  * value that is not.
  *
- * <p><b>Only a service client may commission</b> — environment or database, never a commissioned
- * one. A commissioned credential authenticates
+ * <p><b>Only a service client may commission</b> — one with an {@code idp_service_client} row,
+ * never a commissioned one. A commissioned credential authenticates
  * here (it has to, so a context can hand its own credential back), but {@code POST} refuses it:
  * a credential that could commission more credentials would outlive its own decommission through
  * the ones it made, and the blast radius of a leaked build-step secret would stop being one build.
@@ -210,7 +210,7 @@ public class IdpClientsController {
    * The next token carries the new list.
    *
    * <p><b>Only the owner</b>, with the same Basic pair and role as {@code POST}; a commissioned
-   * caller is 403, as there. Another owner's client, an unknown id and a static id are all 404 —
+   * caller is 403, as there. Another owner's client, an unknown id and a service client id are all 404 —
    * the decommission rule, so nobody maps other services' contexts from here.
    *
    * <p><b>The body must carry a list.</b> {@code []} removes every ref. There is no way back to "no

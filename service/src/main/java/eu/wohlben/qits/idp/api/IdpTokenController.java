@@ -16,9 +16,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -51,8 +49,9 @@ public class IdpTokenController {
    * in one request — RFC 6749 §2.3 forbids it, and accepting both would make which one was checked
    * a question.
    *
-   * @param audienceParams zero or more {@code audience} values. Repeated parameters and one
-   *     whitespace-separated value both work; naming none asks for the client's whole allowed list.
+   * <p>An {@code audience} parameter is accepted and ignored: every token's {@code aud} is {@code
+   * ["qits-platform"]} (qits-163), so a caller that still names one gets that, not a refusal. It is
+   * not declared here because nothing reads it.
    */
   @POST
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
@@ -62,7 +61,6 @@ public class IdpTokenController {
       @FormParam("grant_type") String grantType,
       @FormParam("client_id") String clientIdParam,
       @FormParam("client_secret") String clientSecretParam,
-      @FormParam("audience") List<String> audienceParams,
       @FormParam("code") String code,
       @FormParam("redirect_uri") String redirectUri,
       @FormParam("code_verifier") String codeVerifier,
@@ -89,8 +87,7 @@ public class IdpTokenController {
 
     BasicCredentials credentials = credentials(authorization, clientIdParam, clientSecretParam);
     return tokenResponse(
-        tokenService.clientCredentials(
-            credentials.clientId(), credentials.secret(), audiences(audienceParams)), null);
+        tokenService.clientCredentials(credentials.clientId(), credentials.secret()), null);
   }
 
   /**
@@ -173,24 +170,5 @@ public class IdpTokenController {
       throw OAuthException.invalidClient("client authentication is required");
     }
     return new BasicCredentials(clientIdParam, clientSecretParam);
-  }
-
-  /** Repeated {@code audience} parameters and whitespace-separated values both flatten to here. */
-  private static List<String> audiences(List<String> params) {
-    if (params == null || params.isEmpty()) {
-      return List.of();
-    }
-    List<String> audiences = new ArrayList<>();
-    for (String param : params) {
-      if (param == null) {
-        continue;
-      }
-      for (String audience : param.trim().split("\\s+")) {
-        if (!audience.isEmpty()) {
-          audiences.add(audience);
-        }
-      }
-    }
-    return List.copyOf(audiences);
   }
 }

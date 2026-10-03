@@ -196,7 +196,7 @@ public class CliOAuthTest {
   }
 
   @Test
-  public void aForeignRedirectIsRefusedAndAProtocolErrorReachesThePage() {
+  public void aForeignRedirectIsRefusedAndAProtocolErrorReachesThePage() throws Exception {
     Sessions.Opened session = signedInSession();
     // Not the page, not a loopback listener: refused flatly, because until the target is known to
     // be this idp's own there is nowhere an error may be sent.
@@ -230,10 +230,32 @@ public class CliOAuthTest {
         .then()
         .statusCode(400);
 
-    // The audience is configuration for this client. Asking for one is refused rather than ignored
-    // — and the target is known good by now, so the refusal travels to the page for a person to
-    // read instead of becoming a JSON body in a browser.
+    // A protocol error once the target is known good travels to the page, for a person to read,
+    // instead of becoming a JSON body in a browser.
     String errored =
+        given()
+            .redirects()
+            .follow(false)
+            .cookie(SessionCookie.NAME, session.token())
+            .queryParam("response_type", "code")
+            .queryParam("client_id", CLIENT)
+            .queryParam("redirect_uri", PAGE)
+            .queryParam("code_challenge", challenge(VERIFIER))
+            .queryParam("code_challenge_method", "plain")
+            .queryParam("state", "kept")
+            .when()
+            .get("/idp/authorize")
+            .then()
+            .statusCode(303)
+            .extract()
+            .header("Location");
+    assertTrue(errored.startsWith(PAGE + "?"), errored);
+    assertEquals("invalid_request", param(errored, "error"));
+    assertEquals("kept", param(errored, "state"));
+
+    // An audience parameter is not such an error any more: it is accepted and ignored (qits-163).
+    // The approval goes through, and the token it buys has the one audience.
+    String approved =
         given()
             .redirects()
             .follow(false)
@@ -251,9 +273,15 @@ public class CliOAuthTest {
             .statusCode(303)
             .extract()
             .header("Location");
-    assertTrue(errored.startsWith(PAGE + "?"), errored);
-    assertEquals("invalid_request", param(errored, "error"));
-    assertEquals("kept", param(errored, "state"));
+    assertTrue(approved.startsWith(PAGE + "?"), approved);
+    assertEquals(null, param(approved, "error"), approved);
+    assertEquals("kept", param(approved, "state"));
+    String access =
+        token(CLIENT, "authorization_code", PAGE, param(approved, "code"), VERIFIER, null)
+            .jsonPath()
+            .getString("access_token");
+    assertEquals(
+        List.of("qits-platform"), PublishedJwks.verify(access, "qits-platform").getAudience());
   }
 
   @Test

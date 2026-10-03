@@ -78,7 +78,7 @@ import org.junit.jupiter.api.BeforeAll;
  *
  * <h2>One seam is out of reach, and it is stated rather than worked around</h2>
  *
- * <p>The advertised URLs are absolute and name {@code http://dev-qits-platform-idp:8080/idp}, a host
+ * <p>The advertised URLs are absolute and name {@code http://dev-qits-idp:8080/idp}, a host
  * that resolves on {@code qits-net} and nowhere else. So this story <b>reads the document's
  * derivation and then addresses the paths on the launched process's own port</b> rather than
  * following the absolute URL the way a real consumer does. Pointing {@code qits.idp.endpoint-base}
@@ -121,7 +121,7 @@ public class BootstrapDocumentsIT {
   @UserStoryDescription(
       """
       A service is deployed and knows one string about identity: the idp's address,
-      `http://dev-qits-platform-idp:8080/idp`. Everything else it learns by asking.
+      `http://dev-qits-idp:8080/idp`. Everything else it learns by asking.
 
       It derives the discovery document from that string by OIDC's own rule and reads its
       endpoints off it. Every one of them hangs off the same ADDRESS inside this service too —
@@ -298,7 +298,7 @@ public class BootstrapDocumentsIT {
     story
         .note(
             "nothing left this process to answer any of it. The keys are served from a cache this"
-                + " service loaded at boot and a static client is four configuration lookups, so"
+                + " service loaded at boot and a service client is a read of a map loaded at start, so"
                 + " the platform's whole bootstrap path — the document, the keys, the mint — is"
                 + " answered without a single outbound call")
         .as("the-bootstrap-path-dials-nothing");
@@ -319,9 +319,10 @@ public class BootstrapDocumentsIT {
     ReportAssertions.assertOnlyEdgesFrom(CATEGORY_SLUG, SLUG, List.of(NEWCOMER, StoryTarget.CI));
 
     // THE LEAF'S CLAIM, on the path that carries the whole platform: the document, the keys and a
-    // static client's bearer are all answered without this process initiating anything — no store
+    // service client's bearer are all answered without this process initiating anything — no store
     // read behind the JWKS (the keys are a volatile cache loaded at boot), and none behind the mint
-    // (a static client is four config lookups, and keeping that true is a standing rule here).
+    // (service clients are a volatile map loaded at start, and keeping that true is a standing rule
+    // here).
     ReportAssertions.assertNoEdgesFrom(CATEGORY_SLUG, SLUG, StoryTarget.SERVICE);
 
     for (String step :

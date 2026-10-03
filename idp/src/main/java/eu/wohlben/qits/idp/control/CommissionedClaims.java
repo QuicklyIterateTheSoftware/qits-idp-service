@@ -23,17 +23,15 @@ import java.util.regex.Pattern;
  * exactly that one thing". So a concrete value is <em>strictly less</em> than saying nothing,
  * whatever the owner itself holds, and stating one can only ever cost a commissioned credential
  * access. {@code *} is the one value that is never a narrowing — it is what a token says when it
- * covers everything — so it stays where it has always been: a deployment's configured grant on a
- * service client ({@code qits.idp.client.<id>.claims.<name>}), which an operator writes and a
- * request cannot.
+ * covers everything — so it stays a service client's alone: the fixed {@code project=*} every
+ * service client carries in code ({@link ClientRegistry}), which no request can state.
  *
  * <p>That is why there is no "the owner must already hold it" check here, and why adding one would
- * be the wrong shape. The owners are the platform's own static service clients — the only callers
- * the commission API admits at all ({@code BasicCaller.staticOnly}) — and none of them holds a
- * {@code project} claim, because each serves every project. Demanding they hold what they hand out
- * would mean granting them {@code project=*} first, and a wildcard on the owner is inherited by
- * every credential it ever commissioned. The safe direction is the opposite one: owners stay
- * unscoped, and each commission says what its context is about.
+ * be the wrong shape. The owners are the platform's own service clients — the only callers the
+ * commission API admits at all ({@code BasicCaller.staticOnly}) — and each of them holds {@code
+ * project=*}, because each serves every project. A check against that would admit every value and
+ * prove nothing. What keeps a commission narrow is that it inherits nothing from its owner (D3):
+ * each commission says what its context is about, and nothing else.
  *
  * <h2>The stored form</h2>
  *

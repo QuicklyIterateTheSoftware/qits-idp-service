@@ -62,12 +62,12 @@ import org.junit.jupiter.api.TestMethodOrder;
  * arrives here looking for, with the arrow pointing the other way. It is also why {@link
  * StoryNetwork} installs one feed where every sibling pairs the tap with a mock's recording.
  *
- * <p>Why the PACKAGED artifact and not a {@code @QuarkusTest}: the suite's clients come from {@code
- * src/test/resources/application.properties}, which is not in the jar. The launched process reads
- * the <b>shipped</b> registry — the {@code qits.idp.clients} list, the audience lists and the roles
- * lines in the {@code idp} jar's {@code META-INF/microprofile-config.properties} — so what the
- * assertions below pin is the deployment's own configuration, secret excepted, and not a fixture
- * that resembles it. The signing key is generated into the shipped datasource expression on the way
+ * <p>Why the PACKAGED artifact and not a {@code @QuarkusTest}: the launched process reads the jar's
+ * <b>shipped</b> defaults — the token lifetime, the endpoint base, the roles a service client gets in
+ * code — so what the assertions below pin is the deployment's own behaviour, not a fixture that
+ * resembles it. Its one service client arrives the way a live installation's did: listed with a
+ * secret, and adopted into the database at the first start (qits-163, {@code StoryProfile}). The
+ * signing key is generated into the shipped datasource expression on the way
  * up, which {@link IdpPackagedSurfaceIT} already proves survives packaging; here it is the story's
  * subject rather than its precondition.
  *
@@ -109,10 +109,8 @@ public class TokenIssuanceBootstrapIT {
   static final String SERVICE = StoryTarget.SERVICE;
 
   /**
-   * The client this story is told as. It is a SHIPPED static client — one of the three names in the
-   * jar's {@code qits.idp.clients} — so its audiences, its roles and its refusals below are the
-   * deployment's own configuration. Only the secret is supplied, because a static client ships
-   * without one on purpose and is unusable until a deployment gives it one.
+   * The client this story is told as: a service client adopted into the database at the first
+   * start from its configured id and secret ({@code StoryProfile}). Its roles are code.
    */
   static final String CLIENT = StoryTarget.CI;
 
@@ -120,17 +118,14 @@ public class TokenIssuanceBootstrapIT {
   static final String SECRET = StoryTarget.CI_SECRET;
 
   /**
-   * The audience the story asks for: the deployer's intake, which is the platform's first real
-   * service-to-service call and an entry on this client's shipped audience list. Note it carries no
-   * environment prefix — qits-deployments is a platform service and receives tokens without minting
-   * any, so it is an audience with no client.
+   * The audience the story's caller still asks for: the deployer's intake, the platform's first real
+   * service-to-service call. The parameter is accepted and ignored (qits-163).
    */
   static final String AUDIENCE = StoryTarget.DEPLOYMENTS_AUDIENCE;
 
   /**
-   * An audience nobody's shipped list carries. Asking for it is the {@code invalid_target} case,
-   * and it is deliberately a plausible service name rather than nonsense: the refusal that matters
-   * is the one a real adoption walks into.
+   * An audience this client was never entitled to. Asking for it used to be {@code invalid_target};
+   * it is ignored now, like every requested audience.
    */
   static final String UNENTITLED_AUDIENCE = StoryTarget.UNENTITLED_AUDIENCE;
 
@@ -161,13 +156,14 @@ public class TokenIssuanceBootstrapIT {
       the issuer itself is running, packaged exactly as it deploys.
 
       A platform service reaches it the way OIDC says to. It knows one string — the idp's address,
-      `http://dev-qits-platform-idp:8080/idp` — derives the discovery document from it, and follows
+      `http://dev-qits-idp:8080/idp` — derives the discovery document from it, and follows
       the document to the token endpoint and to the JWKS. Then it presents the credential pair
-      its deployment gave it and asks for the one audience it means to call.
+      its deployment gave it.
 
       What comes back is a bearer that says who the caller is (`sub`), what it may be presented
-      to (`aud`) and what it is (`groups` — the configured system role plus `clients/<its own
-      id>`, which the idp stamps and nobody can be granted). And the key that signed it is on the
+      to (`aud` — `qits-platform`, the one audience every qits service accepts) and what it is
+      (`groups` — the system role every service client has plus `clients/<its own id>`, which
+      the idp stamps and nobody can be granted). And the key that signed it is on the
       published JWKS, under the `kid` the token names: the token and the document a consumer
       fetches are the two ends of one key, which is the whole of why offline validation works.
       """)
@@ -233,41 +229,32 @@ public class TokenIssuanceBootstrapIT {
     NEVER_IN_THE_BUNDLE.add(token);
     story
         .note(
-            "it presents the credential pair its deployment gave it and asks for one audience,"
-                + " "
+            "it presents the credential pair its deployment gave it — RFC 6749"
+                + " client_credentials, answered with the SHIPPED hour-long lifetime and no-store."
+                + " The audience it names, "
                 + AUDIENCE
-                + " — RFC 6749 client_credentials, answered with the SHIPPED hour-long lifetime and"
-                + " no-store")
+                + ", is accepted and ignored")
         .as("bearer-minted");
 
     // End (a), the token's: verified the way a consumer would — against whatever /idp/jwks
     // publishes, over HTTP, resolving the key by the token's own kid. Verifying against a key this
     // JVM could reach in-process would pass even if the published document were empty.
-    JwtClaims claims = PublishedJwks.verify(token, AUDIENCE);
+    JwtClaims claims = PublishedJwks.verify(token, StoryTarget.PLATFORM_AUDIENCE);
     assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the issuer derived from the domain");
     assertEquals(CLIENT, claims.getSubject(), "sub is the client that authenticated");
     assertEquals(
-        List.of(
-            StoryTarget.CI,
-            StoryTarget.ARTIFACTS_AUDIENCE,
-            StoryTarget.WORKSPACES,
-            AUDIENCE,
-            "prod-qits-githost",
-            "qits-platform"),
+        List.of(StoryTarget.PLATFORM_AUDIENCE),
         PublishedJwks.audienceOf(claims),
-        "aud is the client's WHOLE shipped list, not narrowed to the one audience that was"
-            + " asked for, plus qits-platform — both transitional (service-client-identity-plan.md,"
-            + " C2): a receiver that has not yet taken the qits-auth-core release accepting"
-            + " qits-platform still finds its own name on the token");
+        "aud is the one audience, whatever was asked for (C7 of epic qits-540, qits-163)");
     // The claim pinned whole rather than searched: `groups` is the token's shape, and a change to
-    // it is a change every consumer reads. The system role is this client's SHIPPED line; the
+    // it is a change every consumer reads. The system role is every service client's, in code; the
     // second is the self-role the idp mints from the id that authenticated and grants nowhere,
     // which is what lets a resource service write @RolesAllowed("clients/prod-qits-ci") and know
     // exactly one caller can reach the door.
     assertEquals(
         List.of("qits:system", "clients/" + CLIENT),
         claims.getStringListClaimValue("groups"),
-        "the configured roles, then the self-role this service stamps");
+        "the fixed role, then the self-role this service stamps");
     // The ANSWER is not an edge of its own. Direction on a diagram is who initiated, and nobody
     // initiated the response to a request already drawn — the `-> 200` on the POST above is where
     // it shows. What the bearer CONTAINS is a claim about a body, which no tap can see; it belongs
@@ -276,9 +263,9 @@ public class TokenIssuanceBootstrapIT {
         .note(
             "the bearer says who the caller is (sub="
                 + CLIENT
-                + "), what it may be presented to (aud=the client's whole shipped list plus"
-                + " qits-platform, not narrowed to the one audience asked for — both transitional)"
-                + " and what it is (groups = the configured system role plus clients/"
+                + "), what it may be presented to (aud=qits-platform, the one audience every qits"
+                + " service accepts) and what it is (groups = the system role every service client"
+                + " has plus clients/"
                 + CLIENT
                 + ", the self-role this service stamps and nobody can be granted)")
         .as("bearer-answered");
@@ -311,10 +298,9 @@ public class TokenIssuanceBootstrapIT {
       A wrong secret is `invalid_client`, and the refusal is deliberately coarse — which of
       "unknown client", "no secret configured" and "wrong secret" happened is not something the
       caller is told, because the caller is not always the one who should learn it. An audience
-      the client is not entitled to is `invalid_target`, and it is the interesting one: that
-      request AUTHENTICATED. A leaked or misconfigured credential is bounded by the audience list
-      its deployment gave it, so authentication succeeding and authorization failing must be two
-      different answers with two different codes.
+      the client was never entitled to is NOT a refusal any more: every token carries the one
+      audience, `qits-platform`, and a requested one is ignored. What bounds a credential is its
+      roles, never where it may be presented.
 
       And the JWKS stays served to anyone who asks, with no credential of any kind. It has to:
       every service on the platform fetches it at boot, BEFORE it holds a token, and a JWKS
@@ -323,7 +309,8 @@ public class TokenIssuanceBootstrapIT {
       — the published key is the public half and carries no private member, and never gains one.
       """)
   @Order(2)
-  void aWrongSecretAndAnUnentitledAudienceAreDifferentRefusals(Interactions story) {
+  void aWrongSecretIsRefusedAndAnUnentitledAudienceIsIgnored(Interactions story)
+      throws Exception {
     // (a) authentication fails. The client id is real and on the shipped list; the secret is not.
     // The request therefore CARRIES client_id=prod-qits-ci and is not from that client at all,
     // which is exactly why the initiator is named by the story and never derived from the wire.
@@ -347,34 +334,38 @@ public class TokenIssuanceBootstrapIT {
                 + " something the caller is always the right one to learn")
         .as("wrong-secret-refused");
 
-    // (b) authentication SUCCEEDS and authorization fails. Same credential as the story above,
-    // asking for an audience that is on nobody's shipped list — 400 invalid_target, RFC 8707's
-    // code, and a different answer from (a) on purpose.
+    // (b) the real client, asking for an audience it was never entitled to. That used to be 400
+    // invalid_target; it is ignored now (qits-163), and the token carries the one audience.
     //
-    // The real client this time, and the diagram says so: same route as the impostor's, a different
-    // initiator and a different status, which is the whole distinction the story is about.
+    // The diagram says so: same route as the impostor's, a different initiator and a different
+    // status.
     NetworkCapture.actor(CLIENT);
-    given()
-        .contentType(ContentType.URLENC)
-        .body(
-            "grant_type=client_credentials&client_id="
-                + CLIENT
-                + "&client_secret="
-                + SECRET
-                + "&audience="
-                + UNENTITLED_AUDIENCE)
-        .post("/idp/token")
-        .then()
-        .statusCode(400)
-        .body("error", equalTo("invalid_target"))
-        .body("access_token", nullValue());
+    String ignored =
+        given()
+            .contentType(ContentType.URLENC)
+            .body(
+                "grant_type=client_credentials&client_id="
+                    + CLIENT
+                    + "&client_secret="
+                    + SECRET
+                    + "&audience="
+                    + UNENTITLED_AUDIENCE)
+            .post("/idp/token")
+            .then()
+            .statusCode(200)
+            .extract()
+            .path("access_token");
+    NEVER_IN_THE_BUNDLE.add(ignored);
+    assertEquals(
+        List.of(StoryTarget.PLATFORM_AUDIENCE),
+        PublishedJwks.audienceOf(PublishedJwks.decodeUnverified(ignored)),
+        "a requested audience is ignored, never refused");
     story
         .note(
-            "an audience the client is not entitled to is invalid_target, and this request"
-                + " AUTHENTICATED — a leaked credential is bounded by the audience list its"
-                + " deployment gave it, so succeeding at one and failing the other must be two"
-                + " answers with two codes")
-        .as("unentitled-audience-refused");
+            "an audience the client was never entitled to is not refused any more: the parameter"
+                + " is ignored and the token carries the one audience, qits-platform. What bounds a"
+                + " credential is its roles, not where it may be presented")
+        .as("unentitled-audience-ignored");
 
     // (c) the two bootstrap doors, with no credential presented at all. This service configures no
     // HTTP path permissions — its guarded surfaces check the caller in code — so today this passes
@@ -486,7 +477,7 @@ public class TokenIssuanceBootstrapIT {
         SERVICE,
         "POST /idp/token -> 401");
     ReportAssertions.assertEdge(
-        CATEGORY, REFUSED_SLUG, NetworkEdge.HTTP, CLIENT, SERVICE, "POST /idp/token -> 400");
+        CATEGORY, REFUSED_SLUG, NetworkEdge.HTTP, CLIENT, SERVICE, "POST /idp/token -> 200");
     ReportAssertions.assertEdge(
         CATEGORY,
         REFUSED_SLUG,
@@ -504,12 +495,12 @@ public class TokenIssuanceBootstrapIT {
     ReportAssertions.assertEdgeCount(CATEGORY, REFUSED_SLUG, 4);
 
     ReportAssertions.assertStepId(CATEGORY, REFUSED_SLUG, "wrong-secret-refused");
-    ReportAssertions.assertStepId(CATEGORY, REFUSED_SLUG, "unentitled-audience-refused");
+    ReportAssertions.assertStepId(CATEGORY, REFUSED_SLUG, "unentitled-audience-ignored");
     ReportAssertions.assertStepId(CATEGORY, REFUSED_SLUG, "bootstrap-doors-open");
 
     // --- what NEITHER story has ------------------------------------------------------------------
-    // THE LEAF'S CLAIM. Both stories are told entirely against static clients, and a static client
-    // is four configuration lookups — so the platform's whole daily-bread path (discovery, mint,
+    // THE LEAF'S CLAIM. Both stories are told entirely against a service client, and a service
+    // client is a read of a map loaded at start — so the platform's whole daily-bread path (discovery, mint,
     // JWKS, and every refusal on it) is answered without this process initiating anything at all,
     // not even toward its own store. The commissioning stories are where a row is really touched,
     // and they DECLARE that edge rather than leaving the picture half-drawn.

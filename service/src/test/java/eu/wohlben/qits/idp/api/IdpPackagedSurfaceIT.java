@@ -16,6 +16,7 @@ import io.restassured.filter.cookie.CookieFilter;
 import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
 import java.util.Map;
+import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -71,9 +72,11 @@ public class IdpPackagedSurfaceIT {
    * classloader, so a field written by one copy is not the field the other reads, while the process
    * has exactly one property table.
    *
-   * <p>The secret is an override for the same reason the shipped config has none: a client with no
-   * secret is unusable, so the packaged process can only be asked to mint once a deployment (here,
-   * this profile) gives it one.
+   * <p>The client list and the secret are the input of the one-time adoption (qits-163): the jar
+   * ships no service client, so the packaged process can only be asked to mint once something gives
+   * it one. Adopting {@code prod-qits-workspaces} at start is also the packaged proof that the
+   * adoption — config read, SHA-256, the insert, V10's marker table — survives the packaging.
+   * {@code prod-qits-ci} is listed without a secret, so it is skipped.
    */
   public static class PackagedUnderTarget implements QuarkusTestProfile {
 
@@ -86,6 +89,7 @@ public class IdpPackagedSurfaceIT {
           "QITS_RESOURCE_DB_URL", databaseUrl(),
           "QITS_RESOURCE_DB_USERNAME", EmbeddedPg.USER,
           "QITS_RESOURCE_DB_PASSWORD", EmbeddedPg.PASSWORD,
+          "qits.idp.clients", "prod-qits-workspaces,prod-qits-ci",
           "qits.idp.client.prod-qits-workspaces.secret", SECRET);
     }
 
@@ -103,7 +107,7 @@ public class IdpPackagedSurfaceIT {
 
   @Test
   public void theDiscoveryDocumentIsWhereAnOidcConsumerLooksForIt() {
-    // auth-server-url http://dev-qits-platform-idp:8080/idp + OIDC's own derivation = this path.
+    // auth-server-url http://dev-qits-idp:8080/idp + OIDC's own derivation = this path.
     // It is a build-time route prefix, so the artifact is the only place it can be proven.
     //
     // THE TWO STRINGS ARE DIFFERENT AND BOTH ARE SPELLED OUT HERE, because this is the packaged
@@ -117,7 +121,7 @@ public class IdpPackagedSurfaceIT {
         .then()
         .statusCode(200)
         .body("issuer", equalTo("https://idp.qits.localhost"))
-        .body("jwks_uri", equalTo("http://dev-qits-platform-idp:8080/idp/jwks"));
+        .body("jwks_uri", equalTo("http://dev-qits-idp:8080/idp/jwks"));
 
     // qits-platform-edge routes by declared route and keeps the path, so there is no unprefixed
     // form to fall back to.
@@ -264,9 +268,10 @@ public class IdpPackagedSurfaceIT {
             .path("access_token");
 
     assertNotNull(PublishedJwks.kidOf(token), "the kid header must survive the packaging");
-    assertEquals(
-        "prod-qits-workspaces",
-        PublishedJwks.verify(token, "qits-platform-artifacts").getSubject());
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
+    assertEquals("prod-qits-workspaces", claims.getSubject());
+    // The requested audience is ignored; the one audience is what every token carries.
+    assertEquals(java.util.List.of("qits-platform"), PublishedJwks.audienceOf(claims));
 
     // That the round trip happened at all is the proof the shipped expression resolved: the jar
     // carries no fallback URL, so a process that reached a store did so through
@@ -493,8 +498,8 @@ public class IdpPackagedSurfaceIT {
 
   @Test
   public void anUnconfiguredClientStillCannotAuthenticate() {
-    // Only prod-qits-workspaces was given a secret above. The other two ship without one and
-    // must stay unusable in the packaged artifact too.
+    // Only prod-qits-workspaces was given a secret above. prod-qits-ci was listed without one, so
+    // it was never adopted and must stay unusable in the packaged artifact too.
     given()
         .contentType(ContentType.URLENC)
         .body("grant_type=client_credentials&client_id=prod-qits-ci&client_secret=" + SECRET)

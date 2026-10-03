@@ -1,7 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,25 +25,22 @@ import org.junit.jupiter.api.Test;
  * makes them catch a prefix regression, and every issued token is verified against what {@code
  * /idp/jwks} published rather than against anything reachable in-process.
  *
- * <p>The clients come from {@code src/test/resources/application.properties}. {@code
- * prod-qits-workspaces} is one of the SHIPPED service clients, secret-less exactly as it ships —
- * that is what the blank-secret case runs against.
+ * <p>The clients are database rows the application adopted at start from {@code
+ * src/test/resources/application.properties} (qits-163, {@code EnvironmentClientAdoption}). {@code
+ * prod-qits-workspaces} is listed there without a secret, so it was never adopted — that is what the
+ * blank-secret case runs against.
+ *
+ * <p>Every token's {@code aud} is {@code ["qits-platform"]}, whatever was asked for.
  */
 @QuarkusTest
 public class IdpTokenTest {
 
   @Test
-  public void requestingOneListedAudienceStillReturnsTheWholeAllowedList() throws Exception {
-    // An environment client's aud is its whole allowed list plus qits-platform, whatever it asked
-    // for — a request still narrows what it names, only the ANSWER stopped narrowing
-    // (service-client-identity-plan.md, C2). test-broad's allowed list is
-    // [prod-qits-ci, qits-deployments]; asking for one of the two still gets both, plus the
-    // platform audience.
+  public void aServiceTokenHasTheOneAudienceTheFixedRolesAndItsSelfRole() throws Exception {
     String token =
         post("grant_type=client_credentials"
                 + "&client_id=test-broad"
-                + "&client_secret=test-broad-secret"
-                + "&audience=qits-deployments")
+                + "&client_secret=test-broad-secret")
             .statusCode(200)
             .body("token_type", equalTo("Bearer"))
             // The SHIPPED lifetime, raised to an hour on 2026-08-14 with the commission model.
@@ -56,16 +52,13 @@ public class IdpTokenTest {
             .extract()
             .path("access_token");
 
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
     assertEquals("test-broad", claims.getSubject());
     assertEquals(PublishedJwks.ISSUER, claims.getIssuer());
-    assertEquals(
-        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
-        PublishedJwks.audienceOf(claims),
-        "the whole allowed list, plus qits-platform — not narrowed to what was asked for");
-    // The configured roles, then the self-role this service stamps. The whole claim is pinned
-    // rather than searched: `groups` is the token's shape, and a change to it is a change every
-    // consumer reads.
+    assertEquals(List.of("qits-platform"), PublishedJwks.audienceOf(claims));
+    // The fixed service-client role, then the self-role this service stamps. The whole claim is
+    // pinned rather than searched: `groups` is the token's shape, and a change to it is a change
+    // every consumer reads.
     assertEquals(
         List.of("qits:system", "clients/test-broad"),
         claims.getStringListClaimValue("groups"));
@@ -79,21 +72,30 @@ public class IdpTokenTest {
   }
 
   @Test
-  public void requestingOnlyThePlatformAudienceStillReturnsTheWholeAllowedList() throws Exception {
-    // A service switching to the one qits client asks only for qits-platform. It still gets its
-    // whole allowed list back, so a receiver that has not yet taken the qits-auth-core release that
-    // accepts qits-platform (C1) still finds its own audience on the token.
-    String token =
-        post("grant_type=client_credentials"
-                + "&client_id=test-narrow"
-                + "&client_secret=test-narrow-secret"
-                + "&audience=qits-platform")
-            .statusCode(200)
-            .extract()
-            .path("access_token");
-
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
-    assertEquals(List.of("qits-deployments", "qits-platform"), PublishedJwks.audienceOf(claims));
+  public void anAudienceParameterIsAcceptedAndIgnored() throws Exception {
+    // Any value — one the client used to be allowed, one it never was, the platform's own, several
+    // at once — is accepted, and the answer is the one audience. Never invalid_target.
+    for (String audience :
+        List.of(
+            "&audience=qits-deployments",
+            "&audience=qits-platform-artifacts",
+            "&audience=qits-platform",
+            "&audience=never-heard-of-it",
+            "&audience=a&audience=b",
+            "&audience=a%20b")) {
+      String token =
+          post("grant_type=client_credentials"
+                  + "&client_id=test-narrow"
+                  + "&client_secret=test-narrow-secret"
+                  + audience)
+              .statusCode(200)
+              .extract()
+              .path("access_token");
+      assertEquals(
+          List.of("qits-platform"),
+          PublishedJwks.audienceOf(PublishedJwks.verify(token, "qits-platform")),
+          audience);
+    }
   }
 
   @Test
@@ -102,7 +104,7 @@ public class IdpTokenTest {
         given()
             .contentType(ContentType.URLENC)
             .header("Authorization", basic("test-broad", "test-broad-secret"))
-            .body("grant_type=client_credentials&audience=prod-qits-ci")
+            .body("grant_type=client_credentials")
             .when()
             .post("/idp/token")
             .then()
@@ -110,11 +112,11 @@ public class IdpTokenTest {
             .extract()
             .path("access_token");
 
-    assertEquals("test-broad", PublishedJwks.verify(token, "prod-qits-ci").getSubject());
+    assertEquals("test-broad", PublishedJwks.verify(token, "qits-platform").getSubject());
   }
 
   @Test
-  public void aRequestNamingNoAudienceGetsEveryAudienceTheClientMayHave() throws Exception {
+  public void aServiceClientCarriesTheFixedProjectClaimAndNoOther() throws Exception {
     String token =
         post("grant_type=client_credentials"
                 + "&client_id=test-broad"
@@ -123,25 +125,8 @@ public class IdpTokenTest {
             .extract()
             .path("access_token");
 
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
-    assertEquals(
-        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
-        PublishedJwks.audienceOf(claims));
-  }
-
-  @Test
-  public void grantedClaimsRideAlongAndUngrantedOnesDoNot() throws Exception {
-    String token =
-        post("grant_type=client_credentials"
-                + "&client_id=test-broad"
-                + "&client_secret=test-broad-secret"
-                + "&audience=qits-deployments")
-            .statusCode(200)
-            .extract()
-            .path("access_token");
-
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
-    assertEquals("qits", claims.getClaimValueAsString("project"), "the granted claim, verbatim");
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
+    assertEquals("*", claims.getClaimValueAsString("project"), "project=*, in code");
     assertFalse(claims.hasClaim("workspace"), "an ungranted claim must not appear");
     assertFalse(claims.hasClaim("branch"), "an ungranted claim must not appear");
     assertNull(claims.getClaimValue("scope"), "claims, not scope strings");
@@ -152,8 +137,7 @@ public class IdpTokenTest {
     String broad =
         post("grant_type=client_credentials"
                 + "&client_id=test-broad"
-                + "&client_secret=test-broad-secret"
-                + "&audience=qits-deployments")
+                + "&client_secret=test-broad-secret")
             .statusCode(200)
             .extract()
             .path("access_token");
@@ -166,9 +150,9 @@ public class IdpTokenTest {
             .path("access_token");
 
     List<String> broadGroups =
-        PublishedJwks.verify(broad, "qits-deployments").getStringListClaimValue("groups");
+        PublishedJwks.verify(broad, "qits-platform").getStringListClaimValue("groups");
     List<String> narrowGroups =
-        PublishedJwks.verify(narrow, "qits-deployments").getStringListClaimValue("groups");
+        PublishedJwks.verify(narrow, "qits-platform").getStringListClaimValue("groups");
 
     assertTrue(broadGroups.contains("clients/test-broad"), "a client token names its own client");
     assertTrue(narrowGroups.contains("clients/test-narrow"), "a client token names its own client");
@@ -183,38 +167,23 @@ public class IdpTokenTest {
   }
 
   @Test
-  public void aConfiguredRoleUnderTheReservedNamespaceIsRefused() {
-    // test-role-thief configures clients/test-broad — the impersonation. Refused at the config
-    // read, so the client mints nothing at all rather than minting an identity it was granted.
-    post("grant_type=client_credentials"
-            + "&client_id=test-role-thief"
-            + "&client_secret=test-role-thief-secret")
-        .statusCode(400)
-        .body("error", equalTo("invalid_request"))
-        .body("error_description", containsString("clients/"));
+  public void aConfiguredRolesOrAudiencesLineIsNotReadAnyMore() throws Exception {
+    // test-role-thief's configuration still says roles=qits:system,clients/test-broad and
+    // audiences=qits-deployments. Neither key is read (qits-163): the adopted client has the fixed
+    // service-client roles and the one audience, and it cannot reach another client's identity.
+    String token =
+        post("grant_type=client_credentials"
+                + "&client_id=test-role-thief"
+                + "&client_secret=test-role-thief-secret")
+            .statusCode(200)
+            .extract()
+            .path("access_token");
 
-    // And its own is refused too: it would be redundant, and allowing it would make writing the
-    // prefix by hand look like something a deployment does.
-    post("grant_type=client_credentials"
-            + "&client_id=test-role-selfish"
-            + "&client_secret=test-role-selfish-secret")
-        .statusCode(400)
-        .body("error", equalTo("invalid_request"));
-  }
-
-  @Test
-  public void aClientWithAReservedRoleIsRefusedAtTheOtherMachineSurfacesToo() {
-    // Same config, every surface: the commission API authenticates through the same client lookup,
-    // so a `clients/…` line makes the client unusable there as well rather than only at /token.
-    given()
-        .contentType(ContentType.JSON)
-        .header("Authorization", basic("test-role-thief", "test-role-thief-secret"))
-        .body("{\"contextKind\":\"reserved-role\",\"contextId\":\"never\"}")
-        .when()
-        .post("/idp/api/clients")
-        .then()
-        .statusCode(400)
-        .body("error", equalTo("invalid_request"));
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
+    assertEquals(
+        List.of("qits:system", "clients/test-role-thief"),
+        claims.getStringListClaimValue("groups"));
+    assertEquals(List.of("qits-platform"), PublishedJwks.audienceOf(claims));
   }
 
   @Test
@@ -234,9 +203,8 @@ public class IdpTokenTest {
 
   @Test
   public void aClientWithNoSecretIsUnusableRatherThanOpen() {
-    // prod-qits-workspaces is a SHIPPED service client with no secret configured — the state every
-    // service client ships in. A blank secret must be refused like a wrong one, never accepted as
-    // "no authentication required".
+    // prod-qits-workspaces is listed for adoption with no secret, so it was never adopted. A blank
+    // secret must be refused like a wrong one, never accepted as "no authentication required".
     post("grant_type=client_credentials&client_id=prod-qits-workspaces&client_secret=")
         .statusCode(401)
         .body("error", equalTo("invalid_client"));
@@ -252,25 +220,6 @@ public class IdpTokenTest {
         .then()
         .statusCode(401)
         .body("error", equalTo("invalid_client"));
-  }
-
-  @Test
-  public void anAudienceTheClientMayNotHaveIsRefused() {
-    post("grant_type=client_credentials"
-            + "&client_id=test-narrow"
-            + "&client_secret=test-narrow-secret"
-            + "&audience=qits-platform-artifacts")
-        .statusCode(400)
-        .body("error", equalTo("invalid_target"));
-  }
-
-  @Test
-  public void aClientWithNoAudiencesIsIssuedNothing() {
-    post("grant_type=client_credentials"
-            + "&client_id=test-audienceless"
-            + "&client_secret=test-audienceless-secret")
-        .statusCode(400)
-        .body("error", equalTo("invalid_target"));
   }
 
   @Test
@@ -302,20 +251,21 @@ public class IdpTokenTest {
   }
 
   @Test
-  public void aTokenForOneAudienceDoesNotVerifyForAnother() throws Exception {
+  public void aTokenDoesNotVerifyForAnAudienceItDoesNotCarry() throws Exception {
     String token =
         post("grant_type=client_credentials"
                 + "&client_id=test-narrow"
-                + "&client_secret=test-narrow-secret")
+                + "&client_secret=test-narrow-secret"
+                + "&audience=qits-deployments")
             .statusCode(200)
             .extract()
             .path("access_token");
 
-    assertTrue(PublishedJwks.verify(token, "qits-deployments").hasClaim("aud"));
+    assertTrue(PublishedJwks.verify(token, "qits-platform").hasClaim("aud"));
     assertThrows(
         InvalidJwtException.class,
-        () -> PublishedJwks.verify(token, "qits-platform-artifacts"),
-        "aud is what makes a token unusable at a service it was not minted for");
+        () -> PublishedJwks.verify(token, "qits-deployments"),
+        "a requested audience is ignored, so a receiver checking for its own name refuses it");
   }
 
   private static ValidatableResponse post(String form) {

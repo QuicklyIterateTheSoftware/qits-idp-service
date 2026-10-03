@@ -27,12 +27,12 @@ import org.junit.jupiter.api.Test;
  * The commission API end to end: a service asks for a credential for a context, the credential
  * mints tokens exactly like the service client that asked, and deleting it stops that at once.
  *
- * <p>The owners are the suite's static clients from {@code src/test/resources/application.properties}
- * — {@code test-broad} (two audiences and a granted {@code project} claim) and {@code test-narrow}
- * (one audience). <b>A commission no longer inherits its owner's roles or claims</b> (D3/D12 of
- * {@code service-client-identity-plan.md}): only its own stated claims reach the token, and its
- * roles are its context kind's fixed ones ({@code CommissionRoles}) or none. Only the audience list
- * is still resolved from the owner at mint time, which is what these tests check against both.
+ * <p>The owners are service clients the application adopted at start from {@code
+ * src/test/resources/application.properties} — {@code test-broad} and {@code test-narrow}, each
+ * holding {@code qits:system} and {@code project=*} in code. <b>A commission inherits nothing from
+ * its owner</b> (D3/D12 of epic qits-540, dossier page "Plan (as of 2026-09-13)"): only its own
+ * stated claims reach the token, its roles are its context kind's fixed ones ({@code
+ * CommissionRoles}) or none, and its audience is {@code qits-platform} like every token's.
  *
  * <p>Every test names its own {@code contextKind}, because the suite shares one application and
  * therefore one store: the listing case filters on it rather than assuming an empty table.
@@ -62,36 +62,38 @@ public class CommissionedClientsTest {
             .extract()
             .path("access_token");
 
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
     assertEquals(pair.get("clientId"), claims.getSubject(), "the commissioned id is the sub");
     assertEquals(PublishedJwks.ISSUER, claims.getIssuer());
     assertNotNull(PublishedJwks.kidOf(token), "signed by the same key as everything else");
 
-    // Full audience access for now: the owner's whole list, plus qits-platform. Roles and claims are
-    // no longer inherited (D3/D12) — only the audience rule still follows the owner.
+    // The one audience, whatever was asked for — with and without an audience parameter.
+    assertEquals(List.of("qits-platform"), PublishedJwks.audienceOf(claims));
     String all =
         token(pair.get("clientId"), pair.get("secret"), "").statusCode(200).extract()
             .path("access_token");
-    JwtClaims allClaims = PublishedJwks.verify(all, "prod-qits-ci");
-    assertEquals(
-        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
-        PublishedJwks.audienceOf(allClaims),
-        "a commissioned client asking for nothing gets its owner's whole list, plus qits-platform");
+    JwtClaims allClaims = PublishedJwks.verify(all, "qits-platform");
+    assertEquals(List.of("qits-platform"), PublishedJwks.audienceOf(allClaims));
     assertNull(
         allClaims.getClaimValueAsString("project"),
-        "a commission no longer inherits its owner's claims (D3)");
+        "a commission does not inherit its owner's project=* (D3)");
 
-    // And the owner's limits are its limits.
-    token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform-artifacts")
-        .statusCode(400)
-        .body("error", equalTo("invalid_target"));
+    // An audience the owner was never allowed is ignored too, never invalid_target.
+    String other =
+        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform-artifacts")
+            .statusCode(200)
+            .extract()
+            .path("access_token");
+    assertEquals(
+        List.of("qits-platform"),
+        PublishedJwks.audienceOf(PublishedJwks.verify(other, "qits-platform")));
   }
 
   @Test
   public void aCommissionedTokenNamesItselfAndNotTheOwnerThatCommissionedIt() throws Exception {
     // The commission body has no roles member, and one written anyway changes nothing: roles are
     // not a thing a caller asks for here. This is the second half of "no client may hold another
-    // client's self-role" — the first is configuration, refused outright.
+    // client's self-role" — the first is that no client's roles are configurable at all.
     Map<String, String> pair =
         pairOf(
             commissionRaw(
@@ -107,7 +109,7 @@ public class CommissionedClientsTest {
             .extract()
             .path("access_token");
     List<String> groups =
-        PublishedJwks.verify(token, "qits-deployments").getStringListClaimValue("groups");
+        PublishedJwks.verify(token, "qits-platform").getStringListClaimValue("groups");
 
     assertEquals(
         List.of("clients/" + pair.get("clientId")),
@@ -144,10 +146,8 @@ public class CommissionedClientsTest {
     assertTrue(clientId.startsWith(DynamicClients.ID_PREFIX + "ci-run-"), clientId);
     assertTrue(
         clientId.contains("project-build-918"), "the context is legible in a listing: " + clientId);
-    // The static ids are the names services are dialed by; none of them can be produced here.
-    assertFalse(
-        List.of("prod-qits-ci", "qits-platform-artifacts", "prod-qits-workspaces")
-            .contains(clientId));
+    // A service client's id may not start with dyn-, so none of them can be produced here.
+    assertFalse(List.of(OWNER, OTHER_OWNER).contains(clientId));
     assertTrue(clientId.length() <= 128, "the column is varchar(128)");
   }
 
@@ -298,8 +298,9 @@ public class CommissionedClientsTest {
         .statusCode(401)
         .body("error", equalTo("invalid_client"));
 
-    // A SHIPPED service client with no secret configured stays unusable here too — the same
-    // reading as at the token endpoint, so there is no door this API opens that that one does not.
+    // An id listed for adoption with no secret was never adopted, so it is unknown here too — the
+    // same reading as at the token endpoint, so there is no door this API opens that that one does
+    // not.
     commissionRaw(
             "prod-qits-workspaces", "", "{\"contextKind\":\"anon-kind\",\"contextId\":\"ctx\"}")
         .statusCode(401)
@@ -311,16 +312,16 @@ public class CommissionedClientsTest {
     decommission(OWNER, OWNER_SECRET, "dyn-nothing-here-Aaaaaaaaaaaaaaaaaaaaaa")
         .statusCode(404)
         .body("error", equalTo("not_found"));
-    // A static client id is not a commission and cannot be deleted through this door either.
-    decommission(OWNER, OWNER_SECRET, "prod-qits-ci").statusCode(404);
+    // A service client id is not a commission and cannot be deleted through this door either.
+    decommission(OWNER, OWNER_SECRET, OTHER_OWNER).statusCode(404);
   }
 
   // --- per-context scoping ------------------------------------------------------------------
 
   @Test
   public void aCommissionStatesWhatItsContextIsAboutAndTheTokenCarriesIt() throws Exception {
-    // The owner holds no `project` claim — none of the platform's commissioning services does, and
-    // that is exactly the point: the scope comes from the commission, not from the client making it.
+    // The owner holds project=* and the commission inherits none of it: the scope comes from the
+    // commission, not from the client making it.
     io.restassured.response.ExtractableResponse<?> answer =
         commissionRaw(
                 OTHER_OWNER,
@@ -336,7 +337,7 @@ public class CommissionedClientsTest {
     JwtClaims claims =
         PublishedJwks.verify(
             token(clientId, secret, "").statusCode(200).extract().path("access_token"),
-            "qits-deployments");
+            "qits-platform");
 
     assertEquals(
         A_PROJECT,
@@ -352,8 +353,8 @@ public class CommissionedClientsTest {
 
   @Test
   public void aStatedClaimReachesTheTokenAloneWithNoOwnerMerge() throws Exception {
-    // D3: a commission no longer inherits its owner's claims. test-broad is granted project=qits,
-    // but this commission states only workspace, so the token carries workspace and nothing else —
+    // D3: a commission no longer inherits its owner's claims. test-broad holds project=*, but this
+    // commission states only workspace, so the token carries workspace and nothing else —
     // there is no owner grant left to merge it with.
     io.restassured.response.ExtractableResponse<?> added =
         commissionRaw(
@@ -372,7 +373,7 @@ public class CommissionedClientsTest {
                 .statusCode(200)
                 .extract()
                 .path("access_token"),
-            "qits-deployments");
+            "qits-platform");
 
     assertNull(claims.getClaimValueAsString("project"), "the owner's grant is not inherited (D3)");
     assertEquals("ws-77", claims.getClaimValueAsString("workspace"), "the commission's own claim");
@@ -424,7 +425,7 @@ public class CommissionedClientsTest {
                     .statusCode(200)
                     .extract()
                     .path("access_token"),
-                "qits-deployments")
+                "qits-platform")
             .getClaimValueAsString("project"),
         "no owner claim to inherit any more (D3)");
   }

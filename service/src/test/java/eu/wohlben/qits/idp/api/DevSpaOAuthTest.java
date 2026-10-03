@@ -4,6 +4,7 @@ import static eu.wohlben.qits.idp.api.CliOAuthTest.param;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -153,9 +154,9 @@ public class DevSpaOAuthTest {
   }
 
   @Test
-  public void itChoosesNoAudienceAndPresentsNoSecret() {
+  public void anAudienceIsIgnoredAndItPresentsNoSecret() {
     Sessions.Opened session = signedInSession();
-    Response refused =
+    Response approved =
         given()
             .redirects()
             .follow(false)
@@ -168,8 +169,10 @@ public class DevSpaOAuthTest {
             .queryParam("audience", "prod-qits-githost")
             .when()
             .get("/idp/authorize");
-    refused.then().statusCode(303);
-    assertEquals("invalid_request", param(refused.getHeader("Location"), "error"));
+    // Accepted and ignored (qits-163): a code, not an error.
+    approved.then().statusCode(303);
+    assertEquals(null, param(approved.getHeader("Location"), "error"));
+    assertNotNull(param(approved.getHeader("Location"), "code"));
 
     given()
         .contentType(ContentType.URLENC)

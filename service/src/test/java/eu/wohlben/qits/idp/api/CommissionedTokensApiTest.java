@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
  * value into the identity behind it and a short JWT minted as for a commissioned client of that
  * kind, verified here against the published JWKS like any other token.
  *
- * <p>The owners are the suite's static clients, {@code test-broad} and {@code test-narrow}, as in
+ * <p>The owners are the suite's adopted service clients, {@code test-broad} and {@code test-narrow}, as in
  * {@link CommissionedClientsTest}. Every test names its own {@code contextKind}, because the suite
  * shares one store and a listing check filters on it.
  */
@@ -258,16 +258,16 @@ public class CommissionedTokensApiTest {
             .body("expiresIn", equalTo(300))
             .extract();
 
-    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-deployments");
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-platform");
     assertEquals(subject, claims.getSubject());
     assertEquals(
         List.of("qits:ci-run", "clients/" + subject),
         claims.getStringListClaimValue("groups"),
         "the kind's role and the token's own self-role; never the owner's");
     assertEquals(
-        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
+        List.of("qits-platform"),
         PublishedJwks.audienceOf(claims),
-        "the owner's whole list, plus qits-platform");
+        "the one audience, like every token's — nothing is read from the owner");
     assertEquals("ci-run", claims.getClaimValueAsString("context_kind"));
     assertEquals(List.of("refs/heads/a"), claims.getStringListClaimValue("git_refs"));
     assertEquals("qits", claims.getClaimValueAsString("project"), "the stated claim, verbatim");
@@ -287,7 +287,7 @@ public class CommissionedTokensApiTest {
                 .statusCode(200)
                 .extract()
                 .path("accessToken"),
-            "prod-qits-ci");
+            "qits-platform");
     assertFalse(claims.hasClaim("git_refs"), "no list stated, no claim — as for a client");
     assertFalse(claims.hasClaim("project"), "and no owner claim inherited");
   }

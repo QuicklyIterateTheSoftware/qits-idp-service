@@ -22,7 +22,7 @@ import org.jboss.resteasy.reactive.RestResponse;
  * qits-observability, so a token in a log line is a credential on the log plane, readable by
  * everything that can read logs and durable for as long as they are kept.
  *
- * <p><b>Only a service client may mint</b> (environment or database, never a commissioned one) —
+ * <p><b>Only a service client may mint</b> (never a commissioned one) —
  * the commissioning rule, reused verbatim through
  * {@link BasicCaller}. A commissioned credential belongs to one dynamic context and lives as long
  * as it does; if it could mint register tokens it could produce platform accounts that outlive it,

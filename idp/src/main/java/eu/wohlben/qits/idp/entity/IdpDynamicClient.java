@@ -40,8 +40,8 @@ public class IdpDynamicClient extends PanacheEntityBase {
 
   /**
    * The client that commissioned this one. Only that client — or this one itself — may decommission
-   * it, and this credential's audiences are read from the owner's record at mint time. So are the
-   * claims it did not state for itself — see {@link #claims}.
+   * it. Nothing else about this credential is read from its owner: not its roles, not its claims,
+   * not its audience.
    */
   @Column(name = "owner", nullable = false, length = 128)
   public String owner;

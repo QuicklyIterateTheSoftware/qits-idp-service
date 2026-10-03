@@ -55,7 +55,7 @@ public class TokenLifetimeTest {
             .extract()
             .path("access_token");
 
-    JwtClaims claims = PublishedJwks.verify(token, "qits-deployments");
+    JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
     assertEquals(
         TTL_SECONDS,
         claims.getExpirationTime().getValue() - claims.getIssuedAt().getValue(),

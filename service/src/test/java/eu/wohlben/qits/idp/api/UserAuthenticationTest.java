@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The cases are the invariants rather than the endpoints: a token registers exactly one account,
  * the two bootstrap roles are granted, the cookie carries the attributes the plan fixed, a session
- * introspects until it is revoked and not after, only a static client may mint or introspect, and
+ * introspects until it is revoked and not after, only a service client may mint or introspect, and
  * every way a login can fail is the same 401.
  */
 @QuarkusTest
@@ -580,14 +580,14 @@ public class UserAuthenticationTest {
   }
 
   /**
-   * A STATIC CLIENT WITH NO AUDIENCES STILL WORKS HERE, and the bootstrap depends on it: the
-   * {@code {env}-qits-edge} credential is seeded with a secret and no audience list at all, because
-   * it never asks for a token — it only authenticates Basic against these two endpoints. An
-   * audience list is what a client may be ISSUED; it has nothing to do with whether it can
-   * authenticate, and this pins that the two stay independent.
+   * ANY SERVICE CLIENT MAY MINT A REGISTER TOKEN AND INTROSPECT A SESSION, and the bootstrap depends
+   * on it: the {@code {env}-qits-edge} credential never asks for a token for itself — it only
+   * authenticates Basic against these two endpoints. {@code test-audienceless} once had no audience
+   * list, to pin that; every client has the one audience now, so what is left to pin is that the
+   * Basic doors and the token endpoint answer the same adopted client.
    */
   @Test
-  public void anAudiencelessStaticClientStillMintsAndIntrospects() {
+  public void aServiceClientMintsIntrospectsAndGetsATokenToo() {
     String header = basic("test-audienceless", "test-audienceless-secret");
 
     String token =
@@ -625,7 +625,7 @@ public class UserAuthenticationTest {
         .statusCode(200)
         .body("username", equalTo(username));
 
-    // It really has no audiences: the token endpoint still has nothing to issue it.
+    // And the token endpoint issues it the one audience, like every client.
     given()
         .contentType(ContentType.URLENC)
         .header("Authorization", header)
@@ -633,12 +633,11 @@ public class UserAuthenticationTest {
         .when()
         .post("/idp/token")
         .then()
-        .statusCode(400)
-        .body("error", equalTo("invalid_target"));
+        .statusCode(200);
   }
 
   @Test
-  public void mintingARegisterTokenNeedsAStaticClientsOwnCredentials() {
+  public void mintingARegisterTokenNeedsAServiceClientsOwnCredentials() {
     given().when().post("/idp/api/register-tokens").then().statusCode(401);
     given()
         .header("Authorization", basic(EDGE, "wrong"))
@@ -647,7 +646,7 @@ public class UserAuthenticationTest {
         .then()
         .statusCode(401)
         .body("error", equalTo("invalid_client"));
-    // A shipped client with no secret configured is unusable here too, never open.
+    // An id listed for adoption with no secret was never adopted: unknown here too, never open.
     given()
         .header("Authorization", basic("prod-qits-workspaces", ""))
         .when()

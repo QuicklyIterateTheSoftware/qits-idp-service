@@ -1,7 +1,6 @@
 package eu.wohlben.qits.idp.control;
 
 import eu.wohlben.qits.idp.control.DynamicClients.StoredClient;
-import eu.wohlben.qits.idp.control.IdpClient.AudienceSource;
 import eu.wohlben.qits.idp.control.ServiceClients.StoredServiceClient;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -12,38 +11,24 @@ import java.util.Optional;
 import org.jboss.logging.Logger;
 
 /**
- * Every client this idp knows, from all three halves: the environment service clients in config,
- * the database service clients in {@code idp_service_client}, and the commissioned clients in
- * {@code idp_client}.
+ * Every client this idp knows, from both registries: the service clients in {@code
+ * idp_service_client} and the commissioned clients in {@code idp_client}.
  *
- * <p><b>Config is asked first, always.</b> An environment id therefore cannot be shadowed by a
- * database row, and that ordering is the collision answer rather than a uniqueness check somewhere:
- * whatever ends up in the store, the names services are dialed by keep meaning what the deployment
- * configured. Commissioned ids carry {@link DynamicClients#ID_PREFIX} on top of that, so all three
- * namespaces do not overlap in the first place.
+ * <p>The service clients are asked first. Commissioned ids carry {@link DynamicClients#ID_PREFIX},
+ * which no service client id may start with, so the two namespaces do not overlap anyway.
  *
- * <p><b>A service client can exist in both places at once, transitionally</b> ({@code
- * service-client-identity-plan.md}, contract C2, C5): {@code POST /idp/api/service-clients} answers
- * 201 even for an id that already has an environment entry, so a caller mid-cutover can hold the
- * old environment secret and the new database one at the same time. When that happens, the
- * environment entry still decides the client's roles, claims and audience list — the same "config
- * wins" ordering as {@link #find} — but {@link IdpClient#secret()} accepts either secret: {@link
- * ClientSecret#either} merges the environment value with the database's current and unexpired
- * previous hash. An id with only a database row gets the roles/claims/audience rule {@link
- * #asServiceClient} builds in code.
+ * <p>There used to be a third registry, the environment one ({@code qits.idp.clients}), asked
+ * before both. qits-163 retired it: its clients were moved into the database once ({@link
+ * EnvironmentClientAdoption}), and nothing here reads configuration any more.
  *
- * <p><b>A commissioned client is issued its owner's audiences</b>, read here at mint time rather
- * than copied into the row: a credential commissioned by qits-ci can be used where qits-ci can be
- * used. Narrowing an owner's audiences narrows every credential it commissioned, at once; an owner
- * removed from the registry leaves its commissioned clients able to authenticate and entitled to
- * nothing, which is refused as {@code invalid_target}. <b>Its audience RULE also follows its
- * owner's</b> — {@link IdpClient.AudienceSource} — so a commission owned by a database client gets
- * the database's unchecked-copy-back rule and one owned by an environment client keeps today's.
+ * <p><b>A service client's roles and claims are code</b> (D3 of epic qits-540, dossier page "Plan
+ * (as of 2026-09-13)"): {@code qits:system} plus its own {@code clients/<id>}, and the claim {@code
+ * project=*}.
  *
- * <p><b>Roles and claims are NOT inherited by a commission any more</b> (D3, D12 of the plan). A
- * commission's roles are its context kind's fixed ones ({@link CommissionRoles}, code, no owner
- * fallback and no configuration); its claims are only what it stated for itself ({@link
- * CommissionedClaims}, already resolved into {@link DynamicClients.StoredClient#claims()}).
+ * <p><b>A commission's roles and claims are its own</b> (D3, D12). Its roles are its context
+ * kind's fixed ones ({@link CommissionRoles}, code, no owner fallback); its claims are only what it
+ * stated for itself ({@link CommissionedClaims}, already resolved into {@link
+ * DynamicClients.StoredClient#claims()}). Nothing about a commission is read from its owner.
  *
  * <p><b>The commission's context kind and Git refs ride along</b> on the {@link IdpClient}, and
  * {@link TokenService} stamps them as {@code context_kind} and {@code git_refs}. A service client
@@ -55,34 +40,32 @@ public class ClientRegistry {
   private static final Logger LOG = Logger.getLogger(ClientRegistry.class);
 
   /**
-   * A database service client's fixed roles (D3 of the plan): {@code qits:system}, the open calling
-   * model's service-to-service role. It is spelled here rather than read from {@code
+   * A service client's fixed roles (D3): {@code qits:system}, the open calling model's
+   * service-to-service role. It is spelled here rather than read from {@code
    * BasicCaller.PLATFORM_SYSTEM}: this module has no compile-time dependency on {@code service}
    * ("Adding a dependency on another context").
    */
-  private static final List<String> DATABASE_SERVICE_CLIENT_ROLES = List.of("qits:system");
+  private static final List<String> SERVICE_CLIENT_ROLES = List.of("qits:system");
 
-  /** A database service client's one fixed claim (D3): it serves every project. */
-  private static final Map<String, String> DATABASE_SERVICE_CLIENT_CLAIMS =
-      Map.of(ClaimNames.PROJECT, "*");
-
-  @Inject IdpClients staticClients;
+  /** A service client's one fixed claim (D3): it serves every project. */
+  private static final Map<String, String> SERVICE_CLIENT_CLAIMS = Map.of(ClaimNames.PROJECT, "*");
 
   @Inject ServiceClients serviceClients;
 
   @Inject DynamicClients dynamicClients;
 
-  /** The client with this id, from any of the three registries, or empty when there is none. */
+  /** The client with this id, from either registry, or empty when there is none. */
   public Optional<IdpClient> find(String clientId) {
-    Optional<IdpClient> serviceClient = findServiceClient(clientId);
+    Optional<IdpClient> serviceClient = serviceClients.find(clientId).map(ClientRegistry::asServiceClient);
     if (serviceClient.isPresent()) {
       return serviceClient;
     }
-    return dynamicClients.find(clientId).map(this::asClient);
+    return dynamicClients.find(clientId).map(ClientRegistry::asClient);
   }
 
   /**
-   * Whether this id is a service client — environment or database — rather than a commissioned one.
+   * Whether this id is a service client — it has an {@code idp_service_client} row — rather than a
+   * commissioned one.
    *
    * <p>The commission endpoints and the service-client management API both ask, because <b>a
    * commissioned client may not commission or manage service clients</b>: that ability belongs to
@@ -91,14 +74,14 @@ public class ClientRegistry {
    * commissioned secret at one context.
    */
   public boolean isServiceClient(String clientId) {
-    return findServiceClient(clientId).isPresent();
+    return serviceClients.find(clientId).isPresent();
   }
 
   /**
    * Authenticate a presented id and secret, or refuse.
    *
-   * <p>One refusal for three causes — unknown id, no secret configured, wrong secret. The caller
-   * learns only that it did not authenticate; the log line is where the difference lives.
+   * <p>One refusal for three causes — unknown id, no live secret, wrong secret. The caller learns
+   * only that it did not authenticate; the log line is where the difference lives.
    *
    * @throws OAuthException {@code invalid_client} (401)
    */
@@ -116,64 +99,27 @@ public class ClientRegistry {
     return client;
   }
 
-  /** The environment client, the database client, or both merged — see the class javadoc. */
-  private Optional<IdpClient> findServiceClient(String clientId) {
-    Optional<IdpClient> env = staticClients.find(clientId);
-    Optional<StoredServiceClient> db = serviceClients.find(clientId);
-    if (env.isPresent()) {
-      if (db.isEmpty()) {
-        return env;
-      }
-      return Optional.of(withDatabaseSecret(env.get(), db.get()));
-    }
-    return db.map(ClientRegistry::asServiceClient);
-  }
-
-  /** An environment client that also has a database row: the env roles/claims/audiences, either secret. */
-  private static IdpClient withDatabaseSecret(IdpClient env, StoredServiceClient db) {
-    ClientSecret merged =
-        ClientSecret.either(
-            env.secret(),
-            ClientSecret.serviceClient(
-                null, db.secretHash(), db.previousSecretHash(), db.previousValidUntil()));
-    return new IdpClient(
-        env.clientId(),
-        merged,
-        env.audiences(),
-        env.roles(),
-        env.claims(),
-        env.contextKind(),
-        env.gitRefs(),
-        AudienceSource.ENVIRONMENT);
-  }
-
-  /** A database-only service client: fixed roles and claims in code, the database's secret rule. */
+  /** A service client: fixed roles and claims in code, the database's secret rule. */
   private static IdpClient asServiceClient(StoredServiceClient db) {
     return new IdpClient(
         db.clientId(),
-        ClientSecret.serviceClient(null, db.secretHash(), db.previousSecretHash(), db.previousValidUntil()),
-        List.of(),
-        DATABASE_SERVICE_CLIENT_ROLES,
-        DATABASE_SERVICE_CLIENT_CLAIMS,
+        ClientSecret.serviceClient(db.secretHash(), db.previousSecretHash(), db.previousValidUntil()),
+        SERVICE_CLIENT_ROLES,
+        SERVICE_CLIENT_CLAIMS,
         null,
-        null,
-        AudienceSource.DATABASE);
+        null);
   }
 
-  private IdpClient asClient(StoredClient stored) {
-    IdpClient owner = findServiceClient(stored.owner()).orElse(null);
+  private static IdpClient asClient(StoredClient stored) {
     return new IdpClient(
         stored.clientId(),
         ClientSecret.stored(stored.secretHash()),
-        owner == null ? List.of() : owner.audiences(),
-        // D12: the context kind's fixed role, or none — never the owner's (D3 removed that
-        // inheritance for roles the same way it removed it for claims).
+        // D12: the context kind's fixed role, or none — never the owner's.
         CommissionRoles.forKind(stored.contextKind()),
         // D3: a commission's claims are only what it stated for itself. DynamicClients.toStored has
         // already run them through CommissionedClaims, so this is the row, verbatim.
         stored.claims(),
         stored.contextKind(),
-        stored.gitRefs(),
-        owner == null ? AudienceSource.ENVIRONMENT : owner.audienceSource());
+        stored.gitRefs());
   }
 }

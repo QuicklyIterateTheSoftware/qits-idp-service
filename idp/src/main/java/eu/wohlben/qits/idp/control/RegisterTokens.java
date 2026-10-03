@@ -20,7 +20,7 @@ import org.jboss.logging.Logger;
  * guess. Deliberately <b>not</b> a log line: this service's logs ship to qits-observability, and a
  * credential must not ride the log plane.
  *
- * <p><b>Only a static service client may mint.</b> That check lives at the boundary, on the caller's
+ * <p><b>Only a service client may mint.</b> That check lives at the boundary, on the caller's
  * credentials, and it is the commissioning rule reused verbatim: a credential handed to a build step
  * or an agent container must not be able to produce platform accounts.
  *
@@ -42,7 +42,7 @@ public class RegisterTokens {
    * Mint a token for whoever asked.
    *
    * @param mintedBy the client id of the caller, already authenticated and already known to be a
-   *     static service client
+   *     service client
    */
   public Minted mint(String mintedBy) {
     String plaintext = RandomSecret.credential();

@@ -1,7 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
 import eu.wohlben.qits.idp.control.IdpClient;
-import eu.wohlben.qits.idp.control.IdpClients;
 import eu.wohlben.qits.idp.control.ServiceClients;
 import eu.wohlben.qits.idp.control.ServiceClients.Issued;
 import eu.wohlben.qits.idp.control.ServiceClients.StoredServiceClient;
@@ -18,20 +17,18 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.LinkedHashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.List;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
- * The service-client management API: {@code /idp/api/service-clients}, where a service client's
- * id and secret move from configuration into the database (service-client-identity-plan.md,
- * contract C2).
+ * The service-client management API: {@code /idp/api/service-clients}, where service clients are
+ * created, rotated, read and deleted (epic qits-540, dossier page "Plan (as of 2026-09-13)",
+ * contract C2). The database is the only service-client registry since qits-163.
  *
  * <p><b>Auth is the same Basic pair every machine surface here uses</b> ({@link BasicCaller}), and
- * the caller must be a service client itself — environment or database, never commissioned — and
- * hold {@code qits:system}. Every write — create, rotate, delete — accepts that and nothing else:
- * migrating an id's secret is not a thing an agent's context has any business doing.
+ * the caller must be a service client itself — never commissioned — and hold {@code qits:system}.
+ * Every write — create, rotate, delete — accepts that and nothing else: managing a service's secret
+ * is not a thing an agent's context has any business doing.
  *
  * <p><b>The two reads also accept a bearer</b> ({@link BearerCaller}): a JWT this idp issued whose
  * {@code groups} hold {@link #READ_ROLES} — {@code qits:agent}, {@code qits:system} or {@code
@@ -39,10 +36,8 @@ import org.jboss.resteasy.reactive.RestResponse;
  * the reads carry no secret, so there is nothing for a bearer to strip. A Basic caller on a read is
  * still held to the service-client rule above, unchanged.
  *
- * <p><b>An id that exists only in the environment registry may still be created here</b> (201): that
- * is the ordinary shape of a cutover (C5) — the deployer finds no database row, so it asks for one,
- * and the environment secret keeps authenticating the predecessor container through the start-first
- * overlap while the database secret authenticates the successor.
+ * <p>{@code source} in a read is always {@code "database"}. It used to say which registry held an
+ * id; there is one registry now, and the field stays so a reader that looks for it does not break.
  */
 @Path("/api/service-clients")
 @Produces(MediaType.APPLICATION_JSON)
@@ -57,8 +52,11 @@ public class IdpServiceClientsController {
   /** {@code POST …/secret}'s answer: the new pair. The old hash stays live for the grace window. */
   public record RotatedResponse(String clientId, String secret, String rotatedAt) {}
 
-  /** {@code GET}'s answer, singular or in a list. Never a secret. */
+  /** {@code GET}'s answer, singular or in a list. Never a secret. {@code source} is always {@link #SOURCE}. */
   public record ServiceClientView(String clientId, String source, String createdAt, String rotatedAt) {}
+
+  /** The one value {@code source} has. See the class javadoc. */
+  static final String SOURCE = "database";
 
   /** Any one of these, in a bearer's {@code groups}, reads both GET routes. */
   static final String[] READ_ROLES = {BasicCaller.AGENT, BasicCaller.PLATFORM_SYSTEM, "qits:admin"};
@@ -68,8 +66,6 @@ public class IdpServiceClientsController {
   @Inject BearerCaller bearer;
 
   @Inject ServiceClients serviceClients;
-
-  @Inject IdpClients environmentClients;
 
   /**
    * Create a database row for this id.
@@ -130,33 +126,25 @@ public class IdpServiceClientsController {
         .build();
   }
 
-  /** One id, from either or both registries — {@code source} says which. Never a secret. */
+  /** One service client's row. Never a secret. */
   @GET
   @Path("/{clientId}")
   public ServiceClientView get(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {
     requireReader(authorization);
-    boolean inEnvironment = environmentClients.ids().contains(clientId);
-    Optional<StoredServiceClient> db = serviceClients.find(clientId);
-    if (!inEnvironment && db.isEmpty()) {
-      throw OAuthException.notFound("no such service client");
-    }
-    return view(clientId, inEnvironment, db);
+    return serviceClients
+        .find(clientId)
+        .map(IdpServiceClientsController::view)
+        .orElseThrow(() -> OAuthException.notFound("no such service client"));
   }
 
-  /** Every id either registry knows — migration progress, one row per id. */
+  /** Every service client, one row each. */
   @GET
-  public java.util.List<ServiceClientView> list(
+  public List<ServiceClientView> list(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     requireReader(authorization);
-    Set<String> ids = new LinkedHashSet<>(environmentClients.ids());
-    serviceClients.list().forEach(row -> ids.add(row.clientId()));
-    return ids.stream()
-        .map(
-            id ->
-                view(id, environmentClients.ids().contains(id), serviceClients.find(id)))
-        .toList();
+    return serviceClients.list().stream().map(IdpServiceClientsController::view).toList();
   }
 
   /**
@@ -191,8 +179,8 @@ public class IdpServiceClientsController {
   }
 
   /**
-   * Basic, a service client (environment or database, never commissioned), holding {@code
-   * qits:system} — every write here, and a Basic read.
+   * Basic, a service client (never commissioned), holding {@code qits:system} — every write here,
+   * and a Basic read.
    */
   private IdpClient requireSystemCaller(String authorization) {
     return caller.staticOnly(
@@ -201,13 +189,11 @@ public class IdpServiceClientsController {
         BasicCaller.PLATFORM_SYSTEM);
   }
 
-  private static ServiceClientView view(
-      String clientId, boolean inEnvironment, Optional<StoredServiceClient> db) {
-    String source = inEnvironment && db.isPresent() ? "both" : inEnvironment ? "environment" : "database";
+  private static ServiceClientView view(StoredServiceClient row) {
     return new ServiceClientView(
-        clientId,
-        source,
-        db.map(row -> row.createdAt().toString()).orElse(null),
-        db.map(StoredServiceClient::rotatedAt).map(Object::toString).orElse(null));
+        row.clientId(),
+        SOURCE,
+        row.createdAt().toString(),
+        row.rotatedAt() == null ? null : row.rotatedAt().toString());
   }
 }

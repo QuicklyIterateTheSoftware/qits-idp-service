@@ -38,7 +38,7 @@ public class IdpRegisterToken extends PanacheEntityBase {
   @Column(name = "token_hash", nullable = false, length = 255, unique = true)
   public String tokenHash;
 
-  /** The static client that minted this token. */
+  /** The service client that minted this token. */
   @Column(name = "minted_by", nullable = false, length = 128)
   public String mintedBy;
 
