@@ -151,7 +151,7 @@ public class IdpClientsController {
         caller.staticOnly(
             authorization,
             "a commissioned client may not commission another",
-            BasicCaller.PLATFORM_SYSTEM);
+            BasicCaller.SYSTEM);
     if (request == null) {
       throw OAuthException.invalidRequest(
           "a JSON body naming contextKind and contextId is required");
@@ -198,7 +198,7 @@ public class IdpClientsController {
   public List<CommissionView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient owner =
         caller.requireAnyRole(
-            caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT);
+            caller.authenticated(authorization), BasicCaller.SYSTEM, BasicCaller.AGENT);
     return dynamicClients.listOwnedBy(owner.clientId()).stream()
         .map(IdpClientsController::view)
         .toList();
@@ -230,7 +230,7 @@ public class IdpClientsController {
         caller.staticOnly(
             authorization,
             "a commissioned client may not change a commission",
-            BasicCaller.PLATFORM_SYSTEM);
+            BasicCaller.SYSTEM);
     if (request == null || request.gitRefs() == null) {
       throw OAuthException.invalidRequest(
           "a JSON body with a gitRefs list is required; send [] for a credential that may push"
@@ -263,7 +263,7 @@ public class IdpClientsController {
     // (CommissionRoles, e.g. qits:agent) rather than its owner's — or none at all — and giving back
     // one's own credential needs no platform role either way.
     if (!authenticated.clientId().equals(clientId)) {
-      caller.requireRole(authenticated, BasicCaller.PLATFORM_SYSTEM);
+      caller.requireRole(authenticated, BasicCaller.SYSTEM);
     }
     if (!dynamicClients.decommission(clientId, authenticated.clientId())) {
       throw OAuthException.notFound("no such commissioned client");

@@ -34,7 +34,7 @@ public class BasicCaller {
    * service client is minted with it in code ({@code ClientRegistry}), so it is the one role that
    * gates a machine-admin route here.
    */
-  public static final String PLATFORM_SYSTEM = "qits:system";
+  public static final String SYSTEM = "qits:system";
 
   /**
    * The agent role. Every read route here accepts it beside the roles it accepted before: agents

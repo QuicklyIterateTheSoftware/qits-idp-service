@@ -70,7 +70,7 @@ public class IdpSessionsController {
     caller.staticOnly(
         authorization,
         "a commissioned client may not introspect sessions",
-        BasicCaller.PLATFORM_SYSTEM);
+        BasicCaller.SYSTEM);
     if (request == null || request.token() == null || request.token().isBlank()) {
       throw OAuthException.invalidRequest("a JSON body naming the session token is required");
     }

@@ -69,7 +69,7 @@ public class IdpRegisterTokensController {
         caller.staticOnly(
             authorization,
             "a commissioned client may not mint register tokens",
-            BasicCaller.PLATFORM_SYSTEM);
+            BasicCaller.SYSTEM);
     Minted minted = tokens.mint(client.clientId());
     return RestResponse.ResponseBuilder.create(
             Response.Status.CREATED,

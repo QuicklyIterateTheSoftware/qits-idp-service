@@ -20,12 +20,12 @@ public class BasicCallerTest {
 
   @Test
   public void aReadAcceptsThePlatformRoleOrTheAgentRole() {
-    IdpClient service = client("qits:system", BasicCaller.PLATFORM_SYSTEM);
+    IdpClient service = client("qits:system", BasicCaller.SYSTEM);
     IdpClient agent = client(BasicCaller.AGENT);
 
     assertSame(
-        service, caller.requireAnyRole(service, BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT));
-    assertSame(agent, caller.requireAnyRole(agent, BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT));
+        service, caller.requireAnyRole(service, BasicCaller.SYSTEM, BasicCaller.AGENT));
+    assertSame(agent, caller.requireAnyRole(agent, BasicCaller.SYSTEM, BasicCaller.AGENT));
   }
 
   @Test
@@ -35,7 +35,7 @@ public class BasicCallerTest {
             OAuthException.class,
             () ->
                 caller.requireAnyRole(
-                    client("qits:admin"), BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT));
+                    client("qits:admin"), BasicCaller.SYSTEM, BasicCaller.AGENT));
 
     assertEquals(403, refused.statusCode());
     assertEquals("access_denied", refused.error());
@@ -46,7 +46,7 @@ public class BasicCallerTest {
     // requireRole is what the write routes call, and it does not know the agent role.
     assertThrows(
         OAuthException.class,
-        () -> caller.requireRole(client(BasicCaller.AGENT), BasicCaller.PLATFORM_SYSTEM));
+        () -> caller.requireRole(client(BasicCaller.AGENT), BasicCaller.SYSTEM));
   }
 
   private static IdpClient client(String... roles) {

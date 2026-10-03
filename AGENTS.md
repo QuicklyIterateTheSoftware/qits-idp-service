@@ -143,7 +143,7 @@ verb there, GET included, requires `qits:system` and refuses `qits:agent` — mi
 own secret is not a thing an agent's context has any business doing, so `IdpServiceClientsController`
 calls `BasicCaller.staticOnly` rather than `requireAnyRole` throughout.
 
-**`BasicCaller.PLATFORM_SYSTEM`'s VALUE is `qits:system`** — the open calling model's one
+**`BasicCaller.SYSTEM`'s VALUE is `qits:system`** — the open calling model's one
 service-to-service role, which is what every service client's fixed roles are. No service client
 holds `qits:admin`, and nothing here mints `qits-platform:system`. The constant's name is the seam it gates (the
 platform's system surfaces), not the spelling of the role; every call site reads the constant.

@@ -18,7 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 /**
- * Seeding the first service client, once (service-client-identity-plan.md, "seed once"). Its own
+ * Seeding the first service client, once (epic qits-540 dossier, "Plan (as of 2026-09-13)", "seed
+ * once"). Its own
  * application start, the way {@code EnvironmentAudiencesTest} costs one to pin
  * {@code QITS_ENVIRONMENT}: seeding happens at {@code StartupEvent}, so it has to have already run
  * by the time any test method sees it.

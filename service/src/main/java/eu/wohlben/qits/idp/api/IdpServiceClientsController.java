@@ -59,7 +59,7 @@ public class IdpServiceClientsController {
   static final String SOURCE = "database";
 
   /** Any one of these, in a bearer's {@code groups}, reads both GET routes. */
-  static final String[] READ_ROLES = {BasicCaller.AGENT, BasicCaller.PLATFORM_SYSTEM, "qits:admin"};
+  static final String[] READ_ROLES = {BasicCaller.AGENT, BasicCaller.SYSTEM, "qits:admin"};
 
   @Inject BasicCaller caller;
 
@@ -186,7 +186,7 @@ public class IdpServiceClientsController {
     return caller.staticOnly(
         authorization,
         "a commissioned client may not manage service clients",
-        BasicCaller.PLATFORM_SYSTEM);
+        BasicCaller.SYSTEM);
   }
 
   private static ServiceClientView view(StoredServiceClient row) {

@@ -6,8 +6,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The fixed code map itself, without a process around it (D3/D12 of
- * {@code service-client-identity-plan.md}: a commission's roles are code, never configuration).
+ * The fixed code map itself, without a process around it (D3/D12 of the epic qits-540 dossier,
+ * "Plan (as of 2026-09-13)": a commission's roles are code, never configuration).
  * {@code CommissionedGitRefsTest} checks the same lines through minted tokens end to end.
  */
 public class CommissionRolesTest {

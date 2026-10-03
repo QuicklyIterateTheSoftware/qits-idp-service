@@ -34,7 +34,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Every test names its own {@code contextKind}: the suite shares one store, so a listing check
  * filters on it. <b>Roles per kind are code now, not configuration</b>
- * (service-client-identity-plan.md, D3/D12): a commission's role is its context kind's fixed one
+ * (epic qits-540 dossier, "Plan (as of 2026-09-13)", D3/D12): a commission's role is its context
+ * kind's fixed one
  * ({@code workspace}, {@code agent-container}, {@code refinement} → {@code qits:agent}; {@code
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
  * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}) or, for any

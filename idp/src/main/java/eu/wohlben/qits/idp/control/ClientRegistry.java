@@ -42,7 +42,7 @@ public class ClientRegistry {
   /**
    * A service client's fixed roles (D3): {@code qits:system}, the open calling model's
    * service-to-service role. It is spelled here rather than read from {@code
-   * BasicCaller.PLATFORM_SYSTEM}: this module has no compile-time dependency on {@code service}
+   * BasicCaller.SYSTEM}: this module has no compile-time dependency on {@code service}
    * ("Adding a dependency on another context").
    */
   private static final List<String> SERVICE_CLIENT_ROLES = List.of("qits:system");

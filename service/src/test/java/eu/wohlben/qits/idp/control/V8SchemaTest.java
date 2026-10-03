@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * V8 landed: {@code idp_service_client} and {@code idp_seed}
- * (service-client-identity-plan.md, contract C2). The same shape {@code CommissionedGitRefsTest}
+ * (epic qits-540 dossier, "Plan (as of 2026-09-13)", contract C2). The same shape
+ * {@code CommissionedGitRefsTest}
  * checks for V7 — the columns a reader actually depends on, and that Flyway recorded the migration
  * as applied.
  */

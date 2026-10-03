@@ -138,7 +138,7 @@ public class IdpTokensController {
         caller.staticOnly(
             authorization,
             "a commissioned client may not commission a token",
-            BasicCaller.PLATFORM_SYSTEM);
+            BasicCaller.SYSTEM);
     if (request == null) {
       throw OAuthException.invalidRequest(
           "a JSON body naming contextKind and contextId is required");
@@ -198,7 +198,7 @@ public class IdpTokensController {
     caller.staticOnly(
         authorization,
         "a commissioned client may not introspect tokens",
-        BasicCaller.PLATFORM_SYSTEM);
+        BasicCaller.SYSTEM);
     if (request == null || request.token() == null || request.token().isBlank()) {
       throw OAuthException.invalidRequest("a JSON body naming the token is required");
     }
@@ -239,7 +239,7 @@ public class IdpTokensController {
   public List<TokenView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient owner =
         caller.requireAnyRole(
-            caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM, BasicCaller.AGENT);
+            caller.authenticated(authorization), BasicCaller.SYSTEM, BasicCaller.AGENT);
     return tokens.listOwned(owner.clientId()).stream().map(IdpTokensController::view).toList();
   }
 
@@ -261,7 +261,7 @@ public class IdpTokensController {
     if (deleter == null) {
       deleter =
           caller
-              .requireRole(caller.authenticated(authorization), BasicCaller.PLATFORM_SYSTEM)
+              .requireRole(caller.authenticated(authorization), BasicCaller.SYSTEM)
               .clientId();
     }
     UUID id = parseId(tokenId);

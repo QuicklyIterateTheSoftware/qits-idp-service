@@ -206,7 +206,7 @@ public class CommissionedClientsTest {
         .body("error", equalTo("access_denied"));
 
     // It authenticates fine. spread-kind has no fixed role (D12), so the listing — which still
-    // needs PLATFORM_SYSTEM or AGENT — is 403 rather than the empty 200 an owner-inherited role
+    // needs SYSTEM or AGENT — is 403 rather than the empty 200 an owner-inherited role
     // used to answer with; POST is refused for the separate reason above regardless.
     given()
         .header("Authorization", basic(pair.get("clientId"), pair.get("secret")))
