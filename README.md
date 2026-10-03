@@ -21,9 +21,9 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 
 | path | what it is |
 |---|---|
-| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `http://qits-platform-idp:8080/idp` derives this URL itself. |
+| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `http://qits-platform-idp:8080/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
 | `GET /idp/jwks` | the public signing keys, each with its `kid`. |
-| `GET /idp/authorize` | signed-in browser approval for the local Git workstation's Authorization Code + PKCE flow. |
+| `GET /idp/authorize` | signed-in browser approval for the public clients' Authorization Code + PKCE (S256) flow: `qits-git-workstation`, `qits-cli`, and `qits-landing-dev` (the landing SPA under `ng serve`, callback `http://localhost:<port>/auth/callback`). |
 | `POST /idp/token` | `application/x-www-form-urlencoded`: `client_credentials`, workstation `authorization_code`, or rotating workstation `refresh_token`. |
 | `POST /idp/api/clients` | commission a credential for one dynamic context. |
 | `GET /idp/api/clients` | the caller's own live commissions. |
@@ -163,7 +163,7 @@ means "may push nothing". No claim means "no scope stated".
 | token | `git_refs` | `context_kind` |
 |---|---|---|
 | workstation (`qits-git-workstation`) | `["refs/heads/external/*"]`, beside the older `git_ref_pattern` | — |
-| CLI (`qits-cli`) | `["refs/heads/external/*"]`, whatever the person's roles | — |
+| CLI (`qits-cli`), and the dev SPA (`qits-landing-dev`), which gets the same token | `["refs/heads/external/*"]`, whatever the person's roles | — |
 | commissioned client | the commission's `gitRefs`, when it stated them | the commission's `contextKind` |
 | static service client | — | — |
 

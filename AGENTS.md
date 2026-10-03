@@ -266,7 +266,9 @@ document's `issuer` and every token's `iss`, and it is an IDENTIFIER: nothing di
 a config key or a properties default for it — a configurable issuer is how an address once got read
 as an issuer and every machine token was refused. The ADDRESS is `qits.idp.endpoint-base`
 (`Issuer.endpointBase()`), and `token_endpoint`, `jwks_uri` and `authorization_endpoint` hang off
-that. `BearerCaller` also accepts `Issuer.LEGACY` (`http://qits-platform-idp:8080/idp`, the old
+that — for an in-network caller. A caller whose `Host` or `X-Forwarded-Host` is the public
+authority (`BrowserSso.canonicalAuthority()`) is told the same endpoints on the public origin
+instead (`https://idp.qits.<domain>/idp/...`); the request only picks between those two values. `BearerCaller` also accepts `Issuer.LEGACY` (`http://qits-platform-idp:8080/idp`, the old
 configured issuer) so tokens minted before the cutover live out their hour; it goes in qits-730
 wave 3.
 

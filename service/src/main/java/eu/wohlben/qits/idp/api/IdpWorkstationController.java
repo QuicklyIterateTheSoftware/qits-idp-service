@@ -31,10 +31,11 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 /**
  * The browser leg of the public-client OAuth flows, and the signed-in user's revocation surface.
  *
- * <p>Two public clients arrive here. The Git workstation names a loopback listener and catches its
- * own redirect. {@code qits-cli} has no listener at the moment the person finishes signing in, so
+ * <p>Three public clients arrive here. The Git workstation names a loopback listener and catches its
+ * own redirect. The landing SPA under {@code ng serve} names its own {@code /auth/callback} page on
+ * the developer's machine. {@code qits-cli} has no listener at the moment the person finishes signing in, so
  * it names this idp's OWN page — {@code <origin>/idp/connect/cli} — which shows the code for the
- * person to paste into the waiting command. Both spend the code at {@code /token} with the PKCE
+ * person to paste into the waiting command. All three spend the code at {@code /token} with the PKCE
  * verifier the waiting process holds, which is what makes a pasted code worth nothing on its own.
  *
  * <p><b>{@code /authorize} with no session bounces to the sign-in page</b> rather than answering
@@ -57,6 +58,9 @@ public class IdpWorkstationController {
 
   /** The SPA route that shows a pasted-code, relative to the idp's own path prefix. */
   private static final String CLI_PAGE_PATH = "/connect/cli";
+
+  /** The one path the dev SPA's callback may have. */
+  private static final String DEV_SPA_CALLBACK_PATH = "/auth/callback";
 
   /** The SPA route that signs a person in, relative to the idp's own path prefix. */
   private static final String LOGIN_PAGE_PATH = "/login";
@@ -104,17 +108,20 @@ public class IdpWorkstationController {
             .byId(requestedClientId)
             .orElseThrow(() -> OAuthException.invalidRequest("invalid workstation authorization request"));
     URI callback = redirectTarget(client, redirectUri);
-    boolean reportable = client.cli() && !isLoopback(callback);
+    // The dev SPA's callback is a page a person reads, like the CLI's own page, so a refusal
+    // after the target is settled travels there too.
+    boolean reportable = (client.cli() && !isLoopback(callback)) || client.devSpa();
     try {
       if (!RESPONSE_TYPE_CODE.equals(responseType) || !S256.equals(challengeMethod)) {
         throw OAuthException.invalidRequest("invalid workstation authorization request");
       }
-      if (client.cli()) {
+      if (client.personToken()) {
         if (audience != null && !audience.isBlank()) {
-          // The CLI's audiences are qits.idp.cli.audiences and nothing else. Refusing the parameter
-          // rather than ignoring it keeps the answer honest: a tool that asked for one and silently
-          // got another list would have no way to notice.
-          throw OAuthException.invalidRequest("qits-cli does not choose its own audience");
+          // The CLI's audiences are qits.idp.cli.audiences and nothing else, and the dev SPA gets
+          // the CLI's token. Refusing the parameter rather than ignoring it keeps the answer
+          // honest: a tool that asked for one and silently got another list would have no way to
+          // notice.
+          throw OAuthException.invalidRequest(client.id() + " does not choose its own audience");
         }
       } else if (!isAcceptedWorkstationAudience(audience)) {
         throw OAuthException.invalidRequest("invalid workstation authorization request");
@@ -273,10 +280,43 @@ public class IdpWorkstationController {
     if (raw == null || raw.isBlank()) {
       throw OAuthException.invalidRequest("redirect_uri is required");
     }
+    if (client.devSpa()) {
+      return devSpaRedirect(raw);
+    }
     if (client.cli() && cliPages().contains(raw)) {
       return URI.create(raw);
     }
     return loopbackRedirect(raw);
+  }
+
+  /**
+   * The dev SPA's one callback: {@code http://<localhost|127.0.0.1|[::1]>:<port>/auth/callback}.
+   *
+   * <p>Any port, because {@code ng serve} takes another when 4200 is busy. The path is exact, so the
+   * client cannot be pointed at some other page on the developer's machine. {@code localhost} is
+   * accepted here and nowhere else: the page keeps its PKCE verifier in storage scoped to its own
+   * origin, so the callback must land on the origin the developer opened, and {@code ng serve}
+   * opens {@code http://localhost:4200}. A code caught on that name by anything else is worthless
+   * without the verifier.
+   */
+  private static URI devSpaRedirect(String raw) {
+    try {
+      URI uri = new URI(raw);
+      String host = uri.getHost();
+      if (!"http".equals(uri.getScheme())
+          || !("localhost".equals(host) || isLoopback(uri))
+          || uri.getPort() < 1
+          || uri.getUserInfo() != null
+          || uri.getRawQuery() != null
+          || uri.getRawFragment() != null
+          || !DEV_SPA_CALLBACK_PATH.equals(uri.getRawPath())) {
+        throw OAuthException.invalidRequest(
+            "redirect_uri must be http://localhost:<port>" + DEV_SPA_CALLBACK_PATH);
+      }
+      return uri;
+    } catch (URISyntaxException badUri) {
+      throw OAuthException.invalidRequest("redirect_uri must be a URI");
+    }
   }
 
   /**

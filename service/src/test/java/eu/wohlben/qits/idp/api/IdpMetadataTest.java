@@ -10,6 +10,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
 import io.quarkus.test.junit.QuarkusTest;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -57,7 +58,51 @@ public class IdpMetadataTest {
                 "credential_type",
                 "git_ref_pattern"))
         .body("authorization_endpoint", equalTo(PublishedJwks.ENDPOINT_BASE + "/authorize"))
+        .body("code_challenge_methods_supported", contains("S256"))
         .body("userinfo_endpoint", nullValue());
+  }
+
+  /**
+   * A caller that used the public name is told the public endpoints: a browser page outside
+   * qits-net cannot dial the in-network address. Under test no domain is stated, so the public
+   * origin is {@code http://localhost:8080}. The issuer does not change.
+   */
+  @Test
+  public void aCallerOnThePublicNameIsToldThePublicEndpoints() {
+    for (String[] header :
+        new String[][] {
+          {"Host", "localhost:8080"},
+          {"X-Forwarded-Host", "localhost:8080"},
+          {"X-Forwarded-Host", "LOCALHOST:8080, inner-hop:8080"}
+        }) {
+      given()
+          .header(header[0], header[1])
+          .when()
+          .get("/idp/.well-known/openid-configuration")
+          .then()
+          .statusCode(200)
+          .body("issuer", equalTo(PublishedJwks.ISSUER))
+          .body("authorization_endpoint", equalTo("http://localhost:8080/idp/authorize"))
+          .body("token_endpoint", equalTo("http://localhost:8080/idp/token"))
+          .body("jwks_uri", equalTo("http://localhost:8080/idp/jwks"))
+          .body("code_challenge_methods_supported", contains("S256"));
+    }
+  }
+
+  /** Any other name — the in-network alias, or a foreign host — gets the address, never itself. */
+  @Test
+  public void anyOtherNameIsToldTheAddress() {
+    for (String host : List.of("dev-qits-platform-idp:8080", "evil.example", "localhost:9999")) {
+      given()
+          .header("X-Forwarded-Host", host)
+          .when()
+          .get("/idp/.well-known/openid-configuration")
+          .then()
+          .statusCode(200)
+          .body("token_endpoint", equalTo(PublishedJwks.ENDPOINT_BASE + "/token"))
+          .body("authorization_endpoint", equalTo(PublishedJwks.ENDPOINT_BASE + "/authorize"))
+          .body("jwks_uri", equalTo(PublishedJwks.ENDPOINT_BASE + "/jwks"));
+    }
   }
 
   @Test
