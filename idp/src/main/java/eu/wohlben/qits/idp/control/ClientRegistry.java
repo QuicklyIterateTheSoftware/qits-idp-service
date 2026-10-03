@@ -37,8 +37,8 @@ import org.jboss.logging.Logger;
  * has neither, so its token carries neither.
  *
  * <p><b>Which secret a service client authenticated with is logged once per boot</b> (qits-880,
- * release 1): {@code service client &lt;id&gt; authenticated with its &lt;current|previous|kept
- * environment&gt; secret}. The point is to prove, before release 2 retires the legacy hash {@link
+ * release 1): {@code service client <id> authenticated with its <current|previous|kept
+ * environment> secret}. The point is to prove, before release 2 retires the legacy hash {@link
  * ClientSecret} still carries for the environment registry qits-163 retired, that no service
  * client still presents that kept secret rather than its database one. Commissioned clients are
  * not logged here: they are many and ephemeral, and {@link ClientSecret#stored} never carries more
