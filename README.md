@@ -210,8 +210,19 @@ secret:
 
     adopted 2 environment service client(s) into the database: dev-qits-ci,dev-qits-workspaces
 
-Once the marker exists nothing reads those keys again. The `audiences`, `roles` and `claims.<name>`
-keys are not read at all.
+**An id that already had a row keeps accepting its environment secret.** Before qits-163 such an id
+authenticated with either secret, and its caller may still hold the environment one — live,
+`dev-qits-edge` did, and got `invalid_client` the moment the registry went. So when the environment
+secret matches neither of the row's own hashes, its hash is stored as `legacy_secret_hash` (V11) and
+accepted beside them. **The next rotation clears it**: after `POST
+/idp/api/service-clients/{id}/secret` the caller holds a database secret and only that works. An
+installation that adopted before V11 runs this pass once on its own, guarded by
+`idp_adoption.legacy_adopted_at`, and logs ids only:
+
+    kept the environment secret of 1 service client(s) that already had a database row: dev-qits-edge
+
+Once the marker is complete nothing reads those keys again. The `audiences`, `roles` and
+`claims.<name>` keys are not read at all.
 
 ### Commissioned clients
 

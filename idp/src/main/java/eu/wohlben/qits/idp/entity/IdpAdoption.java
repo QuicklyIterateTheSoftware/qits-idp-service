@@ -24,4 +24,12 @@ public class IdpAdoption extends PanacheEntityBase {
 
   @Column(name = "adopted_at", nullable = false)
   public Instant adoptedAt;
+
+  /**
+   * When the second pass ran: an id whose existing row did not match its environment secret got
+   * that secret's hash as {@code legacy_secret_hash}. Null: not yet, which is the state every
+   * installation that ran V10's adoption before this column existed starts in.
+   */
+  @Column(name = "legacy_adopted_at")
+  public Instant legacyAdoptedAt;
 }

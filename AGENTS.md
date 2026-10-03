@@ -185,7 +185,12 @@ listed for adoption with no secret.
   skipped and existing rows untouched. The keys are read with raw `Config` lookups in that class
   alone — the same lookups the retired `IdpClients` made, so the env spellings
   (`QITS_IDP_CLIENT_DEV_QITS_CI_SECRET`) resolve as before — and never again once the marker exists.
-  It is the only reader of those keys; do not add another.
+  It is the only reader of those keys; do not add another. **An existing row whose own hashes do not
+  match its environment secret gets that secret's hash as `legacy_secret_hash` (V11)**, accepted
+  beside the row's own by `ClientSecret.serviceClient`: the retired registry accepted either, and the
+  live edge still held the environment one. A rotation clears it — that is how it retires. The pass
+  is guarded by `idp_adoption.legacy_adopted_at`, set by a first adoption in the same transaction or
+  by `keepEnvironmentSecrets` on an installation that adopted before V11.
 
 ## Package and module conventions
 
@@ -310,7 +315,9 @@ the client table in, V3 is the five user tables. **V8 is `idp_service_client` an
 kind column on `idp_client`, because a service client has no owner and no context — see
 `ServiceClients` and `V8SchemaTest`. **V10 is `idp_adoption`**, the one-row marker that the
 environment clients were moved into `idp_service_client` (qits-163, `EnvironmentClientAdoption`).
-V8's header still talks about environment clients; it is applied, so it stays as it is.
+V8's header still talks about environment clients; it is applied, so it stays as it is. **V11 adds
+`idp_service_client.legacy_secret_hash` and `idp_adoption.legacy_adopted_at`** — the environment
+secret a pre-existing row keeps until its next rotation, and the marker for that second pass.
 
 **One column set in V3 is not a design and must not be treated as one.** `idp_webauthn_credential`
 is exactly `WebAuthnCredentialRecord.RequiredPersistedData` from quarkus-security-webauthn, read off

@@ -19,7 +19,7 @@ public class ClientSecretTest {
   @Test
   public void aDatabaseServiceClientAcceptsItsCurrentHash() {
     ClientSecret secret =
-        ClientSecret.serviceClient(ClientSecret.hash("current"), null, null);
+        ClientSecret.serviceClient(ClientSecret.hash("current"), null, null, null);
     assertTrue(secret.matches("current"));
     assertFalse(secret.matches("wrong"));
   }
@@ -30,7 +30,8 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().plus(15, ChronoUnit.MINUTES));
+            Instant.now().plus(15, ChronoUnit.MINUTES),
+            null);
 
     assertTrue(secret.matches("current"), "the fresh secret");
     assertTrue(secret.matches("previous"), "the rotated-out one, still inside its grace");
@@ -42,15 +43,27 @@ public class ClientSecretTest {
         ClientSecret.serviceClient(
             ClientSecret.hash("current"),
             ClientSecret.hash("previous"),
-            Instant.now().minus(1, ChronoUnit.SECONDS));
+            Instant.now().minus(1, ChronoUnit.SECONDS),
+            null);
 
     assertTrue(secret.matches("current"));
     assertFalse(secret.matches("previous"), "the grace window (D4) has closed");
   }
 
   @Test
+  public void aKeptEnvironmentSecretAuthenticatesBesideTheDatabaseOne() {
+    ClientSecret secret =
+        ClientSecret.serviceClient(
+            ClientSecret.hash("current"), null, null, ClientSecret.hash("environment"));
+
+    assertTrue(secret.matches("current"), "the row's own secret");
+    assertTrue(secret.matches("environment"), "the environment secret it kept (qits-163)");
+    assertFalse(secret.matches("wrong"));
+  }
+
+  @Test
   public void aNullCandidateNeverMatches() {
-    ClientSecret secret = ClientSecret.serviceClient(ClientSecret.hash("only"), null, null);
+    ClientSecret secret = ClientSecret.serviceClient(ClientSecret.hash("only"), null, null, null);
     assertFalse(secret.matches(null), "a null candidate never matches");
     assertTrue(secret.usable());
   }

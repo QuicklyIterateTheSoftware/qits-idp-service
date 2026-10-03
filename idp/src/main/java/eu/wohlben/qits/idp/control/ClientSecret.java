@@ -68,15 +68,20 @@ public final class ClientSecret {
    *     the grace has already been dropped from the row
    * @param previousValidUntil when {@code previousHash} stops being accepted; ignored when {@code
    *     previousHash} is null
+   * @param legacyHash the environment secret a row kept when the environment registry was retired
+   *     (qits-163), or null; no expiry, a rotation clears it from the row
    */
   public static ClientSecret serviceClient(
-      String currentHash, String previousHash, Instant previousValidUntil) {
-    List<Hash> hashes = new ArrayList<>(2);
+      String currentHash, String previousHash, Instant previousValidUntil, String legacyHash) {
+    List<Hash> hashes = new ArrayList<>(3);
     if (currentHash != null && !currentHash.isBlank()) {
       hashes.add(new Hash(currentHash, null));
     }
     if (previousHash != null && !previousHash.isBlank() && previousValidUntil != null) {
       hashes.add(new Hash(previousHash, previousValidUntil));
+    }
+    if (legacyHash != null && !legacyHash.isBlank()) {
+      hashes.add(new Hash(legacyHash, null));
     }
     return new ClientSecret(List.copyOf(hashes));
   }

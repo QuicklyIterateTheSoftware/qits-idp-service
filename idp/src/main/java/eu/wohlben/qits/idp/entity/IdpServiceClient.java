@@ -41,6 +41,14 @@ public class IdpServiceClient extends PanacheEntityBase {
   @Column(name = "previous_valid_until")
   public Instant previousValidUntil;
 
+  /**
+   * The hash of the environment secret this client still held when the environment registry was
+   * retired, for a row that existed before that and whose own hashes did not match it (qits-163).
+   * Accepted beside {@link #secretHash} until the next rotation clears it. Null for every other row.
+   */
+  @Column(name = "legacy_secret_hash", length = 255)
+  public String legacySecretHash;
+
   /** Who created this row: another service client's id, {@code bootstrap} or {@code adopted}. */
   @Column(name = "created_by", nullable = false, length = 128)
   public String createdBy;

@@ -103,7 +103,8 @@ public class ClientRegistry {
   private static IdpClient asServiceClient(StoredServiceClient db) {
     return new IdpClient(
         db.clientId(),
-        ClientSecret.serviceClient(db.secretHash(), db.previousSecretHash(), db.previousValidUntil()),
+        ClientSecret.serviceClient(
+            db.secretHash(), db.previousSecretHash(), db.previousValidUntil(), db.legacySecretHash()),
         SERVICE_CLIENT_ROLES,
         SERVICE_CLIENT_CLAIMS,
         null,

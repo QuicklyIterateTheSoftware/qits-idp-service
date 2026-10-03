@@ -2,6 +2,7 @@ package eu.wohlben.qits.idp.control;
 
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -115,6 +116,11 @@ public class EnvironmentClientAdoptionTest {
 
     IdpServiceClient untouched = row("adopt-existing");
     assertEquals(existingHash, untouched.secretHash, "an existing row keeps its own secret");
+    assertEquals(
+        ClientSecret.hash("adopt-existing-environment-secret"),
+        untouched.legacySecretHash,
+        "and keeps accepting the environment secret its caller may still hold");
+    assertNull(row("adopt-new").legacySecretHash, "an adopted row already holds that secret");
     assertEquals("svc-someone", untouched.createdBy);
     assertEquals(existingAt, untouched.createdAt);
     assertTrue(adopted(), "and the marker is back");
@@ -122,7 +128,7 @@ public class EnvironmentClientAdoptionTest {
     // Through the token endpoint, once the cache has the rows (the real start loads after adopting).
     serviceClients.load();
     mint("adopt-new", "adopt-new-secret", "").statusCode(200);
-    mint("adopt-existing", "adopt-existing-environment-secret", "").statusCode(401);
+    mint("adopt-existing", "adopt-existing-environment-secret", "").statusCode(200);
     mint("adopt-existing", "adopt-existing-original", "").statusCode(200);
     mint("adopt-blank", "   ", "").statusCode(401);
   }
@@ -138,6 +144,82 @@ public class EnvironmentClientAdoptionTest {
     // The start-time entry point too: it does not get as far as reading the configuration.
     adoption.adoptOnce();
     assertEquals(1L, QuarkusTransaction.requiringNew().call(() -> marker.count()));
+  }
+
+  @Test
+  @Order(4)
+  public void anInstallationThatAdoptedEarlierKeepsMismatchedEnvironmentSecretsOnce()
+      throws Exception {
+    // The live state this pass exists for: the V10 marker is there, legacy_adopted_at is not.
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              marker.findById(IdpAdoptionRepository.ID).legacyAdoptedAt = null;
+              IdpServiceClient mismatched = new IdpServiceClient();
+              mismatched.clientId = "legacy-mismatched";
+              mismatched.secretHash = ClientSecret.hash("legacy-mismatched-database");
+              mismatched.createdBy = "svc-someone";
+              mismatched.createdAt = Instant.now();
+              rows.persist(mismatched);
+              IdpServiceClient matching = new IdpServiceClient();
+              matching.clientId = "legacy-matching";
+              matching.secretHash = ClientSecret.hash("legacy-matching-secret");
+              matching.createdBy = "svc-someone";
+              matching.createdAt = Instant.now();
+              rows.persist(matching);
+            });
+    assertFalse(complete());
+
+    Map<String, String> configured = new LinkedHashMap<>();
+    configured.put("legacy-mismatched", "legacy-mismatched-environment");
+    configured.put("legacy-matching", "legacy-matching-secret");
+    configured.put("legacy-rowless", "legacy-rowless-secret");
+
+    assertEquals(List.of("legacy-mismatched"), adoption.keepEnvironmentSecrets(configured));
+    assertEquals(
+        ClientSecret.hash("legacy-mismatched-environment"),
+        row("legacy-mismatched").legacySecretHash);
+    assertEquals(ClientSecret.hash("legacy-mismatched-database"), row("legacy-mismatched").secretHash);
+    assertNull(row("legacy-matching").legacySecretHash, "its environment secret already matches");
+    assertNull(row("legacy-rowless"), "the second pass never creates a row");
+    assertTrue(complete());
+
+    // Once: a second run with a different secret changes nothing.
+    assertEquals(
+        List.of(),
+        adoption.keepEnvironmentSecrets(Map.of("legacy-matching", "legacy-matching-other")));
+    assertNull(row("legacy-matching").legacySecretHash);
+
+    serviceClients.load();
+    mint("legacy-mismatched", "legacy-mismatched-environment", "").statusCode(200);
+    mint("legacy-mismatched", "legacy-mismatched-database", "").statusCode(200);
+    mint("legacy-matching", "legacy-matching-secret", "").statusCode(200);
+
+    // A rotation retires the kept environment secret; the database one keeps its grace.
+    String rotated = serviceClients.rotate("legacy-mismatched").orElseThrow().secret();
+    assertNull(row("legacy-mismatched").legacySecretHash);
+    mint("legacy-mismatched", "legacy-mismatched-environment", "").statusCode(401);
+    mint("legacy-mismatched", "legacy-mismatched-database", "").statusCode(200);
+    mint("legacy-mismatched", rotated, "").statusCode(200);
+  }
+
+  @Test
+  @Order(5)
+  public void theStartEntryPointRunsTheSecondPassWhenOnlyItIsMissing() {
+    QuarkusTransaction.requiringNew()
+        .run(() -> marker.findById(IdpAdoptionRepository.ID).legacyAdoptedAt = null);
+    assertFalse(complete());
+
+    adoption.adoptOnce();
+
+    assertTrue(complete());
+    assertEquals(1L, QuarkusTransaction.requiringNew().call(() -> marker.count()));
+    // The configured test clients were adopted with their own secrets, so none needed keeping.
+    assertNull(row("test-broad").legacySecretHash);
+  }
+
+  private boolean complete() {
+    return QuarkusTransaction.requiringNew().call(() -> marker.complete());
   }
 
   private IdpServiceClient row(String clientId) {
