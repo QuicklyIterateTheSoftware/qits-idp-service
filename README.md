@@ -1,7 +1,7 @@
 # qits-idp-platform-service
 
 The platform's own identity provider, for **machines and for people**, deployed as the
-`qits-platform-idp` application.
+`qits-idp` application.
 
 The machine half is an RS256 signing key that survives restarts, a JWKS, an OIDC discovery document,
 and a `client_credentials` token endpoint the platform's services authenticate to each other with,
@@ -21,7 +21,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 
 | path | what it is |
 |---|---|
-| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `http://qits-platform-idp:8080/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
+| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `http://qits-idp:8080/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
 | `GET /idp/jwks` | the public signing keys, each with its `kid`. |
 | `GET /idp/authorize` | signed-in browser approval for the public clients' Authorization Code + PKCE (S256) flow: `qits-git-workstation`, `qits-cli`, and `qits-landing-dev` (the landing SPA under `ng serve`, callback `http://localhost:<port>/auth/callback`). |
 | `POST /idp/token` | `application/x-www-form-urlencoded`: `client_credentials`, workstation `authorization_code`, or rotating workstation `refresh_token`. |
@@ -35,7 +35,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `POST /idp/api/tokens/introspect` | what the edge asks a `qits_tok_` bearer about; answers the token and a short JWT for it. Basic, a service client holding `qits:system`. |
 | `POST /idp/api/service-clients` | create a database row for a service client id. Basic, a service client holding `qits:system`. |
 | `POST /idp/api/service-clients/{id}/secret` | rotate its secret; the old one stays valid fifteen minutes. |
-| `GET /idp/api/service-clients` / `.../{id}` | migration progress: which registry (or both) holds an id. |
+| `GET /idp/api/service-clients` / `.../{id}` | the service clients, never a secret. |
 | `DELETE /idp/api/service-clients/{id}` | remove its database row. |
 | `POST /idp/api/auth/register-options` | WebAuthn creation options. Guarded by a register token or a session. |
 | `POST /idp/api/auth/register` | an attestation or a password → an account and a session. |
@@ -43,8 +43,8 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `POST /idp/api/auth/login` | an assertion or `{username, password}` → a session. |
 | `POST /idp/api/auth/logout` | revoke the session and clear the cookie. |
 | `POST /idp/api/auth/password` | set or replace the signed-in account's password. |
-| `POST /idp/api/sessions/introspect` | what the edge asks a cookie about. Basic, static client. |
-| `POST /idp/api/register-tokens` | mint a one-time register token. Basic, static client. |
+| `POST /idp/api/sessions/introspect` | what the edge asks a cookie about. Basic, a service client. |
+| `POST /idp/api/register-tokens` | mint a one-time register token. Basic, a service client. |
 | `GET /idp/api/workstations` | the signed-in user's revocable Git workstation credentials. |
 | `DELETE /idp/api/workstations/{familyId}` | revoke one signed-in user's workstation refresh-token family. |
 | `GET /idp/q/health/ready` | readiness, where the deployment convention expects it. |
@@ -64,17 +64,13 @@ reasoning is in `service/src/main/resources/application.properties`, the proof i
 `IdpPackagedSurfaceIT`, and the rule is that a new literal route lands with its prefix entry in the
 same commit.
 
-A token request authenticates with `client_secret_basic` **or** `client_secret_post`, never both,
-and may name an `audience` (repeated or whitespace-separated). Each one named is still checked — it
-must be on the client's list, or it must be `qits-platform` — but **for an environment client (or a
-commission owned by one) naming an audience no longer narrows what comes back**: `aud` is always the
-client's whole allowed list, plus `qits-platform`, whatever was asked for. See the explanation below
-the claim table for why.
+A token request authenticates with `client_secret_basic` **or** `client_secret_post`, never both.
+It may still name an `audience`; the parameter is accepted and **ignored** — never refused with
+`invalid_target` — because every token has the same one audience (see below).
 
-    curl -s -X POST http://qits-platform-idp:8080/idp/token \
+    curl -s -X POST http://qits-idp:8080/idp/token \
       -d grant_type=client_credentials \
-      -d client_id=prod-qits-ci -d client_secret=... \
-      -d audience=qits-deployments
+      -d client_id=dev-qits-ci -d client_secret=...
 
 The token is RS256, carries a `kid`, and says:
 
@@ -82,32 +78,19 @@ The token is RS256, carries a `kid`, and says:
 |---|---|
 | `iss` | `https://idp.qits.<QITS_DOMAIN>` — derived from the domain, never configured |
 | `sub` | the client id |
-| `aud` | always a JSON array, always including `qits-platform` — see below |
+| `aud` | always `["qits-platform"]` — see below |
 | `iat`, `exp`, `jti` | issued now, valid for `qits.idp.token-ttl-seconds` (3600 by default) |
-| `groups` | the client's configured roles, **plus `clients/<client id>`** — see below |
-| `project`, `workspace`, `branch` | only when granted to the client, copied verbatim |
+| `groups` | the client's roles (fixed in code), **plus `clients/<client id>`** — see below |
+| `project`, `workspace`, `branch` | `project=*` for a service client; a commission's own stated claims |
 | `context_kind` | commissioned clients only: the commission's `contextKind` |
 | `git_refs` | commissioned clients only, and only when the commission stated a list — see [Git refs](#git-refs) |
 
-**`aud`, for an environment client (or a commission owned by one), is always the client's whole
-allowed list, plus `qits-platform` — never only what was asked for.** A named audience is still
-checked — it must be on the list, or be `qits-platform` itself, or the request is refused with
-`invalid_target` as before — but a narrower request no longer narrows the answer.
-
-This is about the rollout, not about security. A service that switches to the one named `qits` OIDC
-client asks for a single audience, `qits-platform`. Some of the services it calls will not yet have
-taken the qits-auth-core release that accepts `qits-platform` (contract C1, carried in by the
-ordinary maintenance bump train — which can land as late as the next nightly run) — they still read
-their own name off the token, the same as always. Putting the whole list on every token, regardless
-of what was asked for, means the calling service does not have to wait for every one of its
-receivers to have taken that bump first. Under the open calling model this costs nothing: `aud` only
-says where a token may be *presented*, never what it may do there, so an audience a token did not
-need to carry grants it nothing extra. A later phase (C7) narrows every token back down to
-`qits-platform` alone, once every receiver has moved.
-
-A **database service client** keeps the other rule: it has no configured audience list yet, so a
-requested audience is copied back *unchecked* — never validated, and never widened to a "whole list"
-that does not exist for it.
+**`aud` is always `["qits-platform"]`, for every token this idp mints** — a service client's, a
+commissioned client's, the JWT a commissioned token's introspection answers with, the CLI's and a
+Git workstation's (qits-163; contract C7 of epic qits-540, dossier page "Plan (as of
+2026-09-13)"). `aud` says only where a token may be *presented*, and every qits service accepts
+`qits-platform`; what a token may *do* there is its `groups`. So there is no per-client audience
+list any more, nothing to ask for, and nothing to refuse.
 
 **Every client token names its own client.** `groups` — which `quarkus-oidc` reads as roles — always
 ends with `clients/<the id in `sub`>`, stamped at mint time and configured nowhere. A role naming one
@@ -116,28 +99,28 @@ service can write `@RolesAllowed("clients/prod-qits-projects")` for a route exac
 ever reach. It is additive: consumers allowlist the roles they care about, so the extra entry is
 inert everywhere else.
 
-That is why **`clients/` is a reserved namespace**: a `qits.idp.client.<id>.roles` line containing
-one is refused with `invalid_request` (400) — another client's id and the client's own alike — and
-the client mints nothing until it is removed. A user credential gets no such role: the workstation
+That is why **`clients/` is a reserved namespace**, and today nothing can even ask for it: every
+role a client carries is fixed in code — `qits:system` for a service client, its kind's role for a
+commission. The configured `roles` lines that once needed a guard against the prefix are gone with
+the environment registry. A user credential gets no such role: the workstation
 token below carries `qits:git:external` and nothing more, so the machine identity a service gates on
 cannot be reached through a login.
 
 **Claims, not scopes.** `aud` names the service a token may be used at; the structured claims name
 what it may be used for *within* that service. The idp states them and interprets nothing — a
 resource service decides what a value permits, including whether `*` means "any". They reach a
-token from one of three places, never merged across them: an environment client's configured
-`qits.idp.client.<id>.claims.<name>`; a database service client's one fixed claim, `project=*`
-(D3 of `service-client-identity-plan.md`); or — for a commissioned credential — only the `claims`
-its own commission stated (D3: no owner inheritance any more).
+token from one of two places, never merged: a service client's one fixed claim, `project=*` (D3 of
+epic qits-540, dossier page "Plan (as of 2026-09-13)"); or — for a commissioned credential — only
+the `claims` its own commission stated (D3: no owner inheritance).
 
 Refusals are RFC 6749 §5.2: `invalid_client` (401, with a `WWW-Authenticate` challenge),
-`invalid_request` / `unsupported_grant_type` / `invalid_target` (400).
+`invalid_request` / `unsupported_grant_type` (400).
 
 ### Local Git workstations
 
 `qits-bootstrap login` uses a public OAuth client, `qits-git-workstation`, rather than receiving a service
 credential. It starts `GET /idp/authorize` in the browser with `response_type=code`, an S256 PKCE
-challenge, the fixed githost audience and an exact `http://127.0.0.1:<ephemeral-port>/…` callback.
+challenge and an exact `http://127.0.0.1:<ephemeral-port>/…` callback.
 The browser must already hold a `qits-session`; approval returns a two-minute, one-use code to that
 loopback listener. Exchanging it at `/token` returns a fifteen-minute access token and a rotating,
 opaque refresh token. Refresh-token replay revokes the entire family, and the account can revoke a
@@ -145,11 +128,10 @@ family through `/api/workstations`.
 
 The access token is deliberately not the user's ordinary administrator identity: it has
 `groups=["qits:git:external"]`, `credential_type=workstation`,
-`git_ref_pattern=refs/heads/external/*`, `git_refs=["refs/heads/external/*"]`, and the configured
-githost audience — plus `qits-platform`, transitionally, beside it. `/authorize` accepts no
-`audience` parameter, `qits-platform`, or the githost value for this client; anything else is
-refused. The githost must enforce that ref pattern for every update; no workstation token has
-`qits:system`.
+`git_ref_pattern=refs/heads/external/*`, `git_refs=["refs/heads/external/*"]`, and
+`aud=["qits-platform"]` like every token — there is no githost audience any more. `/authorize`
+accepts an `audience` parameter from any public client and ignores it. The githost must enforce that
+ref pattern for every update; no workstation token has `qits:system`.
 
 ### Git refs
 
@@ -165,47 +147,21 @@ means "may push nothing". No claim means "no scope stated".
 | workstation (`qits-git-workstation`) | `["refs/heads/external/*"]`, beside the older `git_ref_pattern` | — |
 | CLI (`qits-cli`), and the dev SPA (`qits-landing-dev`), which gets the same token | `["refs/heads/external/*"]`, whatever the person's roles | — |
 | commissioned client | the commission's `gitRefs`, when it stated them | the commission's `contextKind` |
-| static service client | — | — |
+| service client | — | — |
 
 ## Clients
 
-There are three kinds, and they differ in where the identity comes from. **Environment service
-clients** are config, the shape every platform service has shipped with since day one.
-**Database service clients** are rows in `idp_service_client`, created and rotated through
-`/idp/api/service-clients` rather than configured — the service-client identity is moving here,
-repository by repository (`service-client-identity-plan.md`, contract C2), and for as long as that
-migration is under way an id may exist in *both* places at once. **Commissioned clients** are rows
-of a different shape, in `idp_client`, because a build run or a workspace is not a service at all.
+There are two kinds, and they differ in where the identity comes from. **Service clients** are rows
+in `idp_service_client`, created and rotated through `/idp/api/service-clients` rather than
+configured (epic qits-540, dossier page "Plan (as of 2026-09-13)", contract C2). **Commissioned
+clients** are rows of a different shape, in `idp_client`, because a build run or a workspace is not
+a service at all.
 
-### Environment service clients
+### Service clients
 
-`qits.idp.clients` lists the ids that exist; each one has
-`qits.idp.client.<id>.secret`, `.audiences`, and `.claims.<name>`. The shipped list is the names
-services are dialed by — `prod-qits-ci`, `qits-platform-artifacts`, `prod-qits-workspaces` — and
-the full key reference is in
-`idp/src/main/resources/META-INF/microprofile-config.properties`.
-
-**An id is part of the config key**, so a renamed client takes its `qits.idp.client.<id>.*` lines
-with it. `qits-deployments` is an audience with no client: it receives tokens and mints none.
-
-**An audience IS a wire alias**, so how a service is planed decides how it is spelled. An
-environment service carries its environment (`prod-qits-ci`); a platform service is its repository
-name and nothing else — `qits-platform-artifacts`, and `qits-deployments` since the deployer became
-one. Get the two sides out of step and the failure is a silent 401 at the resource service, with a
-valid token nobody rejected here. The one exception is a person's `qits` CLI token: its audience is
-`qits-platform`, a platform-wide name every service accepts, and its roles are the permission.
-
-**No secret ships with any of them, and a client with a blank secret is unusable rather than open.**
-An unconfigured deployment therefore issues nothing; `QITS_IDP_CLIENT_PROD_QITS_CI_SECRET=…` is what
-turns a client on. This is the opposite reading from `qits.artifacts.token`, where a blank value
-means "no guard" — the difference is that a guard with no secret protects a network that is already
-trusted, while an issuer with no secret would mint identity for whoever asks.
-
-### Database service clients
-
-`/idp/api/service-clients` is a fifth machine surface, Basic-authenticated by the same rule as the
-commission API next to it: the caller must be a service client — environment or database, never
-commissioned — holding `qits:system`.
+`/idp/api/service-clients` is a machine surface, Basic-authenticated by the same rule as the
+commission API next to it: the caller must be a service client — never commissioned — holding
+`qits:system`.
 
 **The two `GET`s also accept a bearer** (qits-162): a JWT this idp issued, with `aud` including
 `qits-platform`, whose `groups` hold `qits:agent`, `qits:system` or `qits:admin` — verified in-process
@@ -214,41 +170,48 @@ does not verify is 401 `invalid_token`. Every write stays Basic-only, so a beare
 agent keeps every read and gains no write.
 
     # create — the secret is in this answer and nowhere else
-    curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
-      -d '{"clientId":"dev-qits-ci"}' \
-      http://qits-platform-idp:8080/idp/api/service-clients
-    # 201 {"clientId":"dev-qits-ci","secret":"…","createdBy":"prod-qits-ci","createdAt":"…"}
+    curl -s -u dev-qits-ci:$SECRET -H 'Content-Type: application/json' \
+      -d '{"clientId":"dev-qits-workspaces"}' \
+      http://qits-idp:8080/idp/api/service-clients
+    # 201 {"clientId":"dev-qits-workspaces","secret":"…","createdBy":"dev-qits-ci","createdAt":"…"}
 
 | Verb | Answer |
 |---|---|
-| `POST /idp/api/service-clients` `{"clientId":"…"}` | 201 the pair; 409 when a database row already exists; 400 for a bad id. An id that exists only in the environment registry is created too. |
+| `POST /idp/api/service-clients` `{"clientId":"…"}` | 201 the pair; 409 when a row already exists; 400 for a bad id. |
 | `POST /idp/api/service-clients/{id}/secret` | 200 a fresh pair; the old hash stays valid for fifteen minutes (D4), so a start-first rollback to the predecessor container is not locked out; 404 with no row. |
-| `GET /idp/api/service-clients/{id}` | 200 `{clientId, source, createdAt, rotatedAt}`; `source` is `database`, `environment` or `both`; 404 when neither. Never a secret. |
-| `GET /idp/api/service-clients` | Every id either registry knows, same shape — migration progress, one row per id. |
+| `GET /idp/api/service-clients/{id}` | 200 `{clientId, source, createdAt, rotatedAt}`; 404 with no row. `source` is always `database` — there is one registry now, and the field stays so a reader that looks for it does not break. Never a secret. |
+| `GET /idp/api/service-clients` | Every service client, same shape. |
 | `DELETE /idp/api/service-clients/{id}` | 204; 404 unknown; 409 when a caller deletes its own row. |
 
 The id rule (400 otherwise) is the same shape a wire alias already has: `[a-z][a-z0-9-]{0,127}`,
-never a commissioned id (`dyn-…`) and never the workstation's or the CLI's public client id.
+never a commissioned id (`dyn-…`) and never one of the public client ids.
 
-**A database service client's roles, claims and audience rule are code, never configuration**
-(D3): `groups` is `qits:system` plus its own `clients/<id>`; the claim `project=*`, because the
-open calling model has it serve every project; and
-its `aud` copies a requested audience back unchecked rather than checking it against a configured
-list — there is no list yet — plus `qits-platform`, always. An environment service client is
-unchanged: today's config, today's rule, until it is migrated here.
-
-**Dual source, for as long as the migration takes.** Creating a database row for an id that also
-has an environment entry is not refused — that is the ordinary shape of a cutover: the deployer
-finds no row, asks for one, and the new container reads the fresh database secret while the
-predecessor container, still running through a start-first overlap, keeps authenticating with the
-old environment one. While both exist, **either secret works**, and the environment entry keeps
-deciding that id's roles, claims and audiences until somebody removes it.
+**A service client's roles and claims are code, never configuration** (D3): `groups` is
+`qits:system` plus its own `clients/<id>`, and the claim is `project=*`, because the open calling
+model has it serve every project. No service client holds `qits:admin`. Its token's `aud` is
+`["qits-platform"]`, like every token's.
 
 **The first one is seeded, once**, because nothing can call this API before any service client
 exists to call it with. `QITS_IDP_SEED_CLIENT_ID` / `QITS_IDP_SEED_CLIENT_SECRET`, read at the
 first boot that finds `idp_seed` empty and never again — a later boot with the variables still set,
 changed, or blanked does nothing once the marker row exists, and a deleted seed client does not
 come back by restarting the process that made it.
+
+**There used to be a second registry, in configuration, and qits-163 retired it.** It was
+`qits.idp.clients` plus `qits.idp.client.<id>.secret`, `.audiences`, `.roles` and `.claims.<name>`,
+and while services moved over an id could exist in both places. Every service has a database row
+now. To carry an installation across, the first start of the version that retired it **adopts** the
+old entries once (`EnvironmentClientAdoption`): for every id on `qits.idp.clients`
+(`QITS_IDP_CLIENTS`) with a non-blank secret (`QITS_IDP_CLIENT_<ID>_SECRET`) and no row, it inserts
+a row holding the hash of that secret, `created_by = 'adopted'`, and sets the `idp_adoption` marker
+row in the same transaction. The client keeps working with the secret it already has. An id with no
+secret is skipped; an id that already has a row keeps it untouched. It logs the adopted ids, never a
+secret:
+
+    adopted 2 environment service client(s) into the database: dev-qits-ci,dev-qits-workspaces
+
+Once the marker exists nothing reads those keys again. The `audiences`, `roles` and `claims.<name>`
+keys are not read at all.
 
 ### Commissioned clients
 
@@ -265,7 +228,7 @@ distribute, and the idp does not have to validate its own tokens to answer.
     # commission — the secret is in this answer and nowhere else
     curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
       -d '{"contextKind":"ci-run","contextId":"4711"}' \
-      http://qits-platform-idp:8080/idp/api/clients
+      http://qits-idp:8080/idp/api/clients
     # 201
     # {"clientId":"dyn-ci-run-4711-8Xq…","secret":"…","owner":"prod-qits-ci",
     #  "contextKind":"ci-run","contextId":"4711","claims":{},"createdAt":"2026-08-14T11:02:03.412Z"}
@@ -274,41 +237,41 @@ distribute, and the idp does not have to validate its own tokens to answer.
     curl -s -u prod-qits-workspaces:$SECRET -H 'Content-Type: application/json' \
       -d '{"contextKind":"workspace","contextId":"1101",
            "claims":{"project":"b03b84b1-1875-4071-9dbf-854550156258"}}' \
-      http://qits-platform-idp:8080/idp/api/clients
+      http://qits-idp:8080/idp/api/clients
     # 201, and every token it mints carries project=b03b84b1-…
 
     # commission with GIT REFS — what the credential may push
     curl -s -u prod-qits-workspaces:$SECRET -H 'Content-Type: application/json' \
       -d '{"contextKind":"workspace","contextId":"1102",
            "gitRefs":["refs/heads/epic/e-1","refs/heads/feature/e-1-a"]}' \
-      http://qits-platform-idp:8080/idp/api/clients
+      http://qits-idp:8080/idp/api/clients
     # 201, "gitRefs":[…] echoed, and every token carries git_refs=[…] and context_kind=workspace
 
     # replace the list — the owner only; the next token carries it
     curl -s -X PUT -u prod-qits-workspaces:$SECRET -H 'Content-Type: application/json' \
       -d '{"gitRefs":["refs/heads/epic/e-1"]}' \
-      http://qits-platform-idp:8080/idp/api/clients/dyn-workspace-1102-…/git-refs
+      http://qits-idp:8080/idp/api/clients/dyn-workspace-1102-…/git-refs
     # 200, the commission as the listing shows it
 
     # what this caller has out — for reconciling orphans after a crash
-    curl -s -u prod-qits-ci:$SECRET http://qits-platform-idp:8080/idp/api/clients
+    curl -s -u prod-qits-ci:$SECRET http://qits-idp:8080/idp/api/clients
     # 200
     # [{"clientId":"dyn-ci-run-4711-8Xq…","owner":"prod-qits-ci",
     #   "contextKind":"ci-run","contextId":"4711","claims":{},"gitRefs":null,"createdAt":"…"}]
 
     # decommission — 204
     curl -s -X DELETE -u prod-qits-ci:$SECRET \
-      http://qits-platform-idp:8080/idp/api/clients/dyn-ci-run-4711-8Xq…
+      http://qits-idp:8080/idp/api/clients/dyn-ci-run-4711-8Xq…
 
 The rules around them:
 
 - **A commissioned client mints exactly like a service client.** Same `POST /idp/token`, same
   grant, same token shape — which is why docker's Bearer dance and `quarkus-oidc-client` need no
   second code path.
-- **It is issued its owner's audiences**, read from the owner's record when a token is minted. So
-  narrowing an owner's audiences narrows every credential it commissioned, at once.
+- **Its audience is `qits-platform`**, like every token's. Nothing about it is read from its
+  owner.
 - **Its roles are its context kind's fixed ones — never its owner's**
-  (`service-client-identity-plan.md`, D3/D12). `CommissionRoles` is a plain code map, not
+  (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles` is a plain code map, not
   configuration: `workspace`, `agent-container` and `refinement` get `qits:agent`; `ci-run` and
   `bootstrap-publish` get `qits:ci-run` — publishing to qits-artifacts is CI's door, and
   `bootstrap-publish` is the short-lived identity the bootstrap commissions for its own publish
@@ -339,12 +302,12 @@ The rules around them:
   into every token it mints. A commission that states nothing carries no claims at all any more.
   **`*` is refused with `invalid_request` (400)**: a concrete value is narrower than saying nothing
   (a resource service reads an absent claim as "unscoped" and answers it from roles), while `*` is
-  the one value that is never a narrowing — it stays a deployment's configured grant on an
-  environment service client, which an operator writes and a request cannot. Only `project`,
+  the one value that is never a narrowing — it stays a service client's own fixed claim, which no
+  request can state. Only `project`,
   `workspace` and `branch` may be stated; any other name is a 400. See `control/CommissionedClaims`.
 - **Its self-role is its own, never its owner's.** `clients/dyn-…` is stamped from the id in `sub`,
   so a credential commissioned by a service cannot walk through a door held open for that service.
-- **Only a service client may commission** — environment or database, never a commissioned one. A
+- **Only a service client may commission** — one with an `idp_service_client` row, never a commissioned one. A
   commissioned credential authenticates here — so a context can hand its own credential back — but
   `POST` refuses it, and the blast radius of a leaked one therefore stops at one context.
 - **Decommission is deleting the row**, and it is immediate: the credential mints nothing from the
@@ -356,7 +319,7 @@ The rules around them:
 - **The secret is returned once.** The row holds a SHA-256 of it, so a dump of the idp's database
   mints nothing. A caller that lost the secret decommissions and commissions again.
 - **The id reads in a listing** — `dyn-<kind>-<context slug>-<random>` — and cannot collide with a
-  service client's name, because config is resolved first and no static id carries the prefix.
+  service client's name, because no service client id may carry the `dyn-` prefix.
 
 ### Commissioned tokens
 
@@ -373,28 +336,28 @@ commission API.
     # commission — the token is in this answer and nowhere else
     curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
       -d '{"contextKind":"ci-runner","contextId":"runner-7","gitRefs":[]}' \
-      http://qits-platform-idp:8080/idp/api/tokens
+      http://qits-idp:8080/idp/api/tokens
     # 201
     # {"tokenId":"5b1c…","token":"qits_tok_Qm9…","subject":"tok-ci-runner-runner-7-kF3…",
     #  "owner":"prod-qits-ci","contextKind":"ci-runner","contextId":"runner-7","claims":{},
     #  "gitRefs":[],"createdAt":"2026-09-27T11:02:03.412Z"}
 
     # what this caller has out — for reconciling orphans; never a value
-    curl -s -u prod-qits-ci:$SECRET http://qits-platform-idp:8080/idp/api/tokens
+    curl -s -u prod-qits-ci:$SECRET http://qits-idp:8080/idp/api/tokens
     # 200 [{"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…","owner":"prod-qits-ci", …}]
 
     # delete — the owner; 204
     curl -s -X DELETE -u prod-qits-ci:$SECRET \
-      http://qits-platform-idp:8080/idp/api/tokens/5b1c…
+      http://qits-idp:8080/idp/api/tokens/5b1c…
 
     # self-delete — the token hands itself back, presented raw; 204
     curl -s -X DELETE -H "Authorization: Bearer qits_tok_Qm9…" \
-      http://qits-platform-idp:8080/idp/api/tokens/5b1c…
+      http://qits-idp:8080/idp/api/tokens/5b1c…
 
     # introspect — what the edge asks; answers the token and a JWT minted for it
     curl -s -u prod-qits-edge:$SECRET -H 'Content-Type: application/json' \
       -d '{"token":"qits_tok_Qm9…"}' \
-      http://qits-platform-idp:8080/idp/api/tokens/introspect
+      http://qits-idp:8080/idp/api/tokens/introspect
     # 200
     # {"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…",
     #  "roles":["qits:ci-runner","clients/tok-ci-runner-runner-7-kF3…"],"claims":{},"gitRefs":[],
@@ -414,7 +377,7 @@ The rules around them:
 - **Its roles are `CommissionRoles.forKind(contextKind)`, never the owner's** — the same code map a
   commissioned client of that kind gets. Its claims and Git refs are only what it stated, checked by
   the same rules as a commissioned client's, each a 400 with nothing written.
-- **Only a service client commissions** — environment or database, holding `qits:system`. A
+- **Only a service client commissions** — holding `qits:system`. A
   commissioned client is 403, and a token cannot authenticate to `POST` at all: it is not a client.
 - **`GET` accepts `qits:system` or `qits:agent`**, like `GET /idp/api/clients`, and lists only the
   caller's own.
@@ -428,7 +391,7 @@ The rules around them:
   token for that value`, for an unknown value, a deleted row and an owner that no longer exists. A
   value without the prefix is refused before any store read. The 200 carries `accessToken`: a JWT
   minted exactly as `/idp/token` would mint one for a commissioned client of that kind — `sub` the
-  token's subject, `aud` its owner's audiences plus `qits-platform`, `groups` its kind's roles plus
+  token's subject, `aud` `["qits-platform"]`, `groups` its kind's roles plus
   `clients/<subject>`, its own `claims`, `context_kind` and `git_refs` — so the service behind the
   edge verifies an ordinary JWT. That JWT lives `qits.idp.token-introspection-jwt-ttl-seconds` (300
   by default), which is the upper bound on how long a deleted token keeps working **behind** the
@@ -451,12 +414,12 @@ table today. The idp stores them and interprets none of them.
 
 A register token is a row, minted through the API, printed by the bootstrap — never logged, because
 this service's logs ship to qits-observability and a credential must not ride the log plane. It is
-good for exactly one account, and only a **static** service client may mint one (the commissioning
+good for exactly one account, and only a **service** client may mint one (the commissioning
 rule, reused).
 
     # mint — the token is in this answer and nowhere else
     curl -s -X POST -u prod-qits-ci:$SECRET \
-      http://qits-platform-idp:8080/idp/api/register-tokens
+      http://qits-idp:8080/idp/api/register-tokens
     # 201 {"id":"…","token":"CUiyE4rThoFF…","createdAt":"…"}
 
 Registration is then two calls from the browser: `POST /idp/api/auth/register-options` with the
@@ -550,12 +513,12 @@ from — would be worse than not starting.
 
 The value is 256 random bits and nothing else. This store holds a `sha-256:` fingerprint of it, so a
 dump of the idp's database logs nobody in, and the only way to learn anything from a cookie is
-`POST /idp/api/sessions/introspect` — Basic, static client, the edge's own `{env}-qits-edge`
+`POST /idp/api/sessions/introspect` — Basic, a service client, the edge's own `{env}-qits-edge`
 credential:
 
     curl -s -u prod-qits-edge:$SECRET -H 'Content-Type: application/json' \
       -d '{"token":"<cookie value>"}' \
-      http://qits-platform-idp:8080/idp/api/sessions/introspect
+      http://qits-idp:8080/idp/api/sessions/introspect
     # 200 {"userId":"…","username":"alice","roles":["qits:admin"],
     #      "expiresAt":"2026-08-15T05:48:00.427825Z"}
     # 404 for anything not live — unknown, expired or revoked alike
@@ -642,10 +605,10 @@ to boot without the `QITS_RESOURCE_DB_*` triple, and that is deliberate.
 
 ## What is not here yet
 
-**Per-context audience scoping.** A commissioned credential gets its owner's audiences, narrowed only
-by the claims and Git refs its commission states. Its roles are its kind's own, fixed in code
-(`CommissionRoles`), or none at all. The follow-up narrows the
-audiences per kind, and is the same day the token lifetime is worth shrinking again.
+**Per-context scoping beyond claims and Git refs.** A commissioned credential is narrowed by the
+claims and Git refs its commission states, and its roles are its kind's own, fixed in code
+(`CommissionRoles`), or none at all. Every token's audience is `qits-platform`, so narrowing where
+a token may be presented is not a lever any more; narrowing what it may do is roles and claims.
 
 **Authorization.** Roles are stored, reported by introspection and delivered to every service, and
 **nothing enforces one yet**. Which route demands which role is a later plan, together with

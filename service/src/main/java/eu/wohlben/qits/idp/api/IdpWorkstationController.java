@@ -4,7 +4,6 @@ import eu.wohlben.qits.idp.control.Issuer;
 import eu.wohlben.qits.idp.control.PublicClients;
 import eu.wohlben.qits.idp.control.PublicClients.PublicClient;
 import eu.wohlben.qits.idp.control.Sessions;
-import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.control.WorkstationCredentials;
 import eu.wohlben.qits.idp.error.AuthException;
 import eu.wohlben.qits.idp.error.OAuthException;
@@ -26,7 +25,6 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * The browser leg of the public-client OAuth flows, and the signed-in user's revocation surface.
@@ -75,9 +73,6 @@ public class IdpWorkstationController {
 
   @Inject Issuer issuer;
 
-  @ConfigProperty(name = "qits.idp.workstation.githost-audience")
-  String githostAudience;
-
   /**
    * Approve a PKCE code and send it to the client's redirect target.
    *
@@ -101,7 +96,6 @@ public class IdpWorkstationController {
       @QueryParam("redirect_uri") String redirectUri,
       @QueryParam("code_challenge") String codeChallenge,
       @QueryParam("code_challenge_method") String challengeMethod,
-      @QueryParam("audience") String audience,
       @QueryParam("state") String state) {
     PublicClient client =
         publicClients
@@ -115,17 +109,9 @@ public class IdpWorkstationController {
       if (!RESPONSE_TYPE_CODE.equals(responseType) || !S256.equals(challengeMethod)) {
         throw OAuthException.invalidRequest("invalid workstation authorization request");
       }
-      if (client.personToken()) {
-        if (audience != null && !audience.isBlank()) {
-          // The CLI's audiences are qits.idp.cli.audiences and nothing else, and the dev SPA gets
-          // the CLI's token. Refusing the parameter rather than ignoring it keeps the answer
-          // honest: a tool that asked for one and silently got another list would have no way to
-          // notice.
-          throw OAuthException.invalidRequest(client.id() + " does not choose its own audience");
-        }
-      } else if (!isAcceptedWorkstationAudience(audience)) {
-        throw OAuthException.invalidRequest("invalid workstation authorization request");
-      }
+      // An `audience` parameter is accepted and ignored, for every public client — it is not even
+      // declared above. Every token's aud is qits-platform (qits-163), so there is nothing for one
+      // to choose between.
       WorkstationCredentials.requireChallenge(codeChallenge);
 
       Optional<Sessions.Live> session = sessions.resolve(sessionToken);
@@ -212,20 +198,6 @@ public class IdpWorkstationController {
       @CookieParam(SessionCookie.NAME) String sessionToken,
       @jakarta.ws.rs.PathParam("familyId") UUID familyId) {
     return revokeDevice(sessionToken, familyId);
-  }
-
-  /**
-   * A workstation's {@code audience} parameter, checked against three values it may legitimately
-   * name (C2 of {@code service-client-identity-plan.md}): none at all (the ordinary case: {@code
-   * qits-bootstrap login} does not name one), the old githost value it always accepted, or the
-   * platform-wide one every minted workstation token now also carries. Anything else is refused, as
-   * before.
-   */
-  private boolean isAcceptedWorkstationAudience(String audience) {
-    return audience == null
-        || audience.isBlank()
-        || githostAudience.equals(audience)
-        || TokenService.PLATFORM_AUDIENCE.equals(audience);
   }
 
   private Sessions.Live requireSession(String sessionToken) {

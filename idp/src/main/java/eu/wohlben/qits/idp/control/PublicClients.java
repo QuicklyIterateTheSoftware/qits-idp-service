@@ -24,7 +24,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  *
  * <p><b>The ids are configuration and the lookup is exact.</b> A {@code client_id} that is none
  * of the configured values is unknown — there is no fall-through to "the public client",
- * because which one it is decides the audience, the roles and the redirect rule.
+ * because which one it is decides the roles and the redirect rule.
  *
  * <p>This is deliberately NOT {@link ClientRegistry}: that registry holds secret-bearing machine
  * identities, and nothing here has a secret to hold.
@@ -34,9 +34,9 @@ public class PublicClients {
 
   /** What a code approved for this client is worth once it is spent. */
   public enum Kind {
-    /** The constrained Git credential: one githost audience, one external-Git role. */
+    /** The constrained Git credential: one external-Git role and a ref pattern. */
     WORKSTATION,
-    /** The person's own credential for the command line: their roles, the configured audiences. */
+    /** The person's own credential for the command line: their roles. */
     CLI,
     /**
      * The landing SPA under {@code ng serve}: the same token as {@link #CLI}, caught by the page at

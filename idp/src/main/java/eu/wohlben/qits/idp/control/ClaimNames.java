@@ -6,9 +6,9 @@ import java.util.List;
  * The structured claims a token may carry beyond the registered ones.
  *
  * <p>Claims, not scopes: {@code aud} names the service a token is for, and these name what it is
- * for <em>within</em> that service. The list is closed on purpose — it bounds the config key
- * namespace ({@code qits.idp.client.<id>.claims.<name>}) and it is the same set the shared
- * enforcement helpers in {@code qits-auth-core} know. Adding a claim is a change in both places.
+ * for <em>within</em> that service. The list is closed on purpose — it bounds what a commission may
+ * state ({@link CommissionedClaims}) and it is the same set the shared enforcement helpers in
+ * {@code qits-auth-core} know. Adding a claim is a change in both places.
  *
  * <p>The idp only states a claim. What a value permits — including whether {@code *} means "any" —
  * is the resource service's decision.

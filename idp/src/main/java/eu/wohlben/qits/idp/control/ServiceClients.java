@@ -21,23 +21,24 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
- * Service clients kept in the database (service-client-identity-plan.md, contract C2): the id and
- * secret arrive from a call here rather than from configuration, and the idp answers the secret
- * exactly once.
+ * Service clients, kept in the database (epic qits-540, dossier page "Plan (as of 2026-09-13)",
+ * contract C2): the id and secret arrive from a call here rather than from configuration, and the
+ * idp answers the secret exactly once. This is the only service-client registry. The old
+ * configuration one was retired by qits-163; its clients were moved in here once, by {@link
+ * EnvironmentClientAdoption}.
  *
  * <p><b>Every row is loaded at start into a volatile map, like {@link SigningKeys}' key set.</b>
- * The token path stays off postgres for a service client the same way it already does for an
- * environment one: {@link #find} is a map read, never a query. A write — {@link #create}, {@link
+ * The token path stays off postgres: {@link #find} is a map read, never a query. A write — {@link #create}, {@link
  * #rotate}, {@link #delete}, the one-time {@link #seedOnce} — goes through {@link DbRetry}, updates
  * the row, and replaces the map under a lock so two writers on this one process cannot lose one
  * another's change. <b>One idp process is assumed</b>, the same assumption {@link DynamicClients}
  * documents and for the same reason: a second instance would hold its own stale copy of a row
  * changed at the first.
  *
- * <p><b>Roles, claims and the audience rule are code, not stored here</b> (D3, "roles are code").
- * {@link ClientRegistry} is where a row becomes an {@link IdpClient}: {@code qits:system} plus the
- * client's own {@code clients/<id>}, the claim {@code project=*}, and {@link
- * IdpClient.AudienceSource#DATABASE}.
+ * <p><b>Roles and claims are code, not stored here</b> (D3, "roles are code"). {@link
+ * ClientRegistry} is where a row becomes an {@link IdpClient}: {@code qits:system} plus the
+ * client's own {@code clients/<id>}, and the claim {@code project=*}. Its tokens' {@code aud} is
+ * {@code qits-platform}, like every token's.
  */
 @ApplicationScoped
 public class ServiceClients {
@@ -75,6 +76,8 @@ public class ServiceClients {
 
   @Inject PublicClients publicClients;
 
+  @Inject EnvironmentClientAdoption adoption;
+
   @ConfigProperty(name = "qits.idp.seed-client.id")
   Optional<String> seedClientId;
 
@@ -84,13 +87,15 @@ public class ServiceClients {
   private volatile Map<String, StoredServiceClient> clients = Map.of();
 
   /**
-   * Seed the first client if one is configured and none has ever been seeded, then load every row
-   * into the cache. Runs after Flyway, the same way {@link SigningKeys#onStart} does — both read the
-   * database at boot rather than on the first request, so a boot fails loudly here rather than on
-   * whatever request happens to be first.
+   * Seed the first client if one is configured and none has ever been seeded, adopt the old
+   * environment clients if that has not happened yet ({@link EnvironmentClientAdoption}), then load
+   * every row into the cache. Runs after Flyway, the same way {@link SigningKeys#onStart} does — both
+   * read the database at boot rather than on the first request, so a boot fails loudly here rather
+   * than on whatever request happens to be first.
    */
   void onStart(@Observes StartupEvent event) {
     seedOnce();
+    adoption.adoptOnce();
     load();
     LOG.infof("%d service client(s) loaded from the database", clients.size());
   }
@@ -247,7 +252,11 @@ public class ServiceClients {
     LOG.infof("seeded the first service client %s at first boot", LoggableClientId.of(id));
   }
 
-  private synchronized void load() {
+  /**
+   * Replace the cache with every row in the store. Package-visible so {@code
+   * EnvironmentClientAdoptionTest} can pick up rows it adopted by calling the adoption directly.
+   */
+  synchronized void load() {
     List<IdpServiceClient> rows =
         DbRetry.inNewTx("load idp service clients", repository::listAllOrdered);
     Map<String, StoredServiceClient> loaded = new LinkedHashMap<>();

@@ -1,8 +1,6 @@
 package eu.wohlben.qits.idp.stories.refusals;
 
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -27,8 +25,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * <b>A deployment cannot hand one client another client's identity, and the client that tries mints
- * nothing at all.</b>
+ * <b>A deployment cannot hand one client another client's identity: a client's roles are code, and
+ * a configured roles line is not read at all.</b>
  *
  * <p>Every {@code client_credentials} token's {@code groups} ends with {@code clients/<the id in
  * sub>}, computed from the id that just authenticated. Nobody asks for it and nobody can turn it
@@ -36,26 +34,17 @@ import org.junit.jupiter.api.BeforeAll;
  * know that exactly one caller in the platform can ever reach that door.
  *
  * <p>The whole of that guarantee rests on the namespace being <b>minted and never granted</b>. Roles
- * are otherwise ordinary configuration — {@code qits.idp.client.<id>.roles}, env-overridable like
- * every other key — so without a guard "roles are configuration" would quietly mean "any client may
- * be configured into any other client's identity", and the deployment that did it would look exactly
- * like a deployment that did not.
+ * used to be configuration — {@code qits.idp.client.<id>.roles} — and a line under {@code clients/}
+ * was refused where it was read. Since qits-163 there is no such line to read: a service client is a
+ * database row whose roles are fixed in code ({@code qits:system} and its own {@code
+ * clients/<id>}), and a configured {@code roles} line is inert.
  *
- * <p>So a {@code roles} line under {@code clients/} is refused where the roles are read, and the
- * client is <b>unusable</b> until it is removed: not a warning, not a filtered claim, but {@code
- * invalid_request} on every request that resolves that client. A broken deployment issues nothing
- * rather than issuing too much, which is the same safe direction as a client shipping with no
- * secret. And because every surface here resolves a client through the one lookup — the token
- * endpoint, the Basic-authenticated machine APIs, and a commissioned credential inheriting its
- * owner's roles — one guard covers all of them.
+ * <h2>Why this story keeps a client the other stories do not need</h2>
  *
- * <h2>Why this story costs a client the shipped list does not carry</h2>
- *
- * <p>The guard is on <b>configuration</b>, not on a request: there is no parameter a caller can send
- * that asks for a role. Telling the story at all therefore means a deployment that configured one,
- * which is what {@link StoryTarget#ROLE_THIEF} is — and it is the only invented client in this
- * catalogue. {@link StoryProfile} explains the restatement of {@code qits.idp.clients} that adding it
- * costs.
+ * <p>{@link StoryTarget#ROLE_THIEF} is still configured with a roles line naming {@link
+ * StoryTarget#CI}'s self-role. Its secret gets it adopted into the database at the first start, like
+ * any other configured client — and the story shows the roles line did nothing. {@link
+ * StoryProfile} explains the client list this costs.
  */
 @QuarkusIntegrationTest
 @TestProfile(StoryProfile.class)
@@ -80,50 +69,53 @@ public class ReservedRoleNamespaceIT {
   @UserStory(value = STORY, category = CATEGORY)
   @UserStoryDescription(
       """
-      Somebody configures a client with `roles=qits:system,clients/prod-qits-ci` — an ordinary
-      configuration line, env-overridable like every other, naming the one role that says "this
-      bearer IS prod-qits-ci". If it worked, every door on the platform gated with
-      `@RolesAllowed("clients/prod-qits-ci")` would open for it, and the deployment that did it
-      would look exactly like a deployment that did not.
+      Somebody configures a client with `roles=qits:system,clients/prod-qits-ci` — the one role
+      that says "this bearer IS prod-qits-ci". If it worked, every door on the platform gated with
+      `@RolesAllowed("clients/prod-qits-ci")` would open for it.
 
-      It presents a perfectly good credential pair and gets `invalid_request`, 400. Not a warning,
-      not a filtered claim, not a token with the offending role quietly dropped: the client is
-      UNUSABLE until the line is removed. A broken deployment issues nothing rather than issuing
-      too much — the same safe direction as a client shipping with no secret.
+      It does not work, because roles are not configuration any more. The client's secret got it
+      moved into the database at the first start, as a service client like any other, and a
+      service client's roles are fixed in code. It presents its pair and gets a token whose
+      `groups` are `qits:system` and its OWN `clients/uf-role-thief` — the roles line was never
+      read.
 
-      The refusal is coarse, like every other one here. What names the offending role is the log
-      line, because the token endpoint is reached before authentication and the value in that
-      config key is a deployment's, not a caller's.
-
-      And then the client whose identity was being reached for mints its own token, and the role
-      is right there in it — minted from the id in `sub`, additive to the configured roles,
-      granted nowhere. It is held by exactly one client by CONSTRUCTION rather than by grant,
-      which is the whole thing the guard exists to keep true.
+      And the client whose identity was being reached for mints its own token, and the role is
+      right there in it — minted from the id in `sub`, granted nowhere. It is held by exactly one
+      client by CONSTRUCTION rather than by grant.
       """)
-  void aRolesLineUnderTheReservedNamespaceMakesItsClientUnusable(Interactions story)
+  void aConfiguredRolesLineIsNotRead(Interactions story)
       throws Exception {
-    // (a) the misconfigured client. A valid pair, and it mints nothing.
+    // (a) the client whose configuration reaches for another's identity. Its roles line is inert.
     NetworkCapture.actor(StoryTarget.ROLE_THIEF);
-    StoryTarget.form()
-        .body(
-            StoryTarget.clientCredentials(
-                StoryTarget.ROLE_THIEF,
-                StoryTarget.ROLE_THIEF_SECRET,
-                StoryTarget.DEPLOYMENTS_AUDIENCE))
-        .when()
-        .post(StoryTarget.TOKEN)
-        .then()
-        // 400, not 401: the credential was fine. What is wrong is the deployment.
-        .statusCode(400)
-        .body("error", equalTo("invalid_request"))
-        .body("access_token", nullValue());
+    String thiefToken =
+        StoryTarget.form()
+            .body(
+                StoryTarget.clientCredentials(
+                    StoryTarget.ROLE_THIEF,
+                    StoryTarget.ROLE_THIEF_SECRET,
+                    StoryTarget.DEPLOYMENTS_AUDIENCE))
+            .when()
+            .post(StoryTarget.TOKEN)
+            .then()
+            .statusCode(200)
+            .body("access_token", notNullValue())
+            .extract()
+            .path("access_token");
+    NEVER_IN_THE_BUNDLE.add(thiefToken);
+    NetworkCapture.actor(StoryTarget.VALIDATOR);
+    List<String> thiefGroups =
+        PublishedJwks.verify(thiefToken, StoryTarget.PLATFORM_AUDIENCE)
+            .getStringListClaimValue("groups");
+    assertEquals(
+        List.of(StoryTarget.SYSTEM_ROLE, StoryTarget.selfRoleOf(StoryTarget.ROLE_THIEF)),
+        thiefGroups,
+        "the fixed service-client roles; the configured line was never read");
     story
         .note(
-            "a client configured with another client's minted self-role presents a perfectly good"
-                + " pair and gets invalid_request, 400 — the credential was fine, the deployment is"
-                + " not. It is UNUSABLE until the line is removed: not a warning and not a filtered"
-                + " claim, because a broken deployment must issue nothing rather than too much")
-        .as("a-reserved-role-makes-its-client-unusable");
+            "a client configured with another client's minted self-role presents its pair and gets"
+                + " a token carrying qits:system and its OWN self-role. The roles line was never"
+                + " read: a service client is a database row and its roles are code")
+        .as("a-configured-roles-line-is-not-read");
 
     // (b) and the identity it was reaching for is minted, not granted.
     NetworkCapture.actor(StoryTarget.CI);
@@ -142,21 +134,21 @@ public class ReservedRoleNamespaceIT {
     NEVER_IN_THE_BUNDLE.add(token);
 
     NetworkCapture.actor(StoryTarget.VALIDATOR);
-    JwtClaims claims = PublishedJwks.verify(token, StoryTarget.DEPLOYMENTS_AUDIENCE);
+    JwtClaims claims = PublishedJwks.verify(token, StoryTarget.PLATFORM_AUDIENCE);
     List<String> groups = claims.getStringListClaimValue("groups");
     assertEquals(
         List.of(
             StoryTarget.SYSTEM_ROLE, StoryTarget.selfRoleOf(StoryTarget.CI)),
         groups,
-        "the configured roles, then the self-role stamped from the id in sub");
+        "the fixed role, then the self-role stamped from the id in sub");
     assertFalse(
         groups.contains(StoryTarget.selfRoleOf(StoryTarget.ROLE_THIEF)),
         "and nothing of the client that tried to reach for this one");
     story
         .note(
             "meanwhile the client whose identity was being reached for mints its own token, and the"
-                + " role is right there — stamped from the id in sub, additive to the configured"
-                + " roles, and grantable nowhere. A role naming one client is held by exactly that"
+                + " role is right there — stamped from the id in sub, additive to the fixed role,"
+                + " and grantable nowhere. A role naming one client is held by exactly that"
                 + " client by CONSTRUCTION rather than by grant, which is what lets a resource"
                 + " service gate a route on it and know one caller can reach the door")
         .as("the-self-role-is-minted-from-the-id-that-authenticated");
@@ -167,11 +159,9 @@ public class ReservedRoleNamespaceIT {
     ReportAssertions.assertComplete(CATEGORY_SLUG, SLUG, UserflowReport.PASSED);
 
     // --- the graph -------------------------------------------------------------------------------
-    // The same route, twice, from two clients — 400 for the one a deployment broke, 200 for the one
-    // it was reaching for. Plus the JWKS read that makes the second half a proof rather than a look
-    // at a decoded body.
-    edge(
-        StoryTarget.ROLE_THIEF, StoryTarget.posted(StoryTarget.TOKEN, 400));
+    // The same route, twice, from two clients — both 200, each with its own identity. Plus the JWKS
+    // read that makes both halves a proof rather than a look at a decoded body.
+    edge(StoryTarget.ROLE_THIEF, StoryTarget.posted(StoryTarget.TOKEN, 200));
     edge(StoryTarget.CI, StoryTarget.posted(StoryTarget.TOKEN, 200));
     edge(StoryTarget.VALIDATOR, StoryTarget.read(StoryTarget.JWKS, 200));
 
@@ -181,12 +171,11 @@ public class ReservedRoleNamespaceIT {
         SLUG,
         List.of(StoryTarget.ROLE_THIEF, StoryTarget.CI, StoryTarget.VALIDATOR));
 
-    // Both clients are static, so neither the refusal nor the mint opened a connection — and no
-    // peer was asked about a role either, because there is nobody to ask: roles are configuration
-    // and the guard is where they are read.
+    // Both clients are service clients held in memory, so neither mint opened a connection — and
+    // no peer was asked about a role either: roles are code.
     ReportAssertions.assertNoEdgesFrom(CATEGORY_SLUG, SLUG, StoryTarget.SERVICE);
 
-    ReportAssertions.assertStepId(CATEGORY_SLUG, SLUG, "a-reserved-role-makes-its-client-unusable");
+    ReportAssertions.assertStepId(CATEGORY_SLUG, SLUG, "a-configured-roles-line-is-not-read");
     ReportAssertions.assertStepId(
         CATEGORY_SLUG, SLUG, "the-self-role-is-minted-from-the-id-that-authenticated");
 

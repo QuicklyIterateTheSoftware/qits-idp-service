@@ -34,7 +34,7 @@ public final class PublishedJwks {
    * endpoint hangs off this, not off {@link #ISSUER}. {@code QITS_ENVIRONMENT} is unset under the
    * suite, so the default resolves its own {@code dev} arm.
    */
-  public static final String ENDPOINT_BASE = "http://dev-qits-platform-idp:8080/idp";
+  public static final String ENDPOINT_BASE = "http://dev-qits-idp:8080/idp";
 
   private PublishedJwks() {}
 
@@ -76,6 +76,19 @@ public final class PublishedJwks {
     } catch (org.jose4j.lang.JoseException e) {
       throw new IllegalStateException("not a JWS", e);
     }
+  }
+
+  /**
+   * The claims of {@code jwt} read WITHOUT verifying anything — for a story that has already proven
+   * the signature on another token of the same mint and must not draw a second JWKS fetch into its
+   * diagram. Never use it where the signature is the point.
+   */
+  public static JwtClaims decodeUnverified(String jwt) throws InvalidJwtException {
+    return new JwtConsumerBuilder()
+        .setSkipSignatureVerification()
+        .setSkipAllValidators()
+        .build()
+        .processToClaims(jwt);
   }
 
   /** The {@code aud} of a token, whatever JSON shape it arrived in. */

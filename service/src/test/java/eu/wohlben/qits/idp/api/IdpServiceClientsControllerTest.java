@@ -2,12 +2,14 @@ package eu.wohlben.qits.idp.api;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.wohlben.qits.idp.control.SigningKeys;
 import eu.wohlben.qits.idp.entity.IdpServiceClient;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -22,12 +24,13 @@ import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code /idp/api/service-clients} end to end (service-client-identity-plan.md, contract C2): the
- * database half of the client registry, managed rather than configured.
+ * {@code /idp/api/service-clients} end to end (epic qits-540, dossier page "Plan (as of
+ * 2026-09-13)", contract C2): the service-client registry, managed rather than configured.
  *
- * <p>{@code test-broad} is the calling admin throughout — a shipped-shape environment client that
- * already holds {@code qits:system}, the same fixture {@code CommissionedClientsTest} uses as an
- * owner. Every test names its own client id, because the suite shares one store.
+ * <p>{@code test-broad} is the calling admin throughout — a service client the application adopted
+ * at start (qits-163), holding {@code qits:system} like every service client, and the same fixture
+ * {@code CommissionedClientsTest} uses as an owner. Every test names its own client id, because the
+ * suite shares one store.
  */
 @QuarkusTest
 public class IdpServiceClientsControllerTest {
@@ -36,6 +39,8 @@ public class IdpServiceClientsControllerTest {
   private static final String ADMIN_SECRET = "test-broad-secret";
 
   @Inject IdpServiceClientRepository repository;
+
+  @Inject SigningKeys signingKeys;
 
   @Test
   public void createAnswersOnceAndTheRowHoldsOnlyAHash() {
@@ -67,15 +72,55 @@ public class IdpServiceClientsControllerTest {
   }
 
   @Test
-  public void anEnvironmentOnlyIdMayStillBeCreated() {
-    // test-dual is on qits.idp.clients with its own secret and no database row yet — the ordinary
-    // shape of a cutover (C5): the deployer finds no row and asks for one.
-    create("test-dual").statusCode(201);
+  public void anAdoptedClientIsAnOrdinaryRow() {
+    // test-narrow was adopted at start: it has a row, so creating it again is the same 409 any row
+    // answers, and a read reports it like any other — source "database", never "environment".
+    create("test-narrow").statusCode(409).body("error", equalTo("conflict"));
+    get("test-narrow")
+        .statusCode(200)
+        .body("source", equalTo("database"))
+        .body("createdAt", notNullValue());
+  }
 
-    get("test-dual").statusCode(200).body("source", equalTo("both"));
+  @Test
+  public void aDatabaseOnlyServiceClientMayCommissionAndReplaceGitRefs() {
+    // BasicCaller.staticOnly asks "is this a service client", and the answer is "has a row". A
+    // client created here, never configured anywhere, must therefore pass every commission door.
+    String id = "svc-commissioner";
+    String secret = create(id).statusCode(201).extract().path("secret");
 
-    // Both secrets now authenticate the same id.
-    token("test-dual", "test-dual-env-secret", "&audience=qits-deployments").statusCode(200);
+    String commissioned =
+        given()
+            .contentType(ContentType.JSON)
+            .header("Authorization", basic(id, secret))
+            .body(
+                "{\"contextKind\":\"svc-commissioner\",\"contextId\":\"ctx\","
+                    + "\"gitRefs\":[\"refs/heads/epic/e-1\"]}")
+            .when()
+            .post("/idp/api/clients")
+            .then()
+            .statusCode(201)
+            .body("owner", equalTo(id))
+            .extract()
+            .path("clientId");
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", basic(id, secret))
+        .body("{\"gitRefs\":[\"refs/heads/epic/e-2\"]}")
+        .when()
+        .put("/idp/api/clients/" + commissioned + "/git-refs")
+        .then()
+        .statusCode(200)
+        .body("gitRefs", equalTo(List.of("refs/heads/epic/e-2")));
+
+    given()
+        .header("Authorization", basic(id, secret))
+        .when()
+        .get("/idp/api/clients")
+        .then()
+        .statusCode(200)
+        .body("find { it.clientId == '" + commissioned + "' }.owner", equalTo(id));
   }
 
   @Test
@@ -137,8 +182,9 @@ public class IdpServiceClientsControllerTest {
     create(id).statusCode(201);
 
     get(id).statusCode(200).body("source", equalTo("database")).body("clientId", equalTo(id));
-    // prod-qits-ci is shipped, environment-only, and never given a database row by this suite.
-    get("prod-qits-ci").statusCode(200).body("source", equalTo("environment"));
+    // prod-qits-workspaces is listed for adoption with no secret, so it never became a row: there
+    // is no other registry for it to be found in.
+    get("prod-qits-workspaces").statusCode(404).body("error", equalTo("not_found"));
     get("svc-does-not-exist").statusCode(404).body("error", equalTo("not_found"));
 
     String document =
@@ -149,6 +195,8 @@ public class IdpServiceClientsControllerTest {
             .then()
             .statusCode(200)
             .body("find { it.clientId == '" + id + "' }.source", equalTo("database"))
+            .body("findAll { it.source != 'database' }", org.hamcrest.Matchers.empty())
+            .body("find { it.clientId == 'prod-qits-workspaces' }", org.hamcrest.Matchers.nullValue())
             .extract()
             .asString();
     assertFalse(document.contains("secretHash"), "a listing must never carry a secret or its hash");
@@ -217,13 +265,6 @@ public class IdpServiceClientsControllerTest {
   }
 
   @Test
-  public void aServiceClientWithoutTheSystemRoleIsRefused() {
-    createRaw("test-no-system", "test-no-system-secret", "{\"clientId\":\"svc-no-role\"}")
-        .statusCode(403)
-        .body("error", equalTo("access_denied"));
-  }
-
-  @Test
   public void everyVerbNeedsCredentials() {
     given().when().get("/idp/api/service-clients").then().statusCode(401);
     createRaw("wrong-caller", "wrong", "{\"clientId\":\"svc-anon\"}").statusCode(401);
@@ -237,12 +278,11 @@ public class IdpServiceClientsControllerTest {
     JwtClaims claims =
         PublishedJwks.verify(
             token(id, secret, "&audience=some-service").statusCode(200).extract().path("access_token"),
-            "some-service");
+            "qits-platform");
 
     assertEquals(id, claims.getSubject());
-    // A database service client's audience rule copies a requested one back unchecked, plus the
-    // platform-wide one, always (service-client-identity-plan.md, C2).
-    assertEquals(List.of("some-service", "qits-platform"), claims.getAudience());
+    // The one audience, whatever was asked for (qits-163, C7).
+    assertEquals(List.of("qits-platform"), claims.getAudience());
     assertEquals(
         List.of("qits:system", "clients/" + id),
         claims.getStringListClaimValue("groups"));
@@ -287,15 +327,11 @@ public class IdpServiceClientsControllerTest {
 
   @Test
   public void aSystemOrAdminBearerReadsToo() {
-    for (String[] pair :
-        List.of(
-            new String[] {ADMIN, ADMIN_SECRET}, // qits:system
-            new String[] {"test-no-system", "test-no-system-secret"})) { // qits:admin
-      String token =
-          token(pair[0], pair[1], "&audience=qits-platform")
-              .statusCode(200)
-              .extract()
-              .path("access_token");
+    // qits:system: a service client's own token. qits:admin: no client holds it any more, so the
+    // bearer is signed here with the idp's own key — what a person's CLI token would carry.
+    String system =
+        token(ADMIN, ADMIN_SECRET, "").statusCode(200).extract().path("access_token");
+    for (String token : List.of(system, signedWithRole("qits:admin"))) {
       given()
           .header("Authorization", bearer(token))
           .when()
@@ -438,6 +474,21 @@ public class IdpServiceClientsControllerTest {
         .statusCode(200)
         .extract()
         .path("access_token");
+  }
+
+  private String signedWithRole(String role) {
+    SigningKeys.SigningKey key = signingKeys.signing();
+    java.time.Instant now = java.time.Instant.now();
+    return io.smallrye.jwt.build.Jwt.claims()
+        .issuer(PublishedJwks.ISSUER)
+        .subject("service-clients-reader")
+        .audience(eu.wohlben.qits.idp.control.TokenService.PLATFORM_AUDIENCE)
+        .groups(role)
+        .issuedAt(now)
+        .expiresAt(now.plusSeconds(300))
+        .jws()
+        .keyId(key.kid())
+        .sign(key.privateKey());
   }
 
   private static String bearer(String token) {

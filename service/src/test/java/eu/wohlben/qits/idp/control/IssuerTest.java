@@ -16,7 +16,7 @@ class IssuerTest {
   private static Issuer issuer(String domain) {
     Issuer issuer = new Issuer();
     issuer.domain = Optional.ofNullable(domain);
-    issuer.endpointBase = "http://dev-qits-platform-idp:8080/idp/";
+    issuer.endpointBase = "http://dev-qits-idp:8080/idp/";
     return issuer;
   }
 
@@ -35,9 +35,9 @@ class IssuerTest {
   @Test
   void theAddressIsASeparateFactAndDoesNotFollowTheIssuer() {
     Issuer issuer = issuer("example.test");
-    assertEquals("http://dev-qits-platform-idp:8080/idp", issuer.endpointBase());
-    assertEquals("http://dev-qits-platform-idp:8080/idp/jwks", issuer.jwksUri());
-    assertEquals("http://dev-qits-platform-idp:8080/idp/token", issuer.tokenEndpoint());
+    assertEquals("http://dev-qits-idp:8080/idp", issuer.endpointBase());
+    assertEquals("http://dev-qits-idp:8080/idp/jwks", issuer.jwksUri());
+    assertEquals("http://dev-qits-idp:8080/idp/token", issuer.tokenEndpoint());
   }
 
   @Test

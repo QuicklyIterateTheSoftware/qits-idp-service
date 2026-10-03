@@ -30,9 +30,9 @@ public class BasicCaller {
 
   /**
    * The role that gates every machine-admin route here: the open calling model's service-to-service
-   * role (service-client-identity-plan.md, "open calling model" and D5). Every shipped environment
-   * client's {@code roles} line carries it, and a database service client is minted with it in code
-   * ({@code ClientRegistry}), so it is the one role that gates a machine-admin route here.
+   * role (epic qits-540, dossier page "Plan (as of 2026-09-13)", "open calling model" and D5). Every
+   * service client is minted with it in code ({@code ClientRegistry}), so it is the one role that
+   * gates a machine-admin route here.
    */
   public static final String PLATFORM_SYSTEM = "qits:system";
 
@@ -60,7 +60,8 @@ public class BasicCaller {
   }
 
   /**
-   * The authenticated caller, refused unless it is a configured <b>service</b> client.
+   * The authenticated caller, refused unless it is a <b>service</b> client — one with an {@code
+   * idp_service_client} row.
    *
    * @param refusal what the commissioned caller is told it may not do
    * @throws OAuthException {@code invalid_client} (401) when authentication failed, {@code
@@ -97,7 +98,7 @@ public class BasicCaller {
     throw OAuthException.accessDenied("the client lacks every role of " + List.of(roles));
   }
 
-  /** Authenticate a configured service client and require its machine role. */
+  /** Authenticate a service client and require its machine role. */
   public IdpClient staticOnly(String authorization, String refusal, String role) {
     return requireRole(staticOnly(authorization, refusal), role);
   }

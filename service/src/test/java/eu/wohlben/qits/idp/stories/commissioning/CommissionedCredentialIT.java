@@ -48,10 +48,10 @@ import org.junit.jupiter.api.BeforeAll;
  * shows as the arrow this story shares with {@code TokenIssuanceBootstrapIT}: {@code POST /idp/token
  * -> 200}, from a different actor and otherwise the same.
  *
- * <p><b>And the credential is its own identity, not a copy of its owner's.</b> It is issued its
- * owner's audiences — resolved at mint time from the owner's record rather than copied into the
- * row — but its roles are its own context kind's fixed ones in code, or none (D12 of
- * {@code service-client-identity-plan.md}), and its claims are only what it stated for itself (D3).
+ * <p><b>And the credential is its own identity, not a copy of its owner's.</b> Its audience is
+ * {@code qits-platform}, like every token's; its roles are its own context kind's fixed ones in
+ * code, or none (D12 of epic qits-540, dossier page "Plan (as of 2026-09-13)"), and its claims are
+ * only what it stated for itself (D3). Nothing is read from its owner.
  * The {@code clients/…} self-role is stamped from the id in {@code sub}, so it carries {@code
  * clients/dyn-…} and never {@code clients/prod-qits-workspaces}. A door held open for the owner
  * stays shut to the credential it commissioned. That falls out of the mechanism and this story
@@ -63,8 +63,8 @@ import org.junit.jupiter.api.BeforeAll;
  * No tap can see a JDBC call, so the store arrives as {@link Network#declare} — dashed in the
  * diagram and flagged {@code declared} in the sidecar, because a claim must never render like
  * evidence. It is the reason this story does <b>not</b> assert {@code assertNoEdgesFrom} the way the
- * minting and reading stories do: the negative claim is theirs to make, because a static mint is
- * four config lookups and touches no store at all, and the positive one is this story's.
+ * minting and reading stories do: the negative claim is theirs to make, because a service client's
+ * mint is a read of a map loaded at start and touches no store at all, and the positive one is this story's.
  */
 @QuarkusIntegrationTest
 @TestProfile(StoryProfile.class)
@@ -122,9 +122,8 @@ public class CommissionedCredentialIT {
       client and is never told which half answered. That identity is the whole commission model
       working: nothing else on the platform needs a second code path for a commissioned pair.
 
-      The bearer it gets is its owner's REACH and its own IDENTITY. The audiences are resolved from
-      the owner's record at mint time, so narrowing the owner narrows every credential it
-      commissioned, at once. Its roles are NOT the owner's: they are this context kind's fixed role
+      The bearer it gets is its own IDENTITY. Its audience is `qits-platform`, like every token's,
+      whatever it asked for. Its roles are NOT the owner's: they are this context kind's fixed role
       in code, or none at all. The `clients/…` self-role is stamped from the id in `sub`, so the
       credential carries `clients/dyn-…` and never its owner's — a door held open for
       qits-platform-workspaces stays shut to the container it provisioned.
@@ -204,7 +203,7 @@ public class CommissionedCredentialIT {
             .statusCode(200)
             .body("token_type", equalTo("Bearer"))
             .body("access_token", notNullValue())
-            // The SHIPPED lifetime, and the same one a static client gets. There is no branch.
+            // The SHIPPED lifetime, and the same one a service client gets. There is no branch.
             .body("expires_in", equalTo(StoryTarget.TOKEN_TTL_SECONDS))
             .header("Cache-Control", "no-store")
             .extract()
@@ -221,28 +220,19 @@ public class CommissionedCredentialIT {
     // Against whatever /idp/jwks publishes, over HTTP. The actor is the service the bearer will be
     // presented TO, because that is who fetches the JWKS in the real flow — not the minter.
     NetworkCapture.actor(StoryTarget.VALIDATOR);
-    JwtClaims claims = PublishedJwks.verify(token, StoryTarget.ARTIFACTS_AUDIENCE);
+    JwtClaims claims = PublishedJwks.verify(token, StoryTarget.PLATFORM_AUDIENCE);
     assertEquals(PublishedJwks.ISSUER, claims.getIssuer(), "iss is the one derived issuer");
     assertEquals(
         clientId, claims.getSubject(), "sub is the commissioned id, never the owner's");
     assertEquals(
-        List.of(
-            StoryTarget.CI,
-            StoryTarget.ARTIFACTS_AUDIENCE,
-            StoryTarget.WORKSPACES,
-            StoryTarget.DEPLOYMENTS_AUDIENCE,
-            "prod-qits-githost",
-            "qits-platform"),
+        List.of(StoryTarget.PLATFORM_AUDIENCE),
         PublishedJwks.audienceOf(claims),
-        "aud is the OWNER's WHOLE shipped list, not narrowed to the one audience that was asked"
-            + " for, plus qits-platform — both transitional (service-client-identity-plan.md, C2):"
-            + " a receiver that has not yet taken the qits-auth-core release accepting"
-            + " qits-platform still finds its own name on the token");
+        "aud is the one audience, not the one that was asked for and not the owner's (qits-163)");
     List<String> groups = claims.getStringListClaimValue("groups");
     assertEquals(
         List.of(StoryTarget.selfRoleOf(clientId)),
         groups,
-        "this story's own kind has no fixed role (D12 of service-client-identity-plan.md), so the"
+        "this story's own kind has no fixed role (D12), so the"
             + " credential carries only its own self-role — never the owner's roles any more");
     assertFalse(
         groups.contains(StoryTarget.selfRoleOf(StoryTarget.WORKSPACES)),
@@ -250,13 +240,12 @@ public class CommissionedCredentialIT {
             + " commissioned");
     story
         .note(
-            "the bearer carries the OWNER's reach and its OWN identity: the audiences are resolved"
-                + " from the owner's record at mint time, so narrowing the owner narrows every"
-                + " credential it commissioned at once. Its roles are NOT the owner's any more —"
+            "the bearer carries its OWN identity: its audience is qits-platform, like every"
+                + " token's, whatever it asked for. Its roles are NOT the owner's —"
                 + " they are this context kind's fixed role in code, or none — and its claims are"
                 + " only what it stated for itself. The clients/… self-role is stamped from the id"
                 + " in sub, so it is the credential's own and never qits-platform-workspaces'")
-        .as("the-bearer-is-its-owners-reach-and-its-own-identity");
+        .as("the-bearer-is-its-own-identity");
 
     // ---- the owner can see what it holds, which is how a crash cannot leak a credential --------
     NetworkCapture.actor(StoryTarget.WORKSPACES);
@@ -356,7 +345,7 @@ public class CommissionedCredentialIT {
         List.of(
             "a-credential-is-commissioned",
             "the-container-mints",
-            "the-bearer-is-its-owners-reach-and-its-own-identity",
+            "the-bearer-is-its-own-identity",
             "the-owner-reconciles-against-its-own-listing",
             "decommission-stops-the-minting-immediately")) {
       ReportAssertions.assertStepId(CATEGORY_SLUG, SLUG, step);

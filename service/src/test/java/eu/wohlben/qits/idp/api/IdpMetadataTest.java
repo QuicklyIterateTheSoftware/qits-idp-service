@@ -92,7 +92,7 @@ public class IdpMetadataTest {
   /** Any other name — the in-network alias, or a foreign host — gets the address, never itself. */
   @Test
   public void anyOtherNameIsToldTheAddress() {
-    for (String host : List.of("dev-qits-platform-idp:8080", "evil.example", "localhost:9999")) {
+    for (String host : List.of("dev-qits-idp:8080", "evil.example", "localhost:9999")) {
       given()
           .header("X-Forwarded-Host", host)
           .when()

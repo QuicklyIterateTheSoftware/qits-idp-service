@@ -30,6 +30,10 @@ import org.junit.jupiter.api.Test;
 public class WorkstationOAuthTest {
 
   private static final String CLIENT = "qits-git-workstation";
+  /**
+   * The githost audience a workstation used to be issued, and which qits-bootstrap may still send.
+   * It is accepted and ignored now (qits-163): the token's {@code aud} is {@code qits-platform}.
+   */
   private static final String AUDIENCE = "prod-qits-githost";
   private static final String REDIRECT = "http://127.0.0.1:38471/callback";
   private static final String VERIFIER = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~abcdefgh";
@@ -50,7 +54,8 @@ public class WorkstationOAuthTest {
         .body("expires_in", equalTo(900));
     String access = exchanged.jsonPath().getString("access_token");
     String firstRefresh = exchanged.jsonPath().getString("refresh_token");
-    JwtClaims claims = PublishedJwks.verify(access, AUDIENCE);
+    JwtClaims claims = PublishedJwks.verify(access, "qits-platform");
+    assertEquals(List.of("qits-platform"), claims.getAudience(), "the one audience; no githost");
     assertEquals(session.session().userId().toString(), claims.getSubject());
     assertEquals(List.of("qits:git:external"), claims.getStringListClaimValue("groups"));
     // A USER credential, so no `clients/…` self-role: that stamp says "this bearer is that machine

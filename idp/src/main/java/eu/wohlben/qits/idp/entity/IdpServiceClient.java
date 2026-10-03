@@ -8,10 +8,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 /**
- * One service client's identity, kept in the database rather than in configuration
- * (service-client-identity-plan.md, contract C2). Unlike a commissioned row ({@link
- * IdpDynamicClient}) this one has no owner and no context: a service client's roles, claims and
- * audience rule are code, not stored here — see {@code ClientRegistry}.
+ * One service client's identity, kept in the database rather than in configuration (epic qits-540,
+ * dossier page "Plan (as of 2026-09-13)", contract C2). Unlike a commissioned row ({@link
+ * IdpDynamicClient}) this one has no owner and no context: a service client's roles and claims are
+ * code, not stored here — see {@code ClientRegistry}. {@link #createdBy} is another service client,
+ * {@code bootstrap} for the seeded one, or {@code adopted} for one moved in from the retired
+ * environment registry ({@code EnvironmentClientAdoption}).
  *
  * <p>{@link #previousSecretHash} and {@link #previousValidUntil} exist only right after a
  * rotation, and only for the grace window (D4, fifteen minutes): the old secret stays acceptable so
@@ -39,7 +41,7 @@ public class IdpServiceClient extends PanacheEntityBase {
   @Column(name = "previous_valid_until")
   public Instant previousValidUntil;
 
-  /** The client id that created this row — another service client, or the seed marker. */
+  /** Who created this row: another service client's id, {@code bootstrap} or {@code adopted}. */
   @Column(name = "created_by", nullable = false, length = 128)
   public String createdBy;
 

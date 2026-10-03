@@ -23,7 +23,7 @@ import org.jboss.resteasy.reactive.RestResponse;
  * cryptographic problem, and it is the trade the plan made against a signed cookie the edge could
  * verify offline: the cost is one cached call, and what it buys is revocation.
  *
- * <p><b>The guard is a service client's Basic pair</b> (environment or database), the same credential and the same
+ * <p><b>The guard is a service client's Basic pair</b>, the same credential and the same
  * check as the commission API next door ({@link BasicCaller}). The edge holds {@code
  * {env}-qits-edge} for exactly this. A commissioned credential is refused: introspection turns a
  * browser session into a username and a role set, and a build step has no business asking.

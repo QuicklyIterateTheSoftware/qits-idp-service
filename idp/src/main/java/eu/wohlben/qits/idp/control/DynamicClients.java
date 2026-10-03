@@ -35,15 +35,15 @@ import org.jboss.logging.Logger;
  * its own copy of a row deleted at the first, and that is the day this needs a bounded entry age or
  * an eviction announcement rather than a bigger cache.
  *
- * <p><b>What is not stored: audiences.</b> A commissioned client is issued its owner's, read from
- * the owner's record when a token is minted ({@link ClientRegistry}).
+ * <p><b>What is not stored: audiences.</b> Every token's {@code aud} is {@code qits-platform}
+ * ({@link TokenService#PLATFORM_AUDIENCE}), so there is nothing per row to keep.
  *
  * <p><b>Claims are stored, and that is the per-context scoping the plan declared.</b> A commission
  * may state what its context is about — {@code project=<id>} for a workspace, and the rest of
  * {@link ClaimNames#GRANTABLE} — and those land on the row, narrowing what the credential may act
  * on wherever a resource service reads a claim. <b>Anything it does not state, it does not
- * carry</b>: a commission no longer inherits its owner's claims either (D3 of
- * {@code service-client-identity-plan.md}), so a row with nothing stated mints a token with no
+ * carry</b>: a commission no longer inherits its owner's claims either (D3 of epic qits-540,
+ * dossier page "Plan (as of 2026-09-13)"), so a row with nothing stated mints a token with no
  * structured claim at all. The rule that bounds what MAY be stated, and the reason there is no "the
  * owner must hold it" check, is in {@link CommissionedClaims}.
  */
@@ -54,11 +54,9 @@ public class DynamicClients {
 
   /**
    * The prefix every commissioned id carries. It is what makes a listing readable, and it is the
-   * reason a commissioned id can never be mistaken for a service one: the static ids are the names
-   * services are dialed by ({@code prod-qits-ci}, {@code qits-platform-artifacts}) and none of them
-   * begins with this. {@link ClientRegistry} resolves config first regardless, so even a deployment
-   * that configured a static {@code dyn-…} client would shadow the row rather than be shadowed by
-   * it — the safe direction.
+   * reason a commissioned id can never be mistaken for a service one: a service client id may not
+   * begin with it ({@code ServiceClients.requireValidId}, and the adoption applies the same rule).
+   * {@link ClientRegistry} asks the service clients first regardless — the safe direction.
    */
   public static final String ID_PREFIX = "dyn-";
 
@@ -241,7 +239,7 @@ public class DynamicClients {
   public Optional<StoredClient> find(String clientId) {
     if (clientId == null || !clientId.startsWith(ID_PREFIX)) {
       // Nothing else can be a row: the id is generated here and always carries the prefix. Saying
-      // so keeps every unknown static id out of the database entirely.
+      // so keeps every unknown service client id out of the database entirely.
       return Optional.empty();
     }
     StoredClient cached = cache.get(clientId);

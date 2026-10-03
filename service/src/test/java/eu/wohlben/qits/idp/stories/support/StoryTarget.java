@@ -88,11 +88,11 @@ public final class StoryTarget {
 
   // --- the clients this launched process knows ---------------------------------------------------
   //
-  // THE THREE SHIPPED IDS ARE THE JAR'S OWN. The launched artifact reads `qits.idp.clients` from the
-  // idp jar's META-INF/microprofile-config.properties, so their audiences and roles below are the
-  // deployment's configuration and not a fixture that resembles it. Only the secrets are supplied,
-  // because a static client ships WITHOUT one and is unusable until a deployment gives it one —
-  // which is itself a story arm here (see ARTIFACTS).
+  // THE IDS ARE THE ONES A LIVE INSTALLATION ONCE CONFIGURED. The jar ships no service client any
+  // more (qits-163). StoryProfile lists these ids with secrets as `qits.idp.clients`, and the
+  // launched process adopts every one that has a secret into the database at its first start — the
+  // same one-time move a live installation made. Their roles are code; the one without a secret is
+  // never adopted, which is itself a story arm here (see ARTIFACTS).
 
   /** The everyday service client. Mints, and is the one this catalogue tells the happy path as. */
   public static final String CI = "prod-qits-ci";
@@ -107,29 +107,32 @@ public final class StoryTarget {
   public static final String WORKSPACES_SECRET = "workspaces-userflow-pair-7b41";
 
   /**
-   * The third shipped client, deliberately left <b>without a secret</b> in this launched process —
-   * which is the shipped state of every static client. It is the {@code
-   * FrontDoorRefusalsIT} arm that pins the safe direction against the real default rather than
-   * against a fixture: a client with a blank secret is unusable, never open.
+   * A listed client deliberately left <b>without a secret</b>, so the adoption skips it and it never
+   * becomes a row. It is the {@code FrontDoorRefusalsIT} arm that pins the safe direction: a client
+   * with no secret is unusable, never open.
    */
   public static final String ARTIFACTS = "qits-platform-artifacts";
 
   /**
-   * A FOURTH client, which the shipped list does not carry and which this profile adds — the one
-   * misconfiguration the reserved {@code clients/} namespace exists to refuse. Its roles line names
-   * {@link #CI}'s self-role, so it is a deployment trying to hand one client another's identity.
-   *
-   * <p>Adding it costs restating {@code qits.idp.clients}, because the list is what says an id
-   * exists; the three shipped ids are restated verbatim beside it. See {@link StoryProfile}.
+   * A fourth client, whose configuration also carries a roles line naming {@link #CI}'s self-role —
+   * a deployment trying to hand one client another's identity. The line is not read (qits-163):
+   * {@code ReservedRoleNamespaceIT} shows the adopted client gets the fixed roles. See {@link
+   * StoryProfile}.
    */
   public static final String ROLE_THIEF = "uf-role-thief";
 
   public static final String ROLE_THIEF_SECRET = "role-thief-userflow-pair-4d8e";
 
-  /** The roles line that makes {@link #ROLE_THIEF} unusable — another client's minted self-role. */
+  /** The roles line {@link #ROLE_THIEF} is configured with — another client's minted self-role. Inert. */
   public static final String ROLE_THIEF_ROLES = "qits:system,clients/" + CI;
 
   // --- audiences ---------------------------------------------------------------------------------
+  //
+  // Every token carries exactly PLATFORM_AUDIENCE (qits-163). The others are what callers still
+  // send as an `audience` parameter, which is accepted and ignored.
+
+  /** The one audience every token carries. */
+  public static final String PLATFORM_AUDIENCE = "qits-platform";
 
   /** The deployer's intake: an audience with no client, because it receives and mints nothing. */
   public static final String DEPLOYMENTS_AUDIENCE = "qits-deployments";
@@ -137,10 +140,10 @@ public final class StoryTarget {
   /** The platform's artifact store, as an audience. Also a client id — the two namespaces overlap. */
   public static final String ARTIFACTS_AUDIENCE = "qits-platform-artifacts";
 
-  /** On nobody's shipped list. Asking for it is the {@code invalid_target} refusal. */
+  /** An audience no client was ever entitled to. Asking for it used to be refused; it is ignored. */
   public static final String UNENTITLED_AUDIENCE = "prod-qits-observability";
 
-  // --- the coarse machine role every shipped client carries --------------------------------------
+  // --- the coarse machine role every service client carries, in code -----------------------------
 
   public static final String SYSTEM_ROLE = "qits:system";
 
@@ -201,7 +204,7 @@ public final class StoryTarget {
    * process reads the jar's default, so a change to that default fails this suite rather than a
    * deployment.
    */
-  public static final String ENDPOINT_BASE = "http://dev-qits-platform-idp:8080/idp";
+  public static final String ENDPOINT_BASE = "http://dev-qits-idp:8080/idp";
 
   /** The token's shipped lifetime, in seconds — an hour since the commission model landed. */
   public static final int TOKEN_TTL_SECONDS = 3600;

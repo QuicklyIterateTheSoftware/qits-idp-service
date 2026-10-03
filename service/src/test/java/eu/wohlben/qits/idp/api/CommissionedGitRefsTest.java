@@ -273,9 +273,9 @@ public class CommissionedGitRefsTest {
         claims.getStringListClaimValue("groups"),
         "the kind's fixed role and the credential's own self-role; not qits:system");
     assertEquals(
-        List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
+        List.of("qits-platform"),
         PublishedJwks.audienceOf(claims),
-        "only the roles change: the audiences are still the owner's, plus qits-platform");
+        "the one audience, like every token's");
     assertEquals("workspace", claims.getClaimValueAsString("context_kind"));
 
     // A kind with no fixed role gets none at all any more (D12) — not the owner's.
@@ -352,9 +352,9 @@ public class CommissionedGitRefsTest {
           claims.getStringListClaimValue("groups"),
           kind.getKey() + ": its kind's role and its own self-role; not the owner's roles");
       assertEquals(
-          List.of("prod-qits-ci", "qits-deployments", "qits-platform"),
+          List.of("qits-platform"),
           PublishedJwks.audienceOf(claims),
-          kind.getKey() + ": the audiences are still the owner's, plus qits-platform");
+          kind.getKey() + ": the one audience, like every token's");
       assertEquals(kind.getKey(), claims.getClaimValueAsString("context_kind"));
       assertEquals(List.of(TICKET), claims.getStringListClaimValue("git_refs"));
       assertFalse(
@@ -547,10 +547,10 @@ public class CommissionedGitRefsTest {
         .then();
   }
 
-  /** A token for this client, asking for every audience it may have, verified against the JWKS. */
+  /** A token for this client, verified against the JWKS. */
   private static JwtClaims claimsOf(String clientId, String secret) throws Exception {
     ExtractableResponse<?> answer = token(clientId, secret).statusCode(200).extract();
-    return PublishedJwks.verify(answer.path("access_token"), "qits-deployments");
+    return PublishedJwks.verify(answer.path("access_token"), "qits-platform");
   }
 
   private IdpDynamicClient row(String clientId) {

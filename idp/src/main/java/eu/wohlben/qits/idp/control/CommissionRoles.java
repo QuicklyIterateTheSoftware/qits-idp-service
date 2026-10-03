@@ -6,7 +6,7 @@ import java.util.Optional;
 
 /**
  * The fixed roles of a commissioned credential, by its context kind (D12 of
- * {@code service-client-identity-plan.md}: roles are code, not configuration).
+ * epic qits-540, dossier page "Plan (as of 2026-09-13)": roles are code, not configuration).
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
@@ -43,8 +43,8 @@ import java.util.Optional;
  * behind; nothing here enforces that lifetime, the bootstrap does.
  *
  * <p>Only the roles are fixed here. A commission's claims are its own (D3, no owner merge — see
- * {@code CommissionedClaims}), and its audience rule follows its owner's (see {@link
- * IdpClient.AudienceSource}). Both are {@link ClientRegistry}'s.
+ * {@code CommissionedClaims}), and its audience is {@code qits-platform} like every token's. Both
+ * are {@link ClientRegistry}'s and {@link TokenService}'s.
  */
 public final class CommissionRoles {
 

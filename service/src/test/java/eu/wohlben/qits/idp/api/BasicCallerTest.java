@@ -50,6 +50,6 @@ public class BasicCallerTest {
   }
 
   private static IdpClient client(String... roles) {
-    return new IdpClient("some-client", null, List.of(), List.of(roles), Map.of(), null, null);
+    return new IdpClient("some-client", null, List.of(roles), Map.of(), null, null);
   }
 }

@@ -38,20 +38,16 @@ import org.junit.jupiter.api.BeforeAll;
  *
  * <h2>What this story pins that no unit test can</h2>
  *
- * <p>The launched process reads the <b>shipped</b> client registry, so {@link StoryTarget#ARTIFACTS}
- * is here as itself: a real service client that ships with <b>no secret</b> and is therefore
- * unusable rather than open. There is no flag that turns that around, and adding one would make an
- * unconfigured deployment issue identity to whoever asks. Pinning it against the shipped default
- * rather than against a fixture is the same discipline {@code IdpTokenTest} keeps in the {@code
- * @QuarkusTest} suite — {@code StoryProfile} deliberately gives that one client no secret.
+ * <p>{@link StoryTarget#ARTIFACTS} is listed for the one-time adoption with <b>no secret</b>
+ * (qits-163), so it never became a row: a client with no secret is unusable rather than open, and
+ * there is no flag that turns that around. {@code StoryProfile} deliberately gives that one client
+ * no secret, the same discipline {@code IdpTokenTest} keeps in the {@code @QuarkusTest} suite.
  *
  * <h2>And what it says about the store</h2>
  *
- * <p>None of these six touches postgres. A static id is four config lookups and an id that is not on
- * the configured list never reaches a lookup at all — {@code IdpClients.find} checks membership
- * <b>before</b> it builds any config key, which is what keeps an attacker-supplied {@code client_id}
- * out of the key namespace — while {@code DynamicClients.find} refuses anything that does not begin
- * {@code dyn-} without opening a connection. So the diagram carries no store edge and {@code
+ * <p>None of these six touches postgres. A service client is a read of the map {@code ServiceClients}
+ * loaded at start, while {@code DynamicClients.find} refuses anything that does not begin {@code
+ * dyn-} without opening a connection. So the diagram carries no store edge and {@code
  * assertNoEdgesFrom} says so: <b>a refusal at the front door costs the database nothing</b>, which
  * is what keeps a burst of bad credentials from becoming a burst of connections.
  */
@@ -90,15 +86,13 @@ public class FrontDoorRefusalsIT {
       Six requests arrive at `POST /idp/token` and none of them gets a bearer. What they get
       instead is four different RFC 6749 error codes, and the differences are the point.
 
-      A caller naming a client that does not exist is `invalid_client`, 401 — and the id never
-      reaches a configuration lookup, because membership in `qits.idp.clients` is checked BEFORE
-      any key is built. That ordering is what keeps an unauthenticated caller from probing the
-      config namespace one `client_id` at a time.
+      A caller naming a client that does not exist is `invalid_client`, 401 — answered from the
+      service clients held in memory, without a query.
 
-      qits-platform-artifacts is a REAL shipped service client, and in this deployment it has no
-      secret — which is the shipped state of every static client. It is refused exactly like a
-      wrong one. A client with a blank secret is unusable, never open, and there is no flag that
-      turns that around: adding one would make an unconfigured deployment issue identity to
+      qits-platform-artifacts was configured with no secret, so the one-time move of configured
+      clients into the database skipped it and it does not exist either. It is refused exactly
+      like a wrong secret. A client with no secret is unusable, never open, and there is no flag
+      that turns that around: adding one would make an unconfigured deployment issue identity to
       whoever asks.
 
       A caller presenting nothing at all is `invalid_client` too, with the `WWW-Authenticate:
@@ -113,12 +107,11 @@ public class FrontDoorRefusalsIT {
       grant at all is `invalid_request`. Two codes, because "I do not implement that" and "you did
       not say" are two different things for the developer reading them.
 
-      And nothing here reached the database. A static client is four config lookups and an unknown
-      id is one list membership test, so a burst of bad credentials at this door costs the store
-      nothing at all.
+      And nothing here reached the database. A service client is a read of a map loaded at start,
+      so a burst of bad credentials at this door costs the store nothing at all.
       """)
   void everyRefusalIsOneOfFourCodesAndNoneOfThemIsABearer(Interactions story) {
-    // (a) an id that is on no list. It never reaches a config key.
+    // (a) an id that is no client at all. Answered from memory.
     NetworkCapture.actor(UNKNOWN);
     StoryTarget.form()
         .body(
@@ -133,14 +126,11 @@ public class FrontDoorRefusalsIT {
         .header("WWW-Authenticate", equalTo("Basic realm=\"qits-platform-idp\""));
     story
         .note(
-            "an id that is on no list is invalid_client — and it never reaches a configuration"
-                + " lookup, because membership in qits.idp.clients is checked BEFORE any key is"
-                + " built. That ordering is what keeps an unauthenticated caller from probing the"
-                + " config namespace one client_id at a time")
+            "an id that is no client is invalid_client — answered from the service clients held in"
+                + " memory, without a query")
         .as("an-unknown-client-is-refused-without-a-lookup");
 
-    // (b) a REAL shipped client that ships with no secret. The safe direction, pinned against the
-    // shipped default rather than against a fixture.
+    // (b) a client configured with no secret, so never adopted. The safe direction.
     NetworkCapture.actor(StoryTarget.ARTIFACTS);
     StoryTarget.form()
         .body(
@@ -154,10 +144,10 @@ public class FrontDoorRefusalsIT {
         .body("access_token", nullValue());
     story
         .note(
-            "a shipped service client with NO secret configured is refused exactly like a wrong"
-                + " one. Every static client ships without a secret and is therefore unusable, never"
-                + " open — there is no flag that turns that around, and adding one would make an"
-                + " unconfigured deployment issue identity to whoever asks")
+            "a client configured with NO secret was never moved into the database, so it is"
+                + " refused exactly like a wrong secret. Unusable, never open — there is no flag that"
+                + " turns that around, and adding one would make an unconfigured deployment issue"
+                + " identity to whoever asks")
         .as("a-client-with-no-secret-is-unusable-rather-than-open");
 
     // (c) nothing presented at all.
@@ -237,9 +227,9 @@ public class FrontDoorRefusalsIT {
 
     story
         .note(
-            "and none of the six reached the database: a static client is four config lookups and an"
-                + " unknown id is one list-membership test, so a burst of bad credentials at the"
-                + " platform's front door costs the store nothing at all")
+            "and none of the six reached the database: a service client is a read of a map loaded"
+                + " at start, so a burst of bad credentials at the platform's front door costs the"
+                + " store nothing at all")
         .as("a-refusal-costs-the-store-nothing");
   }
 
