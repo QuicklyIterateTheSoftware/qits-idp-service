@@ -230,6 +230,100 @@ public class CommissionedTokensApiTest {
     assertEquals(List.of(), listedIds(OWNER, OWNER_SECRET, "tok-bad-claim"));
   }
 
+  // --- git refs replace (qits-801) ---------------------------------------------------------------
+
+  @Test
+  public void theOwnerReplacesAndTheNextIntrospectionCarriesTheNewRefs() throws Exception {
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"tok-api-replace\",\"contextId\":\"ctx\","
+                    + "\"gitRefs\":[\"refs/heads/a\"]}")
+            .statusCode(201)
+            .extract();
+    String id = issued.path("tokenId");
+
+    replaceGitRefs(basic(OWNER, OWNER_SECRET), id, "[\"refs/heads/b\"]")
+        .statusCode(200)
+        .body("tokenId", equalTo(id))
+        .body("gitRefs", equalTo(List.of("refs/heads/b")));
+
+    JwtClaims claims =
+        PublishedJwks.verify(
+            introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+                .statusCode(200)
+                .extract()
+                .path("accessToken"),
+            "qits-platform");
+    assertEquals(List.of("refs/heads/b"), claims.getStringListClaimValue("git_refs"));
+  }
+
+  @Test
+  public void anEmptyListMeansPushNothing() {
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "tok-api-replace-empty", "ctx");
+
+    replaceGitRefs(basic(OWNER, OWNER_SECRET), issued.path("tokenId"), "[]")
+        .statusCode(200)
+        .body("gitRefs", equalTo(List.of()));
+  }
+
+  @Test
+  public void anotherOwnerAndAnUnknownIdAreTheSame404() {
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "tok-api-replace-404", "ctx");
+
+    replaceGitRefs(basic(OTHER_OWNER, OTHER_OWNER_SECRET), issued.path("tokenId"), "[]")
+        .statusCode(404)
+        .body("error", equalTo("not_found"));
+    replaceGitRefs(basic(OWNER, OWNER_SECRET), UUID.randomUUID().toString(), "[]")
+        .statusCode(404)
+        .body("error", equalTo("not_found"));
+    assertTrue(tokens.introspect(issued.<String>path("token")).isPresent(), "unchanged");
+  }
+
+  @Test
+  public void aCommissionedClientMayNotReplaceGitRefs() {
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "tok-api-replace-403", "ctx");
+    ExtractableResponse<?> client = commissionClient("tok-api-replace-403", "ctx-client");
+
+    replaceGitRefs(
+            basic(client.path("clientId"), client.path("secret")), issued.path("tokenId"), "[]")
+        .statusCode(403)
+        .body("error", equalTo("access_denied"));
+    replaceGitRefs("Bearer " + issued.<String>path("token"), issued.path("tokenId"), "[]")
+        .statusCode(401);
+  }
+
+  @Test
+  public void aBodyWithNoListIsA400() {
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "tok-api-replace-400", "ctx");
+
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", basic(OWNER, OWNER_SECRET))
+        .body("{}")
+        .when()
+        .put("/idp/api/tokens/" + issued.<String>path("tokenId") + "/git-refs")
+        .then()
+        .statusCode(400)
+        .body("error", equalTo("invalid_request"));
+
+    replaceGitRefs(basic(OWNER, OWNER_SECRET), issued.path("tokenId"), "[\"refs/tags/v1\"]")
+        .statusCode(400)
+        .body("error", equalTo("invalid_request"));
+  }
+
+  private static ValidatableResponse replaceGitRefs(
+      String authorization, String tokenId, String gitRefsJson) {
+    return given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", authorization)
+        .body("{\"gitRefs\":" + gitRefsJson + "}")
+        .when()
+        .put("/idp/api/tokens/" + tokenId + "/git-refs")
+        .then();
+  }
+
   // --- introspection (qits-450) -----------------------------------------------------------------
 
   @Test

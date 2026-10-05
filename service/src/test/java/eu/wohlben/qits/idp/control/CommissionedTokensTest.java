@@ -146,6 +146,44 @@ public class CommissionedTokensTest {
   }
 
   @Test
+  public void replaceGitRefsNarrowsAndEmptyMeansPushNothing() {
+    Commissioned issued =
+        tokens.commission(OWNER, "tok-replace", "ctx", null, List.of("refs/heads/a"));
+
+    StoredToken replaced =
+        tokens.replaceGitRefs(issued.token().id(), OWNER, List.of("refs/heads/b")).orElseThrow();
+    assertEquals(List.of("refs/heads/b"), replaced.gitRefs());
+    assertEquals(
+        List.of("refs/heads/b"), tokens.introspect(issued.value()).orElseThrow().gitRefs());
+
+    StoredToken emptied =
+        tokens.replaceGitRefs(issued.token().id(), OWNER, List.of()).orElseThrow();
+    assertEquals(List.of(), emptied.gitRefs(), "[] means push nothing");
+
+    assertFalse(
+        tokens.replaceGitRefs(UUID.randomUUID(), OWNER, List.of()).isPresent(),
+        "an unknown id");
+    assertFalse(
+        tokens.replaceGitRefs(issued.token().id(), "test-narrow", List.of()).isPresent(),
+        "another owner: the same answer");
+  }
+
+  @Test
+  public void replaceGitRefsRefusesAMalformedRefAndWritesNothing() {
+    Commissioned issued =
+        tokens.commission(OWNER, "tok-replace-bad", "ctx", null, List.of("refs/heads/a"));
+
+    assertRefused(
+        () -> tokens.replaceGitRefs(issued.token().id(), OWNER, List.of("refs/tags/v1")));
+    assertRefused(() -> tokens.replaceGitRefs(issued.token().id(), OWNER, null));
+
+    assertEquals(
+        List.of("refs/heads/a"),
+        tokens.introspect(issued.value()).orElseThrow().gitRefs(),
+        "a refused replace leaves the row unchanged");
+  }
+
+  @Test
   public void theCiRunnerKindsCarryTheirOwnRoles() {
     assertEquals(List.of("qits:ci-runner"), CommissionRoles.forKind("ci-runner"));
     assertEquals(

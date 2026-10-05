@@ -173,6 +173,51 @@ public class CommissionedTokens {
   }
 
   /**
+   * Replace the Git refs of one token. Only its owner may; the token itself may not hand itself a
+   * new scope.
+   *
+   * <p>The next introspection carries the new list — the edge's 15 s introspection cache is the
+   * only thing that bounds when that is seen, same as {@link DynamicClients#replaceGitRefs}.
+   *
+   * @return the updated token, or empty when there is no such row or {@code owner} does not own it
+   *     — one answer for both, as for delete
+   * @throws OAuthException {@code invalid_request} (400) when the list breaks a rule. Checked
+   *     before the row is read, so this answer says nothing about whether the token exists.
+   */
+  public Optional<StoredToken> replaceGitRefs(UUID id, String owner, List<String> gitRefs) {
+    if (gitRefs == null) {
+      // "No list" would widen the token back to its roles, so a replace always states one.
+      throw OAuthException.invalidRequest(
+          "gitRefs is required; send [] for a token that may push nothing");
+    }
+    List<String> refs = GitRefs.stated(gitRefs);
+    if (id == null || owner == null) {
+      return Optional.empty();
+    }
+    StoredToken updated =
+        DbRetry.inNewTx(
+            "replace the git refs of an idp token",
+            () -> {
+              IdpToken row = repository.findById(id);
+              if (row == null || !row.owner.equals(owner)) {
+                return null;
+              }
+              row.gitRefs = GitRefs.format(refs);
+              return toStored(row);
+            });
+    if (updated == null) {
+      LOG.warnf(
+          "git refs change refused: %s does not own %s, or it does not exist",
+          LoggableClientId.of(owner), id);
+      return Optional.empty();
+    }
+    LOG.infof(
+        "replaced the git refs of token %s, by %s: %d entries",
+        LoggableClientId.of(updated.subject()), LoggableClientId.of(owner), refs.size());
+    return Optional.of(updated);
+  }
+
+  /**
    * Delete the token, if {@code caller} is allowed to.
    *
    * <p>Allowed is the owner that commissioned it, or the token itself — {@code caller} equal to its

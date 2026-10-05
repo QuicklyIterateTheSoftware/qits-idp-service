@@ -12,6 +12,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -30,11 +31,11 @@ import org.jboss.resteasy.reactive.RestResponse;
  * one dynamic context and takes it back when the context ends.
  *
  * <p>The commission API's shape again, for the third credential: {@code POST} commissions, {@code
- * GET} lists what the caller commissioned so a crash leaks nothing nobody can see, and {@code
- * DELETE} ends one. {@code POST /introspect} is the fourth verb, the edge's: it turns a value into
- * the identity behind it and a short JWT for the service behind the edge. The lifetime model — no
- * expiry, deleting the row is the whole revocation — is in {@link CommissionedTokens}; this class
- * is the boundary.
+ * GET} lists what the caller commissioned so a crash leaks nothing nobody can see, {@code DELETE}
+ * ends one, and {@code PUT …/git-refs} replaces the Git refs a token may push. {@code POST
+ * /introspect} is the fifth verb, the edge's: it turns a value into the identity behind it and a
+ * short JWT for the service behind the edge. The lifetime model — no expiry, deleting the row is
+ * the whole revocation — is in {@link CommissionedTokens}; this class is the boundary.
  *
  * <p><b>The caller authenticates with its own Basic pair</b>, through {@link BasicCaller}, for the
  * reasons {@link IdpClientsController} gives: the platform's services already hold one, so it adds
@@ -96,6 +97,11 @@ public class IdpTokensController {
    * because it is a credential, and a URL is written to access logs on both sides.
    */
   public record IntrospectRequest(String token) {}
+
+  /**
+   * The body of {@code PUT /{tokenId}/git-refs}: the new list, whole. {@code []} is "push nothing".
+   */
+  public record GitRefsRequest(List<String> gitRefs) {}
 
   /**
    * What a live token is, and a JWT that says the same thing to the service behind the edge.
@@ -269,6 +275,53 @@ public class IdpTokensController {
       throw OAuthException.notFound("no such commissioned token");
     }
     return Response.noContent().build();
+  }
+
+  /**
+   * Replace the Git refs a token may push. The counterpart of {@link
+   * IdpClientsController#replaceGitRefs} for the third credential: a RUNNER workspace's token
+   * loses or gains push scope here instead of being re-commissioned.
+   *
+   * <p><b>Only the owner</b>, with the same Basic pair and role as {@code POST}; a commissioned
+   * caller is 403 — a token may hand itself back on {@code DELETE} but may not widen or narrow its
+   * own scope. Another owner's token, an unknown id and an id that is not a uuid are all the same
+   * 404, so nobody maps other services' contexts from here.
+   *
+   * <p><b>The body must carry a list.</b> {@code []} removes every ref. There is no way back to "no
+   * scope stated": that would widen the token to what its roles allow.
+   *
+   * <p><b>The next introspection carries the new {@code git_refs}.</b> The edge caches an
+   * introspection for 15 s ({@code EdgeAuth}), so a caller that just replaced the scope may still
+   * see the old one at the edge for up to that long.
+   *
+   * <p>200 with the {@code TokenView}. A plain record return type, not a bare {@code Response}, for
+   * the native-image reason {@link #commission} gives.
+   */
+  @PUT
+  @Path("/{tokenId}/git-refs")
+  @Consumes(MediaType.APPLICATION_JSON)
+  public TokenView replaceGitRefs(
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @PathParam("tokenId") String tokenId,
+      GitRefsRequest request) {
+    IdpClient owner =
+        caller.staticOnly(
+            authorization,
+            "a commissioned client may not change a commission",
+            BasicCaller.SYSTEM);
+    if (request == null || request.gitRefs() == null) {
+      throw OAuthException.invalidRequest(
+          "a JSON body with a gitRefs list is required; send [] for a token that may push"
+              + " nothing");
+    }
+    UUID id = parseId(tokenId);
+    if (id == null) {
+      throw OAuthException.notFound("no such commissioned token");
+    }
+    return tokens
+        .replaceGitRefs(id, owner.clientId(), request.gitRefs())
+        .map(IdpTokensController::view)
+        .orElseThrow(() -> OAuthException.notFound("no such commissioned token"));
   }
 
   /** The raw value of a {@code Bearer} header, or empty when the header is anything else. */
