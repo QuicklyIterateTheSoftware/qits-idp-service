@@ -119,8 +119,10 @@ for.
 **A commissioned credential's roles are code, not a merge with its owner's**
 (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement` (`qits:agent`), `ci-run`
-and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`) and
-`ci-runner-registration` (`qits:ci-runner-registration`) are the seven the jar ships, tested as
+and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),
+`ci-runner-registration` (`qits:ci-runner-registration`), `workspaces-runner`
+(`qits:workspaces-runner`) and `workspaces-runner-registration`
+(`qits:workspaces-runner-registration`) are the nine the jar ships, tested as
 shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):

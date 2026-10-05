@@ -22,7 +22,11 @@ import java.util.Optional;
  *   <li>{@code ci-runner} gets {@code qits:ci-runner} — a CI runner's own identity, distinct from
  *       any one run's;
  *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a
- *       runner registers itself with, and nothing more.
+ *       runner registers itself with, and nothing more;
+ *   <li>{@code workspaces-runner} gets {@code qits:workspaces-runner} — a workspace runner's own
+ *       identity, distinct from {@code ci-runner} and from {@code qits:agent};
+ *   <li>{@code workspaces-runner-registration} gets {@code qits:workspaces-runner-registration} —
+ *       the narrower credential a workspace runner registers itself with, and nothing more.
  * </ul>
  *
  * <p>The same map applies to a commissioned token ({@link CommissionedTokens}) as to a commissioned
@@ -57,6 +61,11 @@ public final class CommissionRoles {
   private static final List<String> CI_RUNNER_REGISTRATION =
       List.of("qits:ci-runner-registration");
 
+  private static final List<String> WORKSPACES_RUNNER = List.of("qits:workspaces-runner");
+
+  private static final List<String> WORKSPACES_RUNNER_REGISTRATION =
+      List.of("qits:workspaces-runner-registration");
+
   /**
    * Looked up by key and never iterated, which is why {@link Map#of} is safe here: its iteration
    * order is salted per JVM, so a reader that ever walks this map must sort or keep its own order.
@@ -74,7 +83,11 @@ public final class CommissionRoles {
           // A runner's own identity, and the narrower one it registers itself with. Neither is a
           // run, so neither holds qits:ci-run.
           "ci-runner", CI_RUNNER,
-          "ci-runner-registration", CI_RUNNER_REGISTRATION);
+          "ci-runner-registration", CI_RUNNER_REGISTRATION,
+          // A workspace runner's own identity, and the narrower one it registers itself with.
+          // Neither is an agent, so neither holds qits:agent.
+          "workspaces-runner", WORKSPACES_RUNNER,
+          "workspaces-runner-registration", WORKSPACES_RUNNER_REGISTRATION);
 
   private CommissionRoles() {}
 

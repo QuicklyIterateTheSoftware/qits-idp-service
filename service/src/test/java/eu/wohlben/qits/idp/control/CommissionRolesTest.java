@@ -1,6 +1,7 @@
 package eu.wohlben.qits.idp.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,19 @@ public class CommissionRolesTest {
     assertEquals(List.of("qits:ci-runner"), CommissionRoles.forKind("ci-runner"));
     assertEquals(
         List.of("qits:ci-runner-registration"), CommissionRoles.forKind("ci-runner-registration"));
+    // A workspace runner's own identity and its registration credential: each its own role,
+    // neither qits:agent nor qits:ci-runner (qits-845, qits-629).
+    assertEquals(
+        List.of("qits:workspaces-runner"), CommissionRoles.forKind("workspaces-runner"));
+    assertEquals(
+        List.of("qits:workspaces-runner-registration"),
+        CommissionRoles.forKind("workspaces-runner-registration"));
+    assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("workspaces-runner"));
+    assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("workspaces-runner-registration"));
+    assertNotEquals(
+        List.of("qits:ci-runner"), CommissionRoles.forKind("workspaces-runner"));
+    assertNotEquals(
+        List.of("qits:ci-runner"), CommissionRoles.forKind("workspaces-runner-registration"));
   }
 
   @Test

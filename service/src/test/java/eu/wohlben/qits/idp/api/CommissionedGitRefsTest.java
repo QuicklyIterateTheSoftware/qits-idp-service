@@ -38,9 +38,11 @@ import org.junit.jupiter.api.Test;
  * kind's fixed one
  * ({@code workspace}, {@code agent-container}, {@code refinement} → {@code qits:agent}; {@code
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
- * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}) or, for any
+ * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
+ * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
+ * {@code qits:workspaces-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the seven shipped kinds and an invented, deliberately unknown one rather
+ * these tests exercise the nine shipped kinds and an invented, deliberately unknown one rather
  * than a test-only configured kind.
  */
 @QuarkusTest
@@ -339,7 +341,9 @@ public class CommissionedGitRefsTest {
           "ci-run", "qits:ci-run",
           "bootstrap-publish", "qits:ci-run",
           "ci-runner", "qits:ci-runner",
-          "ci-runner-registration", "qits:ci-runner-registration");
+          "ci-runner-registration", "qits:ci-runner-registration",
+          "workspaces-runner", "qits:workspaces-runner",
+          "workspaces-runner-registration", "qits:workspaces-runner-registration");
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {
