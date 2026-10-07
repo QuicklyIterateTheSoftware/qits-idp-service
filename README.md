@@ -164,7 +164,8 @@ commission API next to it: the caller must be a service client — never commiss
 `qits:system`.
 
 **The two `GET`s also accept a bearer** (qits-162): a JWT this idp issued, with `aud` including
-`qits-platform`, whose `groups` hold `qits:agent`, `qits:system` or `qits:admin` — verified in-process
+`qits-platform`, whose `groups` hold `qits:agent`, `qits:system`, `qits:admin` or `qits:admin-agent` (an admin
+workspace's agent, admitted wherever `qits:admin` is — qits-628 follow-up) — verified in-process
 against the published signing keys (`BearerCaller`). A bearer holding none of them is 403; one that
 does not verify is 401 `invalid_token`. Every write stays Basic-only, so a bearer there is 401: an
 agent keeps every read and gains no write.
@@ -284,7 +285,10 @@ The rules around them:
   owner.
 - **Its roles are its context kind's fixed ones — never its owner's**
   (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles` is a plain code map, not
-  configuration: `workspace`, `agent-container` and `refinement` get `qits:agent`; `ci-run` and
+  configuration: `workspace`, `agent-container` and `refinement` get `qits:agent`;
+  `workspace-admin` — the credential of an ADMIN workspace's container, which holds the host's
+  docker socket — gets `qits:agent` and `qits:admin-agent`, the role every door that admits
+  `qits:admin` also admits by name (qits-628 follow-up); `ci-run` and
   `bootstrap-publish` get `qits:ci-run` — publishing to qits-artifacts is CI's door, and
   `bootstrap-publish` is the short-lived identity the bootstrap commissions for its own publish
   phase and deletes when that phase ends; `ci-runner` gets `qits:ci-runner`, a CI runner's own

@@ -37,12 +37,13 @@ import org.junit.jupiter.api.Test;
  * (epic qits-540 dossier, "Plan (as of 2026-09-13)", D3/D12): a commission's role is its context
  * kind's fixed one
  * ({@code workspace}, {@code agent-container}, {@code refinement} → {@code qits:agent}; {@code
+ * workspace-admin} → {@code qits:agent} and {@code qits:admin-agent}; {@code
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
  * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
  * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
  * {@code qits:workspaces-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the nine shipped kinds and an invented, deliberately unknown one rather
+ * these tests exercise the ten shipped kinds and an invented, deliberately unknown one rather
  * than a test-only configured kind.
  */
 @QuarkusTest
@@ -289,6 +290,40 @@ public class CommissionedGitRefsTest {
   }
 
   @Test
+  public void anAdminWorkspaceCommissionCarriesTheAdminAgentRoleAndBehavesLikeAWorkspace()
+      throws Exception {
+    // qits-628 follow-up: an ADMIN workspace's container credential is commissioned as
+    // workspace-admin. Its token holds qits:agent, qits:admin-agent and its own self-role — and
+    // never qits:admin, qits:system or anything of its owner's.
+    Commission admin =
+        created(OWNER, OWNER_SECRET, body("workspace-admin", "ctx-admin-1", List.of(TICKET)));
+    JwtClaims claims = claimsOf(admin.clientId(), admin.secret());
+    assertEquals(
+        List.of("qits:agent", "qits:admin-agent", "clients/" + admin.clientId()),
+        claims.getStringListClaimValue("groups"));
+    assertEquals("workspace-admin", claims.getClaimValueAsString("context_kind"));
+    assertEquals(List.of(TICKET), claims.getStringListClaimValue("git_refs"));
+    assertFalse(claims.hasClaim("project"), "no owner claim inherited, as for a workspace");
+
+    // Git refs: the owner replaces the list exactly as for a workspace, a stranger may not.
+    replace(OWNER, OWNER_SECRET, admin.clientId(), List.of(EPIC)).statusCode(200);
+    replace(OTHER_OWNER, OTHER_OWNER_SECRET, admin.clientId(), List.of(FEATURES))
+        .statusCode(404);
+    assertEquals(
+        List.of(EPIC),
+        claimsOf(admin.clientId(), admin.secret()).getStringListClaimValue("git_refs"));
+
+    // Its writes stay shut like a workspace's: it may not commission or change a commission.
+    commission(admin.clientId(), admin.secret(), body("workspace-admin", "ctx-admin-child", null))
+        .statusCode(403);
+    replace(admin.clientId(), admin.secret(), admin.clientId(), List.of()).statusCode(403);
+
+    // And it hands itself back with no platform role.
+    decommission(admin.clientId(), admin.secret(), admin.clientId()).statusCode(204);
+    token(admin.clientId(), admin.secret()).statusCode(401);
+  }
+
+  @Test
   public void aCredentialWithItsKindsRolesMayStillHandItselfBack() {
     Commission agent = created(OWNER, OWNER_SECRET, body("workspace", "ctx-10", null));
     Commission other = created(OWNER, OWNER_SECRET, body("workspace", "ctx-11", null));
@@ -333,27 +368,30 @@ public class CommissionedGitRefsTest {
    * and each iteration stands alone, so {@code Map.of}'s salted, per-JVM iteration order changes
    * nothing — do not write a case here whose outcome depends on the order.
    */
-  private static final Map<String, String> SHIPPED_KINDS =
+  private static final Map<String, List<String>> SHIPPED_KINDS =
       Map.of(
-          "workspace", "qits:agent",
-          "agent-container", "qits:agent",
-          "refinement", "qits:agent",
-          "ci-run", "qits:ci-run",
-          "bootstrap-publish", "qits:ci-run",
-          "ci-runner", "qits:ci-runner",
-          "ci-runner-registration", "qits:ci-runner-registration",
-          "workspaces-runner", "qits:workspaces-runner",
-          "workspaces-runner-registration", "qits:workspaces-runner-registration");
+          "workspace", List.of("qits:agent"),
+          "workspace-admin", List.of("qits:agent", "qits:admin-agent"),
+          "agent-container", List.of("qits:agent"),
+          "refinement", List.of("qits:agent"),
+          "ci-run", List.of("qits:ci-run"),
+          "bootstrap-publish", List.of("qits:ci-run"),
+          "ci-runner", List.of("qits:ci-runner"),
+          "ci-runner-registration", List.of("qits:ci-runner-registration"),
+          "workspaces-runner", List.of("qits:workspaces-runner"),
+          "workspaces-runner-registration", List.of("qits:workspaces-runner-registration"));
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {
-    for (Map.Entry<String, String> kind : SHIPPED_KINDS.entrySet()) {
+    for (Map.Entry<String, List<String>> kind : SHIPPED_KINDS.entrySet()) {
       Commission commission =
           created(OWNER, OWNER_SECRET, body(kind.getKey(), "shipped-roles", List.of(TICKET)));
 
       JwtClaims claims = claimsOf(commission.clientId(), commission.secret());
+      List<String> expected = new ArrayList<>(kind.getValue());
+      expected.add("clients/" + commission.clientId());
       assertEquals(
-          List.of(kind.getValue(), "clients/" + commission.clientId()),
+          expected,
           claims.getStringListClaimValue("groups"),
           kind.getKey() + ": its kind's role and its own self-role; not the owner's roles");
       assertEquals(
@@ -440,9 +478,9 @@ public class CommissionedGitRefsTest {
   public void theListingAcceptsTheAgentRoleAndNotTheCiRunRole() {
     // Reads accept qits:agent (user ruling 2026-09-12). qits:ci-run is not an agent role, so a CI
     // run's credential is refused here; nothing a run does lists commissions.
-    for (Map.Entry<String, String> kind : SHIPPED_KINDS.entrySet()) {
+    for (Map.Entry<String, List<String>> kind : SHIPPED_KINDS.entrySet()) {
       Commission commission = created(OWNER, OWNER_SECRET, body(kind.getKey(), "shipped-list", null));
-      int expected = BasicCaller.AGENT.equals(kind.getValue()) ? 200 : 403;
+      int expected = kind.getValue().contains(BasicCaller.AGENT) ? 200 : 403;
 
       given()
           .header("Authorization", basic(commission.clientId(), commission.secret()))

@@ -372,6 +372,39 @@ public class CommissionedTokensApiTest {
   }
 
   @Test
+  public void anAdminWorkspaceTokenIntrospectsWithTheAdminAgentRole() throws Exception {
+    // qits-628 follow-up: a workspace-admin token is minted like a workspace's, plus
+    // qits:admin-agent — and its git refs are replaced by the owner exactly as for any token.
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"workspace-admin\",\"contextId\":\"tok-admin-ws\","
+                    + "\"claims\":{\"project\":\"qits\"},\"gitRefs\":[\"refs/heads/a\"]}")
+            .statusCode(201)
+            .extract();
+    String subject = issued.path("subject");
+    String id = issued.path("tokenId");
+
+    replaceGitRefs(basic(OWNER, OWNER_SECRET), id, "[\"refs/heads/b\"]").statusCode(200);
+
+    ExtractableResponse<?> answer =
+        introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+            .statusCode(200)
+            .body("roles", equalTo(List.of("qits:agent", "qits:admin-agent", "clients/" + subject)))
+            .body("contextKind", equalTo("workspace-admin"))
+            .extract();
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-platform");
+    assertEquals(
+        List.of("qits:agent", "qits:admin-agent", "clients/" + subject),
+        claims.getStringListClaimValue("groups"));
+    assertEquals("workspace-admin", claims.getClaimValueAsString("context_kind"));
+    assertEquals(List.of("refs/heads/b"), claims.getStringListClaimValue("git_refs"));
+    assertEquals("qits", claims.getClaimValueAsString("project"), "the stated claim, verbatim");
+    delete(basic(OWNER, OWNER_SECRET), id).statusCode(204);
+  }
+
+  @Test
   public void aTokenThatStatedNoRefsCarriesNoGitRefsClaim() throws Exception {
     String token = commission(OWNER, OWNER_SECRET, "tok-introspect-bare", "ctx").path("token");
 
