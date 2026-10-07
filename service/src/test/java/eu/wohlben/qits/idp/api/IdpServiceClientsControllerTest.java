@@ -342,6 +342,40 @@ public class IdpServiceClientsControllerTest {
   }
 
   @Test
+  public void anAdminAgentBearerReadsWhereverAnAdminDoes() {
+    // qits-628 follow-up: qits:admin-agent is admitted wherever qits:admin is. A bearer holding it
+    // alone (no qits:admin, no qits:agent) reads; so does a real workspace-admin commission.
+    given()
+        .header("Authorization", bearer(signedWithRole("qits:admin-agent")))
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(200);
+    given()
+        .header("Authorization", bearer(commissionedToken("workspace-admin", "bearer-admin-read")))
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(200);
+  }
+
+  @Test
+  public void anAdminWorkspaceBearerIsStillRefusedOnEveryWrite() {
+    // The service-client writes admit qits:system on a Basic pair and nothing else — never
+    // qits:admin — so qits:admin-agent gains nothing here.
+    String agent = bearer(commissionedToken("workspace-admin", "bearer-admin-write"));
+    given()
+        .contentType(ContentType.JSON)
+        .header("Authorization", agent)
+        .body("{\"clientId\":\"svc-admin-agent-created\"}")
+        .when()
+        .post("/idp/api/service-clients")
+        .then()
+        .statusCode(401);
+    get("svc-admin-agent-created").statusCode(404);
+  }
+
+  @Test
   public void aBearerWithoutAReadRoleIsForbidden() {
     // A ci-run commission carries qits:ci-run and its own clients/<id> — none of the three.
     String ciRun = bearer(commissionedToken("ci-run", "bearer-no-role"));

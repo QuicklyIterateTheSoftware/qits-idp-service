@@ -1,6 +1,7 @@
 package eu.wohlben.qits.idp.control;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.util.List;
@@ -17,6 +18,10 @@ public class CommissionRolesTest {
   public void eachShippedKindHasItsFixedRole() {
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("workspace"));
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("agent-container"));
+    // An ADMIN workspace's container credential (it holds the host docker socket): an agent, plus
+    // the role every qits:admin door also admits by name (qits-628 follow-up).
+    assertEquals(
+        List.of("qits:agent", "qits:admin-agent"), CommissionRoles.forKind("workspace-admin"));
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("refinement"));
     assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("ci-run"));
     // The bootstrap's own publishing identity holds the CI publisher's role, because publishing to
@@ -44,6 +49,29 @@ public class CommissionRolesTest {
   }
 
   @Test
+  public void onlyTheAdminWorkspaceKindCarriesTheAdminAgentRole() {
+    // qits:admin-agent is issued by this one line and nowhere else: a plain workspace, and every
+    // other shipped kind, stays without it.
+    for (String kind :
+        List.of(
+            "workspace",
+            "agent-container",
+            "refinement",
+            "ci-run",
+            "bootstrap-publish",
+            "ci-runner",
+            "ci-runner-registration",
+            "workspaces-runner",
+            "workspaces-runner-registration")) {
+      assertFalse(CommissionRoles.forKind(kind).contains("qits:admin-agent"), kind);
+      assertFalse(CommissionRoles.forKind(kind).contains("qits:admin"), kind);
+    }
+    assertFalse(
+        CommissionRoles.forKind("workspace-admin").contains("qits:admin"),
+        "an admin workspace's agent is not a person: it never holds qits:admin itself");
+  }
+
+  @Test
   public void anUnknownKindGetsNoRoleAtAll() {
     // D12: unknown kind -> no role, not a refusal — the credential still mints, with only its own
     // clients/<id> self-role.
@@ -52,5 +80,6 @@ public class CommissionRolesTest {
     assertEquals(List.of(), CommissionRoles.forKind(""));
     // Case matters: the shipped map is keyed on the exact lowercase spelling.
     assertEquals(List.of(), CommissionRoles.forKind("Workspace"));
+    assertEquals(List.of(), CommissionRoles.forKind("Workspace-Admin"));
   }
 }

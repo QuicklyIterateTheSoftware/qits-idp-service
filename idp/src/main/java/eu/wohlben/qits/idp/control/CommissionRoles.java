@@ -10,11 +10,18 @@ import java.util.Optional;
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
- * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Seven
+ * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Ten
  * kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container} and {@code refinement} get {@code qits:agent};
+ *   <li>{@code workspace-admin} gets {@code qits:agent} and {@code qits:admin-agent} — the
+ *       credential of an ADMIN workspace's container, the one that holds the host's docker socket.
+ *       {@code qits:admin-agent} is the owner's role for an admin workspace's agent (qits-628
+ *       follow-up, owner's request 2026-10-07): it is admitted wherever {@code qits:admin} is,
+ *       named explicitly next to every such check, until the doors that must stay human-only drop
+ *       it one by one. It is issued here and nowhere else — never to a person, never by
+ *       configuration;
  *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run} — since the CI-runners
  *       campaign's closing release (qits-444, 2026-09-30), qits-ci commissions {@code ci-run} as a
  *       token ({@link CommissionedTokens}) rather than as a client; {@code bootstrap-publish} is
@@ -54,6 +61,12 @@ public final class CommissionRoles {
 
   private static final List<String> AGENT = List.of("qits:agent");
 
+  /**
+   * An admin workspace's agent: everything an agent is, plus the role every {@code qits:admin} door
+   * also admits by name (qits-628 follow-up). See the class javadoc.
+   */
+  private static final List<String> ADMIN_AGENT = List.of("qits:agent", "qits:admin-agent");
+
   private static final List<String> CI_RUN = List.of("qits:ci-run");
 
   private static final List<String> CI_RUNNER = List.of("qits:ci-runner");
@@ -73,6 +86,9 @@ public final class CommissionRoles {
   private static final Map<String, List<String>> SHIPPED =
       Map.of(
           "workspace", AGENT,
+          // An ADMIN workspace's container credential: it holds the host's docker socket, so its
+          // agent is admitted wherever qits:admin is (qits-628 follow-up).
+          "workspace-admin", ADMIN_AGENT,
           "agent-container", AGENT,
           "refinement", AGENT,
           "ci-run", CI_RUN,
