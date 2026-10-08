@@ -123,9 +123,11 @@ for.
 `qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),
 `ci-runner-registration` (`qits:ci-runner-registration`), `workspaces-runner`
-(`qits:workspaces-runner`) and `workspaces-runner-registration`
-(`qits:workspaces-runner-registration`) are the ten the jar ships — which is `Map.of`'s limit, so
-the next kind moves the map to `Map.ofEntries` — tested as shipped in
+(`qits:workspaces-runner`), `workspaces-runner-registration`
+(`qits:workspaces-runner-registration`), `projects-desk-runner`
+(`qits:projects-desk-runner`) and `projects-desk-runner-registration`
+(`qits:projects-desk-runner-registration`) are the twelve the jar ships — past `Map.of`'s
+ten-argument limit, so the map is `Map.ofEntries` — tested as shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):
 it is the bootstrap's own publishing identity, commissioned with `gitRefs: []` for its publish

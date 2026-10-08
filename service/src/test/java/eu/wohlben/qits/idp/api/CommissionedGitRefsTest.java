@@ -41,10 +41,15 @@ import org.junit.jupiter.api.Test;
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
  * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
  * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
- * {@code qits:workspaces-runner-registration}) or, for any
+ * {@code qits:workspaces-runner-registration}; {@code projects-desk-runner} → {@code
+ * qits:projects-desk-runner}; {@code projects-desk-runner-registration} → {@code
+ * qits:projects-desk-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the ten shipped kinds and an invented, deliberately unknown one rather
- * than a test-only configured kind.
+ * these tests exercise eleven of the twelve shipped kinds and an invented, deliberately unknown
+ * one rather than a test-only configured kind. {@code projects-desk-runner-registration} is the
+ * twelfth: at 33 characters it is longer than {@code DynamicClients}'s 32-character context-kind
+ * limit allows to commission over HTTP, so its role mapping is pinned at the unit level instead,
+ * in {@code CommissionRolesTest} — a pre-existing limit this task found but did not move.
  */
 @QuarkusTest
 public class CommissionedGitRefsTest {
@@ -365,21 +370,27 @@ public class CommissionedGitRefsTest {
 
   /**
    * The shipped code map, {@code CommissionRoles.SHIPPED}, as it is. Every case below iterates this
-   * and each iteration stands alone, so {@code Map.of}'s salted, per-JVM iteration order changes
-   * nothing — do not write a case here whose outcome depends on the order.
+   * and each iteration stands alone, so {@code Map.ofEntries}'s salted, per-JVM iteration order
+   * changes nothing — do not write a case here whose outcome depends on the order.
    */
   private static final Map<String, List<String>> SHIPPED_KINDS =
-      Map.of(
-          "workspace", List.of("qits:agent"),
-          "workspace-admin", List.of("qits:agent", "qits:admin-agent"),
-          "agent-container", List.of("qits:agent"),
-          "refinement", List.of("qits:agent"),
-          "ci-run", List.of("qits:ci-run"),
-          "bootstrap-publish", List.of("qits:ci-run"),
-          "ci-runner", List.of("qits:ci-runner"),
-          "ci-runner-registration", List.of("qits:ci-runner-registration"),
-          "workspaces-runner", List.of("qits:workspaces-runner"),
-          "workspaces-runner-registration", List.of("qits:workspaces-runner-registration"));
+      Map.ofEntries(
+          Map.entry("workspace", List.of("qits:agent")),
+          Map.entry("workspace-admin", List.of("qits:agent", "qits:admin-agent")),
+          Map.entry("agent-container", List.of("qits:agent")),
+          Map.entry("refinement", List.of("qits:agent")),
+          Map.entry("ci-run", List.of("qits:ci-run")),
+          Map.entry("bootstrap-publish", List.of("qits:ci-run")),
+          Map.entry("ci-runner", List.of("qits:ci-runner")),
+          Map.entry("ci-runner-registration", List.of("qits:ci-runner-registration")),
+          Map.entry("workspaces-runner", List.of("qits:workspaces-runner")),
+          Map.entry(
+              "workspaces-runner-registration", List.of("qits:workspaces-runner-registration")),
+          Map.entry("projects-desk-runner", List.of("qits:projects-desk-runner")));
+  // projects-desk-runner-registration is also shipped (CommissionRoles.SHIPPED,
+  // CommissionRolesTest) but is left out of this HTTP-level map on purpose: at 33 characters it
+  // is longer than DynamicClients.CONTEXT_KIND allows (a pre-existing 32-character limit), so
+  // commissioning it here would 400 regardless of its role. Not this task's limit to move.
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {

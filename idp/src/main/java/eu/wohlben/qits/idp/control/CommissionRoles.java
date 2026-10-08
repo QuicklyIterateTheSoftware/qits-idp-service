@@ -10,7 +10,7 @@ import java.util.Optional;
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
- * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Ten
+ * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Twelve
  * kinds carry a role:
  *
  * <ul>
@@ -33,7 +33,11 @@ import java.util.Optional;
  *   <li>{@code workspaces-runner} gets {@code qits:workspaces-runner} — a workspace runner's own
  *       identity, distinct from {@code ci-runner} and from {@code qits:agent};
  *   <li>{@code workspaces-runner-registration} gets {@code qits:workspaces-runner-registration} —
- *       the narrower credential a workspace runner registers itself with, and nothing more.
+ *       the narrower credential a workspace runner registers itself with, and nothing more;
+ *   <li>{@code projects-desk-runner} gets {@code qits:projects-desk-runner} — a front-desk runner's
+ *       own identity, distinct from {@code workspaces-runner} and from {@code qits:agent};
+ *   <li>{@code projects-desk-runner-registration} gets {@code qits:projects-desk-runner-registration}
+ *       — the narrower credential a front-desk runner registers itself with, and nothing more.
  * </ul>
  *
  * <p>The same map applies to a commissioned token ({@link CommissionedTokens}) as to a commissioned
@@ -79,31 +83,42 @@ public final class CommissionRoles {
   private static final List<String> WORKSPACES_RUNNER_REGISTRATION =
       List.of("qits:workspaces-runner-registration");
 
+  private static final List<String> PROJECTS_DESK_RUNNER = List.of("qits:projects-desk-runner");
+
+  private static final List<String> PROJECTS_DESK_RUNNER_REGISTRATION =
+      List.of("qits:projects-desk-runner-registration");
+
   /**
-   * Looked up by key and never iterated, which is why {@link Map#of} is safe here: its iteration
-   * order is salted per JVM, so a reader that ever walks this map must sort or keep its own order.
+   * Looked up by key and never iterated, which is why {@link Map#ofEntries} is safe here: its
+   * iteration order is salted per JVM, so a reader that ever walks this map must sort or keep its
+   * own order. {@code Map.of}'s ten-argument overload is the varargs limit, not a design choice —
+   * {@code ofEntries} is what a twelfth (and any later) kind moves to.
    */
   private static final Map<String, List<String>> SHIPPED =
-      Map.of(
-          "workspace", AGENT,
+      Map.ofEntries(
+          Map.entry("workspace", AGENT),
           // An ADMIN workspace's container credential: it holds the host's docker socket, so its
           // agent is admitted wherever qits:admin is (qits-628 follow-up).
-          "workspace-admin", ADMIN_AGENT,
-          "agent-container", AGENT,
-          "refinement", AGENT,
-          "ci-run", CI_RUN,
+          Map.entry("workspace-admin", ADMIN_AGENT),
+          Map.entry("agent-container", AGENT),
+          Map.entry("refinement", AGENT),
+          Map.entry("ci-run", CI_RUN),
           // The bootstrap's own publishing identity, for its publish phase only — same role as the
           // CI publisher because publishing is CI's door, deleted by the bootstrap at the end of
           // that phase. See the class javadoc.
-          "bootstrap-publish", CI_RUN,
+          Map.entry("bootstrap-publish", CI_RUN),
           // A runner's own identity, and the narrower one it registers itself with. Neither is a
           // run, so neither holds qits:ci-run.
-          "ci-runner", CI_RUNNER,
-          "ci-runner-registration", CI_RUNNER_REGISTRATION,
+          Map.entry("ci-runner", CI_RUNNER),
+          Map.entry("ci-runner-registration", CI_RUNNER_REGISTRATION),
           // A workspace runner's own identity, and the narrower one it registers itself with.
           // Neither is an agent, so neither holds qits:agent.
-          "workspaces-runner", WORKSPACES_RUNNER,
-          "workspaces-runner-registration", WORKSPACES_RUNNER_REGISTRATION);
+          Map.entry("workspaces-runner", WORKSPACES_RUNNER),
+          Map.entry("workspaces-runner-registration", WORKSPACES_RUNNER_REGISTRATION),
+          // A front-desk runner's own identity, and the narrower one it registers itself with.
+          // Neither is a workspace runner, so neither holds qits:workspaces-runner.
+          Map.entry("projects-desk-runner", PROJECTS_DESK_RUNNER),
+          Map.entry("projects-desk-runner-registration", PROJECTS_DESK_RUNNER_REGISTRATION));
 
   private CommissionRoles() {}
 
