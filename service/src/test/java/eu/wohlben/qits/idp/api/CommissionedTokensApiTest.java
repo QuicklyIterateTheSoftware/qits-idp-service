@@ -372,6 +372,38 @@ public class CommissionedTokensApiTest {
   }
 
   @Test
+  public void anAgentContainerTokenIntrospectsWithTheAgentRole() throws Exception {
+    // agent-container gets qits:agent for a commissioned client (CommissionedGitRefsTest) and for
+    // a commissioned token alike (CommissionRoles#forKind is the one map TokenService and
+    // ClientRegistry both read) — the front desk's registration token relies on the same map
+    // holding for its own kinds.
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"agent-container\",\"contextId\":\"tok-agent-container\","
+                    + "\"claims\":{\"project\":\"qits\"},\"gitRefs\":[\"refs/heads/a\"]}")
+            .statusCode(201)
+            .extract();
+    String subject = issued.path("subject");
+    String id = issued.path("tokenId");
+
+    ExtractableResponse<?> answer =
+        introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+            .statusCode(200)
+            .body("roles", equalTo(List.of("qits:agent", "clients/" + subject)))
+            .body("contextKind", equalTo("agent-container"))
+            .extract();
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-platform");
+    assertEquals(
+        List.of("qits:agent", "clients/" + subject),
+        claims.getStringListClaimValue("groups"),
+        "the kind's role and the token's own self-role; never the owner's");
+    assertEquals("agent-container", claims.getClaimValueAsString("context_kind"));
+    delete(basic(OWNER, OWNER_SECRET), id).statusCode(204);
+  }
+
+  @Test
   public void anAdminWorkspaceTokenIntrospectsWithTheAdminAgentRole() throws Exception {
     // qits-628 follow-up: a workspace-admin token is minted like a workspace's, plus
     // qits:admin-agent — and its git refs are replaced by the owner exactly as for any token.

@@ -46,6 +46,21 @@ public class CommissionRolesTest {
         List.of("qits:ci-runner"), CommissionRoles.forKind("workspaces-runner"));
     assertNotEquals(
         List.of("qits:ci-runner"), CommissionRoles.forKind("workspaces-runner-registration"));
+    // A front-desk runner's own identity and its registration credential: each its own role,
+    // neither qits:agent nor qits:workspaces-runner.
+    assertEquals(
+        List.of("qits:desk-runner"), CommissionRoles.forKind("desk-runner"));
+    assertEquals(
+        List.of("qits:desk-runner-registration"),
+        CommissionRoles.forKind("desk-runner-registration"));
+    assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("desk-runner"));
+    assertNotEquals(
+        List.of("qits:agent"), CommissionRoles.forKind("desk-runner-registration"));
+    assertNotEquals(
+        List.of("qits:workspaces-runner"), CommissionRoles.forKind("desk-runner"));
+    assertNotEquals(
+        List.of("qits:workspaces-runner"),
+        CommissionRoles.forKind("desk-runner-registration"));
   }
 
   @Test
@@ -62,7 +77,9 @@ public class CommissionRolesTest {
             "ci-runner",
             "ci-runner-registration",
             "workspaces-runner",
-            "workspaces-runner-registration")) {
+            "workspaces-runner-registration",
+            "desk-runner",
+            "desk-runner-registration")) {
       assertFalse(CommissionRoles.forKind(kind).contains("qits:admin-agent"), kind);
       assertFalse(CommissionRoles.forKind(kind).contains("qits:admin"), kind);
     }
