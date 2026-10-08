@@ -124,9 +124,9 @@ for.
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),
 `ci-runner-registration` (`qits:ci-runner-registration`), `workspaces-runner`
 (`qits:workspaces-runner`), `workspaces-runner-registration`
-(`qits:workspaces-runner-registration`), `projects-desk-runner`
-(`qits:projects-desk-runner`) and `projects-desk-runner-registration`
-(`qits:projects-desk-runner-registration`) are the twelve the jar ships — past `Map.of`'s
+(`qits:workspaces-runner-registration`), `desk-runner`
+(`qits:desk-runner`) and `desk-runner-registration`
+(`qits:desk-runner-registration`) are the twelve the jar ships — past `Map.of`'s
 ten-argument limit, so the map is `Map.ofEntries` — tested as shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):

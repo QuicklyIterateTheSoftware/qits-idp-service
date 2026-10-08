@@ -41,15 +41,12 @@ import org.junit.jupiter.api.Test;
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
  * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
  * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
- * {@code qits:workspaces-runner-registration}; {@code projects-desk-runner} → {@code
- * qits:projects-desk-runner}; {@code projects-desk-runner-registration} → {@code
- * qits:projects-desk-runner-registration}) or, for any
+ * {@code qits:workspaces-runner-registration}; {@code desk-runner} → {@code
+ * qits:desk-runner}; {@code desk-runner-registration} → {@code
+ * qits:desk-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise eleven of the twelve shipped kinds and an invented, deliberately unknown
- * one rather than a test-only configured kind. {@code projects-desk-runner-registration} is the
- * twelfth: at 33 characters it is longer than {@code DynamicClients}'s 32-character context-kind
- * limit allows to commission over HTTP, so its role mapping is pinned at the unit level instead,
- * in {@code CommissionRolesTest} — a pre-existing limit this task found but did not move.
+ * these tests exercise the twelve shipped kinds and an invented, deliberately unknown one rather
+ * than a test-only configured kind.
  */
 @QuarkusTest
 public class CommissionedGitRefsTest {
@@ -386,11 +383,8 @@ public class CommissionedGitRefsTest {
           Map.entry("workspaces-runner", List.of("qits:workspaces-runner")),
           Map.entry(
               "workspaces-runner-registration", List.of("qits:workspaces-runner-registration")),
-          Map.entry("projects-desk-runner", List.of("qits:projects-desk-runner")));
-  // projects-desk-runner-registration is also shipped (CommissionRoles.SHIPPED,
-  // CommissionRolesTest) but is left out of this HTTP-level map on purpose: at 33 characters it
-  // is longer than DynamicClients.CONTEXT_KIND allows (a pre-existing 32-character limit), so
-  // commissioning it here would 400 regardless of its role. Not this task's limit to move.
+          Map.entry("desk-runner", List.of("qits:desk-runner")),
+          Map.entry("desk-runner-registration", List.of("qits:desk-runner-registration")));
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {

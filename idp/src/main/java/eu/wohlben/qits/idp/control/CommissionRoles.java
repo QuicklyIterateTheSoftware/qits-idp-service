@@ -34,9 +34,9 @@ import java.util.Optional;
  *       identity, distinct from {@code ci-runner} and from {@code qits:agent};
  *   <li>{@code workspaces-runner-registration} gets {@code qits:workspaces-runner-registration} —
  *       the narrower credential a workspace runner registers itself with, and nothing more;
- *   <li>{@code projects-desk-runner} gets {@code qits:projects-desk-runner} — a front-desk runner's
+ *   <li>{@code desk-runner} gets {@code qits:desk-runner} — a front-desk runner's
  *       own identity, distinct from {@code workspaces-runner} and from {@code qits:agent};
- *   <li>{@code projects-desk-runner-registration} gets {@code qits:projects-desk-runner-registration}
+ *   <li>{@code desk-runner-registration} gets {@code qits:desk-runner-registration}
  *       — the narrower credential a front-desk runner registers itself with, and nothing more.
  * </ul>
  *
@@ -83,10 +83,10 @@ public final class CommissionRoles {
   private static final List<String> WORKSPACES_RUNNER_REGISTRATION =
       List.of("qits:workspaces-runner-registration");
 
-  private static final List<String> PROJECTS_DESK_RUNNER = List.of("qits:projects-desk-runner");
+  private static final List<String> DESK_RUNNER = List.of("qits:desk-runner");
 
-  private static final List<String> PROJECTS_DESK_RUNNER_REGISTRATION =
-      List.of("qits:projects-desk-runner-registration");
+  private static final List<String> DESK_RUNNER_REGISTRATION =
+      List.of("qits:desk-runner-registration");
 
   /**
    * Looked up by key and never iterated, which is why {@link Map#ofEntries} is safe here: its
@@ -117,8 +117,8 @@ public final class CommissionRoles {
           Map.entry("workspaces-runner-registration", WORKSPACES_RUNNER_REGISTRATION),
           // A front-desk runner's own identity, and the narrower one it registers itself with.
           // Neither is a workspace runner, so neither holds qits:workspaces-runner.
-          Map.entry("projects-desk-runner", PROJECTS_DESK_RUNNER),
-          Map.entry("projects-desk-runner-registration", PROJECTS_DESK_RUNNER_REGISTRATION));
+          Map.entry("desk-runner", DESK_RUNNER),
+          Map.entry("desk-runner-registration", DESK_RUNNER_REGISTRATION));
 
   private CommissionRoles() {}
 
