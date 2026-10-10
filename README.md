@@ -139,7 +139,9 @@ What a token may push is stated by the idp in `git_refs` and enforced by the git
 is C1/C2 of `principal-bound-git-refs-plan.md` in the qits superproject.
 
 `git_refs` is a JSON array. Each entry is an exact ref (`refs/heads/ticket/t-1`) or a prefix
-pattern ending in `/*` (`refs/heads/external/*`), and each starts with `refs/heads/`. An empty array
+pattern ending in `*`, which covers every ref that starts with what precedes the `*`
+(`refs/heads/external/*`; `refs/heads/ticket/t-1-*` covers `ticket/t-1-fix`, not `ticket/t-1`). Each
+starts with `refs/heads/`. An empty array
 means "may push nothing". No claim means "no scope stated".
 
 | token | `git_refs` | `context_kind` |
@@ -306,7 +308,7 @@ The rules around them:
   `POST`, `PUT` and `DELETE` are unchanged.
 - **Its Git refs are its own.** The optional `gitRefs` member states what the credential may push;
   every token then carries it as `git_refs`. Not stated means no claim, as before. The rules, each a
-  400 with nothing written: every entry starts with `refs/heads/`; `*` only as a trailing `/*`; at
+  400 with nothing written: every entry starts with `refs/heads/`; `*` only as the last character; at
   most 500 entries; each at most 255 characters; no repeats; no control characters. `PUT
   …/{clientId}/git-refs` with `{"gitRefs":[…]}` replaces the list: the owner only (a commissioned
   caller is 403; another owner's client or an unknown id is 404). It must state a list — `[]` for

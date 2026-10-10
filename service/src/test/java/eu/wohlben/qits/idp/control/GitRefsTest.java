@@ -51,15 +51,22 @@ public class GitRefsTest {
   }
 
   @Test
-  public void aStarMayStandOnlyAsATrailingSlashStar() {
+  public void aStarMayStandOnlyAsTheLastCharacter() {
     assertEquals(List.of("refs/heads/feature/*"), GitRefs.stated(List.of("refs/heads/feature/*")));
     // Every branch, but still no tags: narrower than no list, so the contract's rules allow it.
     assertEquals(List.of("refs/heads/*"), GitRefs.stated(List.of("refs/heads/*")));
+    // A trailing * after any character: every ref that starts with what precedes it.
+    assertEquals(List.of("refs/heads/a-*"), GitRefs.stated(List.of("refs/heads/a-*")));
+    assertEquals(
+        List.of("refs/heads/ticket/qits-1-*"),
+        GitRefs.stated(List.of("refs/heads/ticket/qits-1-*")));
+    assertEquals(List.of("refs/heads/feature*"), GitRefs.stated(List.of("refs/heads/feature*")));
 
-    refused("refs/heads/feature*");
     refused("refs/heads/*/x");
     refused("refs/heads/a*b");
     refused("refs/heads/a/**");
+    refused("refs/heads/a**");
+    refused("refs/heads/*-x");
   }
 
   @Test

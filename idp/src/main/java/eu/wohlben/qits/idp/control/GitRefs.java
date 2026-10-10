@@ -11,7 +11,9 @@ import java.util.Set;
  *
  * <p>The contract is C1 and C2 of {@code principal-bound-git-refs-plan.md} in the qits superproject.
  * Each entry is an exact ref ({@code refs/heads/ticket/t-1}) or a prefix pattern that ends in {@code
- * /*} ({@code refs/heads/external/*}). An empty list means "may push nothing". No list (null) means
+ * *}: it covers every ref that starts with what precedes the {@code *}. So {@code
+ * refs/heads/external/*} covers everything under {@code external/}, and {@code
+ * refs/heads/ticket/t-1-*} covers {@code ticket/t-1-fix} but not {@code ticket/t-1}. An empty list means "may push nothing". No list (null) means
  * "no scope stated", and the token then carries no {@code git_refs} claim. The idp states the list;
  * the githost enforces it.
  *
@@ -28,9 +30,6 @@ public final class GitRefs {
 
   /** Every entry starts with this. Tags and other ref spaces are never in a list. */
   public static final String PREFIX = "refs/heads/";
-
-  /** The one place a {@code *} may stand: at the end, after a slash. */
-  public static final String PATTERN_SUFFIX = "/*";
 
   public static final int MAX_ENTRIES = 500;
 
@@ -122,8 +121,8 @@ public final class GitRefs {
       return "must start with " + PREFIX;
     }
     int star = entry.indexOf('*');
-    if (star >= 0 && (star != entry.length() - 1 || !entry.endsWith(PATTERN_SUFFIX))) {
-      return "may hold * only as a trailing " + PATTERN_SUFFIX;
+    if (star >= 0 && star != entry.length() - 1) {
+      return "may hold * only as its last character";
     }
     return null;
   }
