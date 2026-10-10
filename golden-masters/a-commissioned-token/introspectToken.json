@@ -1,0 +1,13 @@
+{
+  "tokenId": "00000000-0000-4000-8000-000000000001",
+  "subject": "tok-contract-run-1-0000000000000000000002",
+  "roles": [
+    "clients/tok-contract-run-1-0000000000000000000002"
+  ],
+  "claims": {},
+  "gitRefs": null,
+  "contextKind": "contract",
+  "contextId": "run-1",
+  "accessToken": "opaque",
+  "expiresIn": 300
+}

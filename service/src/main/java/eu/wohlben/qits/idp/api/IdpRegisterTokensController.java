@@ -11,6 +11,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -63,6 +64,7 @@ public class IdpRegisterTokensController {
    * answers 500 with "no properties discovered" while the JVM suite stays green.
    */
   @POST
+  @Operation(operationId = "mintRegisterToken")
   public RestResponse<MintResponse> mint(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient client =

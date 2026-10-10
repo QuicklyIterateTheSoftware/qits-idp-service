@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -79,6 +80,7 @@ public class IdpServiceClientsController {
    */
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "createServiceClient")
   public RestResponse<CreatedResponse> create(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CreateRequest request) {
     IdpClient caller_ = requireSystemCaller(authorization);
@@ -112,6 +114,7 @@ public class IdpServiceClientsController {
    */
   @POST
   @Path("/{clientId}/secret")
+  @Operation(operationId = "rotateServiceClientSecret")
   public RestResponse<RotatedResponse> rotate(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {
@@ -132,6 +135,7 @@ public class IdpServiceClientsController {
   /** One service client's row. Never a secret. */
   @GET
   @Path("/{clientId}")
+  @Operation(operationId = "getServiceClient")
   public ServiceClientView get(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {
@@ -144,6 +148,7 @@ public class IdpServiceClientsController {
 
   /** Every service client, one row each. */
   @GET
+  @Operation(operationId = "listServiceClients")
   public List<ServiceClientView> list(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     requireReader(authorization);
@@ -156,6 +161,7 @@ public class IdpServiceClientsController {
    */
   @DELETE
   @Path("/{clientId}")
+  @Operation(operationId = "deleteServiceClient")
   public Response delete(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {

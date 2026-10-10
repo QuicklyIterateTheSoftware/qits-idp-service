@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 /**
  * The token endpoint: {@code POST /idp/token}, {@code application/x-www-form-urlencoded}, RFC 6749
@@ -56,6 +57,7 @@ public class IdpTokenController {
   @POST
   @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
   @Produces(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "issueToken")
   public Response token(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @FormParam("grant_type") String grantType,

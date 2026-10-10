@@ -25,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 /**
  * The browser leg of the public-client OAuth flows, and the signed-in user's revocation surface.
@@ -88,6 +89,7 @@ public class IdpWorkstationController {
    */
   @GET
   @Path("/authorize")
+  @Operation(operationId = "authorize")
   public Response authorize(
       @Context UriInfo uriInfo,
       @CookieParam(SessionCookie.NAME) String sessionToken,
@@ -149,6 +151,7 @@ public class IdpWorkstationController {
   /** List revocable public-client grants for the signed-in account. */
   @GET
   @Path("/api/devices")
+  @Operation(operationId = "listDevices")
   public java.util.List<Device> devices(@CookieParam(SessionCookie.NAME) String sessionToken) {
     return workstations.list(requireSession(sessionToken).userId()).stream()
         .map(
@@ -175,6 +178,7 @@ public class IdpWorkstationController {
    */
   @GET
   @Path("/api/workstations")
+  @Operation(operationId = "listWorkstations")
   public java.util.List<Device> list(@CookieParam(SessionCookie.NAME) String sessionToken) {
     return devices(sessionToken);
   }
@@ -182,6 +186,7 @@ public class IdpWorkstationController {
   /** Revoke a grant. A foreign id is indistinguishable from no such grant. */
   @DELETE
   @Path("/api/devices/{familyId}")
+  @Operation(operationId = "revokeDevice")
   public Response revokeDevice(
       @CookieParam(SessionCookie.NAME) String sessionToken,
       @jakarta.ws.rs.PathParam("familyId") UUID familyId) {
@@ -194,6 +199,7 @@ public class IdpWorkstationController {
   /** The older spelling of the revoke above, kept for the same reason the listing is. */
   @DELETE
   @Path("/api/workstations/{familyId}")
+  @Operation(operationId = "revokeWorkstation")
   public Response revoke(
       @CookieParam(SessionCookie.NAME) String sessionToken,
       @jakarta.ws.rs.PathParam("familyId") UUID familyId) {

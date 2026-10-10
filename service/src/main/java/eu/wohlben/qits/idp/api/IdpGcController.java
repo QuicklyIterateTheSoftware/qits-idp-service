@@ -18,6 +18,7 @@ import jakarta.ws.rs.core.MediaType;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jose4j.jwt.JwtClaims;
 import org.jose4j.jwt.MalformedClaimException;
 
@@ -76,6 +77,7 @@ public class IdpGcController {
   @POST
   @Path("/service-clients")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "collectServiceClients")
   public CollectReport collectServiceClients(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CollectRequest request) {
     String callerId = callerId(authorization);

@@ -20,6 +20,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -145,6 +146,7 @@ public class IdpClientsController {
    */
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "commissionClient")
   public RestResponse<CommissionResponse> commission(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CommissionRequest request) {
     IdpClient owner =
@@ -195,6 +197,7 @@ public class IdpClientsController {
    * listing is empty — the answer it got before.
    */
   @GET
+  @Operation(operationId = "listClients")
   public List<CommissionView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient owner =
         caller.requireAnyRole(
@@ -222,6 +225,7 @@ public class IdpClientsController {
   @PUT
   @Path("/{clientId}/git-refs")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "replaceClientGitRefs")
   public CommissionView replaceGitRefs(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId,
@@ -255,6 +259,7 @@ public class IdpClientsController {
    */
   @DELETE
   @Path("/{clientId}")
+  @Operation(operationId = "decommissionClient")
   public Response decommission(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("clientId") String clientId) {

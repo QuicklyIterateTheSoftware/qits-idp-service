@@ -11,6 +11,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -65,6 +66,7 @@ public class IdpSessionsController {
   @POST
   @Path("/introspect")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "introspectSession")
   public RestResponse<SessionView> introspect(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, IntrospectRequest request) {
     caller.staticOnly(

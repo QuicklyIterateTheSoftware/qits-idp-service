@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 
 /**
  * The two documents a consumer needs before it can validate anything: the discovery document and
@@ -56,6 +57,7 @@ public class IdpMetadataController {
    */
   @GET
   @Path("/.well-known/openid-configuration")
+  @Operation(operationId = "getOpenIdConfiguration")
   public Map<String, Object> discovery(
       @HeaderParam(HttpHeaders.HOST) String host,
       @HeaderParam("X-Forwarded-Host") String forwardedHost) {
@@ -85,6 +87,7 @@ public class IdpMetadataController {
   /** The public signing keys — every key that may have signed a token that is still alive. */
   @GET
   @Path("/jwks")
+  @Operation(operationId = "getJwks")
   public Map<String, Object> jwks() {
     return Jwks.document(signingKeys.published());
   }

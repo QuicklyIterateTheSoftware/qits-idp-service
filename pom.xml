@@ -28,7 +28,7 @@
          API. Each comes back the day something here needs it, not before. -->
     <groupId>eu.wohlben.qits</groupId>
     <artifactId>qits-idp</artifactId>
-    <version>2026.1008.111122</version>
+    <version>2026.1010.134259</version>
     <packaging>pom</packaging>
     <name>qits-idp</name>
 
@@ -99,6 +99,11 @@
         <failsafe-plugin.version>3.5.4</failsafe-plugin.version>
         <jandex-plugin.version>3.4.0</jandex-plugin.version>
 
+        <!-- pact-jvm's JUnit 5 provider, for ConsumerPactVerificationTest: the version
+             qits-projects-service verifies with, so a consumer's pact is read the same way at
+             every provider. -->
+        <pact.version>4.6.21</pact.version>
+
         <!-- `mvn verify` must be green on a clone with nothing installed. The packaged-artifact ITs
              run with -DskipITs=false, and `service`'s `native` profile flips it so a -Dnative
              build exercises the binary it just compiled instead of packaging it and asserting
@@ -122,6 +127,12 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <!-- Test scope at every declaration site. -->
+                <groupId>au.com.dius.pact.provider</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
+            </dependency>
             <dependency>
                 <groupId>${quarkus.platform.group-id}</groupId>
                 <artifactId>${quarkus.platform.artifact-id}</artifactId>
