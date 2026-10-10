@@ -1,0 +1,4 @@
+{
+  "error": "conflict",
+  "error_description": "a database row for this client id already exists; rotate its secret instead of creating it again"
+}

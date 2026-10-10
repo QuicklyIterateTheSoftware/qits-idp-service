@@ -6,18 +6,57 @@
       "name": "a commissioned client",
       "slug": "a-commissioned-client",
       "params": {
+        "audience": "qits-platform",
         "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
         "callerClientId": "test-broad",
-        "clientId": "dyn-contract-run-1-0000000000000000000001"
+        "clientId": "dyn-contract-run-1-0000000000000000000001",
+        "clientSecret": "0000000000000000000000000000000000000000002",
+        "secret": "0000000000000000000000000000000000000000002"
       },
       "dependsOn": [],
       "operations": [
         {
-          "operationId": "listCommissionedClients",
+          "operationId": "decommissionClient",
+          "method": "DELETE",
+          "path": "/idp/api/clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=client_credentials&client_id={clientId}&client_secret={clientSecret}&audience={audience}",
+          "status": 200,
+          "file": "a-commissioned-client/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listClients",
           "method": "GET",
           "path": "/idp/api/clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 200,
-          "file": "a-commissioned-client/listCommissionedClients.json",
+          "file": "a-commissioned-client/listClients.json",
           "frozen": {
             "ids": [],
             "instants": [
@@ -30,11 +69,20 @@
           }
         },
         {
-          "operationId": "replaceCommissionedClientGitRefs",
+          "operationId": "replaceClientGitRefs",
           "method": "PUT",
           "path": "/idp/api/clients/{clientId}/git-refs",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "gitRefs": [
+              "refs/heads/contract/run-1"
+            ]
+          },
           "status": 200,
-          "file": "a-commissioned-client/replaceCommissionedClientGitRefs.json",
+          "file": "a-commissioned-client/replaceClientGitRefs.json",
           "frozen": {
             "ids": [],
             "instants": [
@@ -54,17 +102,40 @@
       "params": {
         "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
         "callerClientId": "test-broad",
-        "token": "qits_tok_0000000000000000000000000000000000000000002",
+        "token": "qits_tok_0000000000000000000000000000000000000000001",
         "tokenId": "00000000-0000-4000-8000-000000000001"
       },
       "dependsOn": [],
       "operations": [
         {
-          "operationId": "introspectCommissionedToken",
+          "operationId": "deleteToken",
+          "method": "DELETE",
+          "path": "/idp/api/tokens/{tokenId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "introspectToken",
           "method": "POST",
           "path": "/idp/api/tokens/introspect",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "token": "{token}"
+          },
           "status": 200,
-          "file": "a-commissioned-token/introspectCommissionedToken.json",
+          "file": "a-commissioned-token/introspectToken.json",
           "frozen": {
             "ids": [
               "$.tokenId"
@@ -79,11 +150,14 @@
           }
         },
         {
-          "operationId": "listCommissionedTokens",
+          "operationId": "listTokens",
           "method": "GET",
           "path": "/idp/api/tokens",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 200,
-          "file": "a-commissioned-token/listCommissionedTokens.json",
+          "file": "a-commissioned-token/listTokens.json",
           "frozen": {
             "ids": [
               "$[*].tokenId"
@@ -98,11 +172,20 @@
           }
         },
         {
-          "operationId": "replaceCommissionedTokenGitRefs",
+          "operationId": "replaceTokenGitRefs",
           "method": "PUT",
           "path": "/idp/api/tokens/{tokenId}/git-refs",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "gitRefs": [
+              "refs/heads/contract/run-1"
+            ]
+          },
           "status": 200,
-          "file": "a-commissioned-token/replaceCommissionedTokenGitRefs.json",
+          "file": "a-commissioned-token/replaceTokenGitRefs.json",
           "frozen": {
             "ids": [
               "$.tokenId"
@@ -129,9 +212,48 @@
       "dependsOn": [],
       "operations": [
         {
+          "operationId": "createServiceClient",
+          "method": "POST",
+          "path": "/idp/api/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "clientId": "{clientId}"
+          },
+          "status": 409,
+          "file": "a-database-service-client/createServiceClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "deleteServiceClient",
+          "method": "DELETE",
+          "path": "/idp/api/service-clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
           "operationId": "getServiceClient",
           "method": "GET",
           "path": "/idp/api/service-clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 200,
           "file": "a-database-service-client/getServiceClient.json",
           "frozen": {
@@ -149,6 +271,9 @@
           "operationId": "listServiceClients",
           "method": "GET",
           "path": "/idp/api/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 200,
           "file": "a-database-service-client/listServiceClients.json",
           "frozen": {
@@ -166,6 +291,9 @@
           "operationId": "rotateServiceClientSecret",
           "method": "POST",
           "path": "/idp/api/service-clients/{clientId}/secret",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 200,
           "file": "a-database-service-client/rotateServiceClientSecret.json",
           "frozen": {
@@ -183,11 +311,123 @@
       ]
     },
     {
+      "name": "a git session to refresh",
+      "slug": "a-git-session-to-refresh",
+      "params": {
+        "audience": "qits-platform",
+        "clientId": "qits-git-workstation",
+        "refreshToken": "0000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=refresh_token&client_id={clientId}&refresh_token={refreshToken}&audience={audience}",
+          "status": 200,
+          "file": "a-git-session-to-refresh/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token",
+              "$.refresh_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a published signing key",
+      "slug": "a-published-signing-key",
+      "params": {
+        "kid": "contract-signing-key"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getJwks",
+          "method": "GET",
+          "path": "/idp/jwks",
+          "status": 200,
+          "file": "a-published-signing-key/getJwks.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": "$.keys"
+          }
+        },
+        {
+          "operationId": "getOpenIdConfiguration",
+          "method": "GET",
+          "path": "/idp/.well-known/openid-configuration",
+          "status": 200,
+          "file": "a-published-signing-key/getOpenIdConfiguration.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a service client nothing claims",
+      "slug": "a-service-client-nothing-claims",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "claimedClientId": "contract-claimed-00000001",
+        "unclaimedClientId": "contract-unclaimed-00000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "collectServiceClients",
+          "method": "POST",
+          "path": "/idp/api/gc/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "dryRun": false,
+            "claims": [
+              {
+                "clientId": "{claimedClientId}",
+                "applicationName": "contract"
+              }
+            ]
+          },
+          "status": 200,
+          "file": "a-service-client-nothing-claims/collectServiceClients.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.removed[*].createdAt",
+              "$.kept[*].createdAt"
+            ],
+            "strings": [
+              "$.removed[*].clientId",
+              "$.kept[*].clientId"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a service client with the system role",
       "slug": "a-service-client-with-the-system-role",
       "params": {
         "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
-        "callerClientId": "test-broad"
+        "callerClientId": "test-broad",
+        "clientSecret": "test-broad-secret"
       },
       "dependsOn": [],
       "operations": [
@@ -195,6 +435,14 @@
           "operationId": "commissionClient",
           "method": "POST",
           "path": "/idp/api/clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "contextKind": "contract",
+            "contextId": "run-1"
+          },
           "status": 201,
           "file": "a-service-client-with-the-system-role/commissionClient.json",
           "frozen": {
@@ -213,6 +461,14 @@
           "operationId": "commissionToken",
           "method": "POST",
           "path": "/idp/api/tokens",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "contextKind": "contract",
+            "contextId": "run-1"
+          },
           "status": 201,
           "file": "a-service-client-with-the-system-role/commissionToken.json",
           "frozen": {
@@ -233,6 +489,11 @@
           "operationId": "issueToken",
           "method": "POST",
           "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=client_credentials",
           "status": 200,
           "file": "a-service-client-with-the-system-role/issueToken.json",
           "frozen": {
@@ -248,6 +509,9 @@
           "operationId": "mintRegisterToken",
           "method": "POST",
           "path": "/idp/api/register-tokens",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 201,
           "file": "a-service-client-with-the-system-role/mintRegisterToken.json",
           "frozen": {
@@ -266,6 +530,35 @@
       ]
     },
     {
+      "name": "a session to refresh",
+      "slug": "a-session-to-refresh",
+      "params": {
+        "clientId": "qits-cli",
+        "refreshToken": "0000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=refresh_token&client_id={clientId}&refresh_token={refreshToken}",
+          "status": 200,
+          "file": "a-session-to-refresh/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token",
+              "$.refresh_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a signed-in person",
       "slug": "a-signed-in-person",
       "params": {
@@ -277,9 +570,46 @@
       "dependsOn": [],
       "operations": [
         {
+          "operationId": "authorize",
+          "method": "GET",
+          "path": "/idp/authorize",
+          "query": {
+            "response_type": "code",
+            "client_id": "qits-cli",
+            "redirect_uri": "http://127.0.0.1:53682/callback",
+            "code_challenge": "PRSP_QUAXpkHlqhXUV61iygGmKOLWSZ40d7iCKBERVk",
+            "code_challenge_method": "S256",
+            "state": "contract"
+          },
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 303,
+          "responseHeaders": {
+            "Location": "http://127.0.0.1:53682/callback?code=opaque&state=contract"
+          },
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "headers": [
+              "Location"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
           "operationId": "introspectSession",
           "method": "POST",
           "path": "/idp/api/sessions/introspect",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "token": "{sessionToken}"
+          },
           "status": 200,
           "file": "a-signed-in-person/introspectSession.json",
           "frozen": {
@@ -292,6 +622,96 @@
             "strings": [
               "$.username"
             ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an authorization code issued to the CLI",
+      "slug": "an-authorization-code-issued-to-the-cli",
+      "params": {
+        "clientId": "qits-cli",
+        "code": "0000000000000000000000000000000000000000001",
+        "codeVerifier": "contract-verifier-0123456789-abcdefghijklmnopqrstuvwxyz",
+        "redirectUri": "http://127.0.0.1:53682/callback"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=authorization_code&client_id={clientId}&code={code}&redirect_uri={redirectUri}&code_verifier={codeVerifier}",
+          "status": 200,
+          "file": "an-authorization-code-issued-to-the-cli/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token",
+              "$.refresh_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an authorization code issued to the git client",
+      "slug": "an-authorization-code-issued-to-the-git-client",
+      "params": {
+        "clientId": "qits-git-workstation",
+        "code": "0000000000000000000000000000000000000000001",
+        "codeVerifier": "contract-verifier-0123456789-abcdefghijklmnopqrstuvwxyz",
+        "redirectUri": "http://127.0.0.1:53682/callback"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=authorization_code&client_id={clientId}&code={code}&redirect_uri={redirectUri}&code_verifier={codeVerifier}",
+          "status": 200,
+          "file": "an-authorization-code-issued-to-the-git-client/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token",
+              "$.refresh_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no commissioned client with the given id",
+      "slug": "no-commissioned-client-with-the-given-id",
+      "params": {
+        "audience": "qits-platform",
+        "clientId": "dyn-contract-unknown",
+        "clientSecret": "contract-unknown-secret",
+        "secret": "contract-unknown-secret"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=client_credentials&client_id={clientId}&client_secret={clientSecret}&audience={audience}",
+          "status": 401,
+          "file": "no-commissioned-client-with-the-given-id/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
             "listFilteredTo": null
           }
         }
@@ -311,6 +731,13 @@
           "operationId": "createServiceClient",
           "method": "POST",
           "path": "/idp/api/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "clientId": "{clientId}"
+          },
           "status": 201,
           "file": "no-service-client-with-the-given-id/createServiceClient.json",
           "frozen": {
@@ -329,6 +756,9 @@
           "operationId": "getServiceClient",
           "method": "GET",
           "path": "/idp/api/service-clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
           "status": 404,
           "file": "no-service-client-with-the-given-id/getServiceClient.json",
           "frozen": {
@@ -337,39 +767,16 @@
             "strings": [],
             "listFilteredTo": null
           }
-        }
-      ]
-    },
-    {
-      "name": "the published signing key",
-      "slug": "the-published-signing-key",
-      "params": {
-        "kid": "0000000000000000000001"
-      },
-      "dependsOn": [],
-      "operations": [
-        {
-          "operationId": "getJwks",
-          "method": "GET",
-          "path": "/idp/jwks",
-          "status": 200,
-          "file": "the-published-signing-key/getJwks.json",
-          "frozen": {
-            "ids": [],
-            "instants": [],
-            "strings": [
-              "$.keys[*].kid",
-              "$.keys[*].n"
-            ],
-            "listFilteredTo": "$.keys"
-          }
         },
         {
-          "operationId": "getOpenIdConfiguration",
-          "method": "GET",
-          "path": "/idp/.well-known/openid-configuration",
-          "status": 200,
-          "file": "the-published-signing-key/getOpenIdConfiguration.json",
+          "operationId": "rotateServiceClientSecret",
+          "method": "POST",
+          "path": "/idp/api/service-clients/{clientId}/secret",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 404,
+          "file": "no-service-client-with-the-given-id/rotateServiceClientSecret.json",
           "frozen": {
             "ids": [],
             "instants": [],

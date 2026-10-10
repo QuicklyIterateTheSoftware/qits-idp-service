@@ -1,0 +1,48 @@
+{
+  "dryRun": false,
+  "removed": [
+    {
+      "clientId": "contract-unclaimed-00000001",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "test-broad",
+      "reason": "unclaimed"
+    }
+  ],
+  "kept": [
+    {
+      "clientId": "contract-claimed-00000001",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "test-broad",
+      "reason": "claimed"
+    },
+    {
+      "clientId": "test-audienceless",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "adopted",
+      "reason": "grace"
+    },
+    {
+      "clientId": "test-broad",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "adopted",
+      "reason": "grace"
+    },
+    {
+      "clientId": "test-narrow",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "adopted",
+      "reason": "grace"
+    },
+    {
+      "clientId": "test-role-thief",
+      "createdAt": "2026-01-01T00:00:00Z",
+      "createdBy": "adopted",
+      "reason": "grace"
+    }
+  ],
+  "keptCounts": {
+    "claimed": 1,
+    "grace": 4,
+    "caller": 0
+  }
+}

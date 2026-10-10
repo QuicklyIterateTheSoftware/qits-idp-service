@@ -13,6 +13,9 @@ import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import jakarta.inject.Inject;
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,14 +40,18 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li><b>A request.</b> Most doors here take a body (a form for {@code /token}, JSON elsewhere)
- *       and every service door takes HTTP Basic. An interaction may name a body template, whose
- *       {@code {param}} placeholders the state fills, and whether it sends the state's {@code
- *       authorization} param.
+ *       and every service door takes HTTP Basic. The index records each operation's request: the
+ *       route as {@code path} and its query apart as {@code query}, the request {@code headers},
+ *       and for an operation that takes a body its {@code contentType} and {@code body} (a JSON
+ *       value, or a form as its string). Header and body values keep their {@code {param}}
+ *       placeholders, filled from the state's params. An operation that takes no body records
+ *       none; the recording fails when that disagrees with the served openapi.
  *   <li><b>Opaque values.</b> A token, a secret or a key modulus is random by nature and nothing a
  *       state can seed. Each path in {@link Interaction#opaque} is replaced by {@value #OPAQUE} and
  *       listed in {@code frozen.strings}, so a consumer type-matches it.
- *   <li><b>Status-only doors are not recorded.</b> A {@code 204} has no body to record; a consumer
- *       binds only its status and still names the state.
+ *   <li><b>Answers without a body.</b> A {@code 204} or a redirect records {@code file: null}; a
+ *       redirect records the headers a consumer reads as {@code responseHeaders}, and those holding
+ *       a frozen or opaque part in {@code frozen.headers}.
  * </ul>
  *
  * <p>For each (state, operation) pair in {@link #INTERACTIONS} it runs the state ({@link
@@ -69,18 +76,30 @@ class GoldenMasterRecordingTest {
   private static final String FORM = "application/x-www-form-urlencoded";
   private static final String JSON_TYPE = "application/json";
 
+  /** The Basic header of the state's caller, as most service doors take it. */
+  private static final Map<String, String> BASIC = Map.of("Authorization", "{authorization}");
+
+  /** The browser's session cookie, as {@code /authorize} reads it. */
+  private static final Map<String, String> SESSION_COOKIE =
+      Map.of("Cookie", "qits-session={sessionToken}");
+
   /**
    * One recorded interaction.
    *
+   * @param path the route, with {@code {param}} placeholders, and an optional {@code ?query}; the
+   *     index records the two apart
    * @param listFilteredTo the array ({@code $} or a {@code $.a.b} path) reduced to the entries the
    *     state created, or null — the index's {@code frozen.listFilteredTo}
-   * @param sortedBy for an array the provider answers in no guaranteed order: {@code
-   *     <$.path-to-array>:<field.path in each entry>}; null when the order is the provider's own
+   * @param sortedBy for arrays the provider answers in no guaranteed order: {@code
+   *     <$.path-to-array>:<field.path in each entry>}, several joined by {@code ;}; null when the
+   *     order is the provider's own
    * @param contentType the request body's type, or null for no body
-   * @param body the request body, {@code {param}} placeholders filled from the state, or null
-   * @param authorized whether the request sends the state's {@code authorization} param
+   * @param body the request body, {@code {param}} placeholders filled from the state (form values
+   *     URL-encoded), or null; recorded unexpanded into the index
+   * @param headers request headers, values with {@code {param}} placeholders; recorded unexpanded
    * @param opaque paths ({@code $.a}, {@code $.a[*].b}) whose random values are recorded as {@value
-   *     #OPAQUE}
+   *     #OPAQUE}; {@code <Header>?<name>} blanks one query parameter of a response header
+   * @param responseHeaders the response headers a consumer reads, recorded into the index
    */
   record Interaction(
       String state,
@@ -92,8 +111,9 @@ class GoldenMasterRecordingTest {
       String sortedBy,
       String contentType,
       String body,
-      boolean authorized,
-      List<String> opaque) {
+      Map<String, String> headers,
+      List<String> opaque,
+      List<String> responseHeaders) {
 
     /** A bodyless, unauthenticated interaction — the shape the machinery test builds. */
     Interaction(
@@ -105,19 +125,41 @@ class GoldenMasterRecordingTest {
         String listFilteredTo,
         String sortedBy) {
       this(
-          state, operationId, method, path, status, listFilteredTo, sortedBy, null, null, false,
+          state,
+          operationId,
+          method,
+          path,
+          status,
+          listFilteredTo,
+          sortedBy,
+          null,
+          null,
+          Map.of(),
+          List.of(),
           List.of());
+    }
+
+    /** Whether the answer has a body to record: not for a 204 and not for a redirect. */
+    boolean recordsBody() {
+      return status != 204 && status / 100 != 3;
     }
   }
 
   private static Interaction get(String state, String operationId, String path, int status) {
     return new Interaction(
-        state, operationId, "GET", path, status, null, null, null, null, true, List.of());
+        state, operationId, "GET", path, status, null, null, null, null, BASIC, List.of(),
+        List.of());
   }
 
   private static Interaction list(String state, String operationId, String path) {
     return new Interaction(
-        state, operationId, "GET", path, 200, "$", null, null, null, true, List.of());
+        state, operationId, "GET", path, 200, "$", null, null, null, BASIC, List.of(), List.of());
+  }
+
+  private static Interaction delete(String state, String operationId, String path) {
+    return new Interaction(
+        state, operationId, "DELETE", path, 204, null, null, null, null, BASIC, List.of(),
+        List.of());
   }
 
   private static Interaction send(
@@ -130,8 +172,16 @@ class GoldenMasterRecordingTest {
       String body,
       String... opaque) {
     return new Interaction(
-        state, operationId, method, path, status, null, null, contentType, body, true,
-        List.of(opaque));
+        state, operationId, method, path, status, null, null, contentType, body, BASIC,
+        List.of(opaque), List.of());
+  }
+
+  /** {@code POST /idp/token}: a form, with the caller's Basic header or without any header. */
+  private static Interaction token(
+      String state, int status, boolean basic, String form, String... opaque) {
+    return new Interaction(
+        state, "issueToken", "POST", "/idp/token", status, null, null, FORM, form,
+        basic ? BASIC : Map.of(), List.of(opaque), List.of());
   }
 
   static final String COMMISSION_BODY =
@@ -143,20 +193,89 @@ class GoldenMasterRecordingTest {
 
   static final String GIT_REFS_BODY = "{\"gitRefs\":[\"refs/heads/contract/run-1\"]}";
 
+  static final String CLIENT_CREDENTIALS_IN_THE_FORM =
+      "grant_type=client_credentials&client_id={clientId}&client_secret={clientSecret}"
+          + "&audience={audience}";
+
+  static final String AUTHORIZATION_CODE_FORM =
+      "grant_type=authorization_code&client_id={clientId}&code={code}"
+          + "&redirect_uri={redirectUri}&code_verifier={codeVerifier}";
+
+  static final String REFRESH_FORM =
+      "grant_type=refresh_token&client_id={clientId}&refresh_token={refreshToken}";
+
+  static final String AUTHORIZE_PATH =
+      "/idp/authorize?response_type=code&client_id=qits-cli&redirect_uri="
+          + URLEncoder.encode(ProviderStates.REDIRECT_URI, StandardCharsets.UTF_8)
+          + "&code_challenge="
+          + ProviderStates.CODE_CHALLENGE
+          + "&code_challenge_method=S256&state=contract";
+
   static final List<Interaction> INTERACTIONS =
       List.of(
-          // --- the OAuth/OIDC surface every service reads -------------------------------------
-          send(
+          // --- the token endpoint: every grant, every way a client authenticates --------------
+          token(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,
-              "issueToken",
-              "POST",
-              "/idp/token",
               200,
-              FORM,
+              true,
               "grant_type=client_credentials",
               "$.access_token"),
+          token(
+              ProviderStates.A_COMMISSIONED_CLIENT,
+              200,
+              false,
+              CLIENT_CREDENTIALS_IN_THE_FORM,
+              "$.access_token"),
+          token(
+              ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID,
+              401,
+              false,
+              CLIENT_CREDENTIALS_IN_THE_FORM),
+          token(
+              ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI,
+              200,
+              false,
+              AUTHORIZATION_CODE_FORM,
+              "$.access_token",
+              "$.refresh_token"),
+          token(
+              ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT,
+              200,
+              false,
+              AUTHORIZATION_CODE_FORM,
+              "$.access_token",
+              "$.refresh_token"),
+          token(
+              ProviderStates.A_SESSION_TO_REFRESH,
+              200,
+              false,
+              REFRESH_FORM,
+              "$.access_token",
+              "$.refresh_token"),
+          token(
+              ProviderStates.A_GIT_SESSION_TO_REFRESH,
+              200,
+              false,
+              REFRESH_FORM + "&audience={audience}",
+              "$.access_token",
+              "$.refresh_token"),
+          // --- the browser's half of the code grant -------------------------------------------
           new Interaction(
-              ProviderStates.THE_PUBLISHED_SIGNING_KEY,
+              ProviderStates.A_SIGNED_IN_PERSON,
+              "authorize",
+              "GET",
+              AUTHORIZE_PATH,
+              303,
+              null,
+              null,
+              null,
+              null,
+              SESSION_COOKIE,
+              List.of("Location?code"),
+              List.of("Location")),
+          // --- the documents every service reads ----------------------------------------------
+          new Interaction(
+              ProviderStates.A_PUBLISHED_SIGNING_KEY,
               "getJwks",
               "GET",
               "/idp/jwks",
@@ -165,10 +284,11 @@ class GoldenMasterRecordingTest {
               null,
               null,
               null,
-              false,
-              List.of("$.keys[*].n")),
+              Map.of(),
+              List.of(),
+              List.of()),
           new Interaction(
-              ProviderStates.THE_PUBLISHED_SIGNING_KEY,
+              ProviderStates.A_PUBLISHED_SIGNING_KEY,
               "getOpenIdConfiguration",
               "GET",
               "/idp/.well-known/openid-configuration",
@@ -177,7 +297,8 @@ class GoldenMasterRecordingTest {
               null,
               null,
               null,
-              false,
+              Map.of(),
+              List.of(),
               List.of()),
           // --- introspection: the edge and qits-projects ------------------------------------
           send(
@@ -190,7 +311,7 @@ class GoldenMasterRecordingTest {
               "{\"token\":\"{sessionToken}\"}"),
           send(
               ProviderStates.A_COMMISSIONED_TOKEN,
-              "introspectCommissionedToken",
+              "introspectToken",
               "POST",
               "/idp/api/tokens/introspect",
               200,
@@ -208,15 +329,19 @@ class GoldenMasterRecordingTest {
               COMMISSION_BODY,
               "$.clientId",
               "$.secret"),
-          list(ProviderStates.A_COMMISSIONED_CLIENT, "listCommissionedClients", "/idp/api/clients"),
+          list(ProviderStates.A_COMMISSIONED_CLIENT, "listClients", "/idp/api/clients"),
           send(
               ProviderStates.A_COMMISSIONED_CLIENT,
-              "replaceCommissionedClientGitRefs",
+              "replaceClientGitRefs",
               "PUT",
               "/idp/api/clients/{clientId}/git-refs",
               200,
               JSON_TYPE,
               GIT_REFS_BODY),
+          delete(
+              ProviderStates.A_COMMISSIONED_CLIENT,
+              "decommissionClient",
+              "/idp/api/clients/{clientId}"),
           // --- commissioned tokens -----------------------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,
@@ -228,15 +353,16 @@ class GoldenMasterRecordingTest {
               COMMISSION_BODY,
               "$.token",
               "$.subject"),
-          list(ProviderStates.A_COMMISSIONED_TOKEN, "listCommissionedTokens", "/idp/api/tokens"),
+          list(ProviderStates.A_COMMISSIONED_TOKEN, "listTokens", "/idp/api/tokens"),
           send(
               ProviderStates.A_COMMISSIONED_TOKEN,
-              "replaceCommissionedTokenGitRefs",
+              "replaceTokenGitRefs",
               "PUT",
               "/idp/api/tokens/{tokenId}/git-refs",
               200,
               JSON_TYPE,
               GIT_REFS_BODY),
+          delete(ProviderStates.A_COMMISSIONED_TOKEN, "deleteToken", "/idp/api/tokens/{tokenId}"),
           // --- service clients ---------------------------------------------------------------
           send(
               ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID,
@@ -252,6 +378,14 @@ class GoldenMasterRecordingTest {
               "getServiceClient",
               "/idp/api/service-clients/{clientId}",
               404),
+          send(
+              ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID,
+              "rotateServiceClientSecret",
+              "POST",
+              "/idp/api/service-clients/{clientId}/secret",
+              404,
+              null,
+              null),
           get(
               ProviderStates.A_DATABASE_SERVICE_CLIENT,
               "getServiceClient",
@@ -263,6 +397,14 @@ class GoldenMasterRecordingTest {
               "/idp/api/service-clients"),
           send(
               ProviderStates.A_DATABASE_SERVICE_CLIENT,
+              "createServiceClient",
+              "POST",
+              "/idp/api/service-clients",
+              409,
+              JSON_TYPE,
+              "{\"clientId\":\"{clientId}\"}"),
+          send(
+              ProviderStates.A_DATABASE_SERVICE_CLIENT,
               "rotateServiceClientSecret",
               "POST",
               "/idp/api/service-clients/{clientId}/secret",
@@ -270,6 +412,25 @@ class GoldenMasterRecordingTest {
               null,
               null,
               "$.secret"),
+          delete(
+              ProviderStates.A_DATABASE_SERVICE_CLIENT,
+              "deleteServiceClient",
+              "/idp/api/service-clients/{clientId}"),
+          // --- the orchestrator's collection --------------------------------------------------
+          new Interaction(
+              ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS,
+              "collectServiceClients",
+              "POST",
+              "/idp/api/gc/service-clients",
+              200,
+              null,
+              "$.removed:clientId;$.kept:clientId",
+              JSON_TYPE,
+              "{\"dryRun\":false,\"claims\":[{\"clientId\":\"{claimedClientId}\","
+                  + "\"applicationName\":\"contract\"}]}",
+              BASIC,
+              List.of(),
+              List.of()),
           // --- register tokens: the bootstrap CLI --------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,
@@ -297,7 +458,15 @@ class GoldenMasterRecordingTest {
     Map<String, ObjectNode> indexStates = new TreeMap<>();
     Map<String, Map<String, ObjectNode>> indexOperations = new TreeMap<>();
 
+    Set<String> takesBody = operationsTakingABody();
     for (Interaction interaction : INTERACTIONS) {
+      if ((interaction.body() != null) != takesBody.contains(interaction.operationId())) {
+        failures.add(
+            interaction.operationId()
+                + (interaction.body() != null
+                    ? " takes no request body, but the recording sends one: record null."
+                    : " takes a request body, but the recording sends none."));
+      }
       Recorded recorded = record(interaction);
       String slug = ProviderStates.slug(interaction.state());
       String file = slug + "/" + interaction.operationId() + ".json";
@@ -317,15 +486,47 @@ class GoldenMasterRecordingTest {
       ObjectNode operation = JsonNodeFactory.instance.objectNode();
       operation.put("operationId", interaction.operationId());
       operation.put("method", interaction.method());
-      operation.put("path", interaction.path());
+      // The path is the route alone and the query its own object, as the consumers' pacts send it.
+      int at = interaction.path().indexOf('?');
+      operation.put("path", at < 0 ? interaction.path() : interaction.path().substring(0, at));
+      if (at >= 0) {
+        operation.set("query", query(interaction.path().substring(at + 1)));
+      }
+      if (!interaction.headers().isEmpty()) {
+        ObjectNode headers = operation.putObject("headers");
+        new TreeMap<>(interaction.headers()).forEach(headers::put);
+      }
+      if (interaction.body() != null) {
+        operation.put("contentType", interaction.contentType());
+        if (FORM.equals(interaction.contentType())) {
+          operation.put("body", interaction.body());
+        } else {
+          operation.set("body", JSON.readTree(interaction.body()));
+        }
+      }
       operation.put("status", interaction.status());
-      operation.put("file", file);
+      if (!recorded.responseHeaders().isEmpty()) {
+        ObjectNode headers = operation.putObject("responseHeaders");
+        recorded.responseHeaders().forEach(headers::put);
+      }
+      if (interaction.recordsBody()) {
+        operation.put("file", file);
+      } else {
+        operation.putNull("file");
+      }
       ObjectNode frozen = operation.putObject("frozen");
       frozen.set("ids", strings(recorded.freezer().idPaths()));
       frozen.set("instants", strings(recorded.freezer().instantPaths()));
       Set<String> stringPaths = new LinkedHashSet<>(recorded.freezer().stringPaths());
-      stringPaths.addAll(interaction.opaque());
+      for (String path : interaction.opaque()) {
+        if (path.startsWith("$")) {
+          stringPaths.add(path);
+        }
+      }
       frozen.set("strings", strings(List.copyOf(stringPaths)));
+      if (!recorded.frozenHeaders().isEmpty()) {
+        frozen.set("headers", strings(recorded.frozenHeaders()));
+      }
       if (interaction.listFilteredTo() == null) {
         frozen.putNull("listFilteredTo");
       } else {
@@ -338,8 +539,10 @@ class GoldenMasterRecordingTest {
         failures.add("Duplicate interaction " + file);
       }
 
-      written.add(file);
-      check(dir.resolve(file), GoldenJson.render(recorded.body()), update, failures);
+      if (interaction.recordsBody()) {
+        written.add(file);
+        check(dir.resolve(file), GoldenJson.render(recorded.body()), update, failures);
+      }
     }
 
     ObjectNode index = JsonNodeFactory.instance.objectNode();
@@ -381,19 +584,35 @@ class GoldenMasterRecordingTest {
     }
   }
 
-  /** One interaction's frozen answer, its frozen params and what was frozen where. */
-  record Recorded(JsonNode body, ObjectNode params, Freezer freezer) {}
+  /**
+   * One interaction's frozen answer (null when it records no body), its frozen params, what was
+   * frozen where, the response headers it records and which of those were frozen.
+   */
+  record Recorded(
+      JsonNode body,
+      ObjectNode params,
+      Freezer freezer,
+      Map<String, String> responseHeaders,
+      List<String> frozenHeaders) {}
 
   private Recorded record(Interaction interaction) throws IOException {
     ProviderStates.Setup setup = states.setUp(interaction.state());
     Map<String, String> params = setup.params();
 
-    RequestSpecification request = given();
-    if (interaction.authorized()) {
-      request.header("Authorization", params.get("authorization"));
+    RequestSpecification request = given().redirects().follow(false);
+    if (interaction.path().contains("?")) {
+      // The query is written encoded already; RestAssured would encode its % signs a second time.
+      request.urlEncodingEnabled(false);
     }
+    interaction.headers().forEach((name, value) -> request.header(name, expand(value, params)));
     if (interaction.contentType() != null) {
-      request.contentType(interaction.contentType()).body(expand(interaction.body(), params));
+      boolean form = FORM.equals(interaction.contentType());
+      request
+          .contentType(interaction.contentType())
+          .body(form ? expandForm(interaction.body(), params) : expand(interaction.body(), params));
+    } else {
+      // As a client sends a body-less call: RestAssured would otherwise add a form content type.
+      request.noContentType();
     }
     Response response =
         request.when().request(interaction.method(), expand(interaction.path(), params));
@@ -412,14 +631,45 @@ class GoldenMasterRecordingTest {
               + ": "
               + raw);
     }
-    JsonNode body = JSON.readTree(raw);
-    body = recordable(body, interaction, setup.created(), setup.uniqueTokens());
 
     Freezer freezer = new Freezer().seed(params.values()).uniqueTokens(setup.uniqueTokens());
-    JsonNode frozenBody = freezer.freeze(body);
+    // The params first, so a unique token is numbered the same whatever an operation answers.
     ObjectNode frozenParams = JsonNodeFactory.instance.objectNode();
     params.forEach((k, v) -> frozenParams.put(k, freezer.freezeParam(v)));
-    return new Recorded(frozenBody, frozenParams, freezer);
+    JsonNode frozenBody = null;
+    if (interaction.recordsBody()) {
+      JsonNode body = recordable(JSON.readTree(raw), interaction, setup.created(), setup.uniqueTokens());
+      frozenBody = freezer.freeze(body);
+    }
+    Map<String, String> headers = new TreeMap<>();
+    List<String> frozenHeaders = new ArrayList<>();
+    for (String name : interaction.responseHeaders()) {
+      String value = response.header(name);
+      if (value == null) {
+        throw new AssertionError(interaction.operationId() + " answered no " + name + " header");
+      }
+      String recorded = value;
+      for (String opaque : interaction.opaque()) {
+        if (opaque.startsWith(name + "?")) {
+          recorded = blankQueryParam(recorded, opaque.substring(name.length() + 1));
+        }
+      }
+      recorded = freezer.freezeParam(recorded);
+      if (!recorded.equals(value)) {
+        frozenHeaders.add(name);
+      }
+      headers.put(name, recorded);
+    }
+    return new Recorded(frozenBody, frozenParams, freezer, headers, frozenHeaders);
+  }
+
+  /** The url with one query parameter's value set to {@value #OPAQUE}; fails when it is absent. */
+  static String blankQueryParam(String url, String name) {
+    Matcher m = Pattern.compile("([?&]" + Pattern.quote(name) + "=)[^&#]*").matcher(url);
+    if (!m.find()) {
+      throw new IllegalStateException("No query parameter " + name + " in " + url);
+    }
+    return m.replaceFirst("$1" + OPAQUE);
   }
 
   /**
@@ -445,8 +695,9 @@ class GoldenMasterRecordingTest {
       list.removeAll();
       list.addAll(kept);
     }
-    if (interaction.sortedBy() != null) {
-      String[] parts = interaction.sortedBy().split(":", 2);
+    for (String sortedBy :
+        interaction.sortedBy() == null ? new String[0] : interaction.sortedBy().split(";")) {
+      String[] parts = sortedBy.split(":", 2);
       ArrayNode list = array(out, parts[0]);
       List<JsonNode> entries = new ArrayList<>();
       list.forEach(entries::add);
@@ -468,7 +719,9 @@ class GoldenMasterRecordingTest {
       list.addAll(entries);
     }
     for (String path : interaction.opaque()) {
-      blank(out, path);
+      if (path.startsWith("$")) {
+        blank(out, path);
+      }
     }
     return out;
   }
@@ -541,6 +794,49 @@ class GoldenMasterRecordingTest {
     }
     m.appendTail(out);
     return out.toString();
+  }
+
+  /** A form body with each {@code {param}} replaced by its URL-encoded value. */
+  private static String expandForm(String template, Map<String, String> params) {
+    Map<String, String> encoded = new TreeMap<>();
+    params.forEach((k, v) -> encoded.put(k, URLEncoder.encode(v, StandardCharsets.UTF_8)));
+    return expand(template, encoded);
+  }
+
+  /** A query string as an object, names and values decoded. */
+  private static ObjectNode query(String raw) {
+    ObjectNode query = JsonNodeFactory.instance.objectNode();
+    for (String pair : raw.split("&")) {
+      int eq = pair.indexOf('=');
+      query.put(
+          URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), StandardCharsets.UTF_8),
+          eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8));
+    }
+    return query;
+  }
+
+  /** The operationIds whose operation declares a request body, read off the served openapi. */
+  private static Set<String> operationsTakingABody() throws IOException {
+    JsonNode paths =
+        JSON.readTree(
+                given()
+                    .when()
+                    .get("/idp/q/openapi?format=json")
+                    .then()
+                    .statusCode(200)
+                    .extract()
+                    .asString())
+            .path("paths");
+    Set<String> ids = new TreeSet<>();
+    paths.forEach(
+        path ->
+            path.forEach(
+                operation -> {
+                  if (operation.has("operationId") && operation.has("requestBody")) {
+                    ids.add(operation.get("operationId").asText());
+                  }
+                }));
+    return ids;
   }
 
   private static ArrayNode strings(List<String> values) {

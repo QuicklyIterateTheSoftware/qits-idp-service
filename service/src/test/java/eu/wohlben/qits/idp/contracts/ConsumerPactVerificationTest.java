@@ -111,14 +111,19 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE);
   }
 
-  @State(ProviderStates.THE_PUBLISHED_SIGNING_KEY)
-  Map<String, String> thePublishedSigningKey() {
-    return states.params(ProviderStates.THE_PUBLISHED_SIGNING_KEY);
+  @State(ProviderStates.A_PUBLISHED_SIGNING_KEY)
+  Map<String, String> aPublishedSigningKey() {
+    return states.params(ProviderStates.A_PUBLISHED_SIGNING_KEY);
   }
 
   @State(ProviderStates.A_COMMISSIONED_CLIENT)
   Map<String, String> aCommissionedClient() {
     return states.params(ProviderStates.A_COMMISSIONED_CLIENT);
+  }
+
+  @State(ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID)
+  Map<String, String> noCommissionedClientWithTheGivenId() {
+    return states.params(ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID);
   }
 
   @State(ProviderStates.A_COMMISSIONED_TOKEN)
@@ -139,5 +144,30 @@ class ConsumerPactVerificationTest {
   @State(ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID)
   Map<String, String> noServiceClientWithTheGivenId() {
     return states.params(ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID);
+  }
+
+  @State(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS)
+  Map<String, String> aServiceClientNothingClaims() {
+    return states.params(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS);
+  }
+
+  @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI)
+  Map<String, String> anAuthorizationCodeIssuedToTheCli() {
+    return states.params(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI);
+  }
+
+  @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT)
+  Map<String, String> anAuthorizationCodeIssuedToTheGitClient() {
+    return states.params(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT);
+  }
+
+  @State(ProviderStates.A_SESSION_TO_REFRESH)
+  Map<String, String> aSessionToRefresh() {
+    return states.params(ProviderStates.A_SESSION_TO_REFRESH);
+  }
+
+  @State(ProviderStates.A_GIT_SESSION_TO_REFRESH)
+  Map<String, String> aGitSessionToRefresh() {
+    return states.params(ProviderStates.A_GIT_SESSION_TO_REFRESH);
   }
 }
