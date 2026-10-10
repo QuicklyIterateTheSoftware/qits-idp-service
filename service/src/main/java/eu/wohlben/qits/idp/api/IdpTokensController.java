@@ -24,6 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
@@ -138,6 +139,7 @@ public class IdpTokensController {
    */
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "commissionToken")
   public RestResponse<CommissionResponse> commission(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, CommissionRequest request) {
     IdpClient owner =
@@ -199,6 +201,7 @@ public class IdpTokensController {
   @POST
   @Path("/introspect")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "introspectToken")
   public RestResponse<IntrospectionResponse> introspect(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization, IntrospectRequest request) {
     caller.staticOnly(
@@ -242,6 +245,7 @@ public class IdpTokensController {
    * {@code GET /idp/api/clients}: agents keep every read and lose only writes.
    */
   @GET
+  @Operation(operationId = "listTokens")
   public List<TokenView> list(@HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
     IdpClient owner =
         caller.requireAnyRole(
@@ -260,6 +264,7 @@ public class IdpTokensController {
    */
   @DELETE
   @Path("/{tokenId}")
+  @Operation(operationId = "deleteToken")
   public Response delete(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("tokenId") String tokenId) {
@@ -300,6 +305,7 @@ public class IdpTokensController {
   @PUT
   @Path("/{tokenId}/git-refs")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "replaceTokenGitRefs")
   public TokenView replaceGitRefs(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
       @PathParam("tokenId") String tokenId,

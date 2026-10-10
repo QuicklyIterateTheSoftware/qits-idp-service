@@ -25,6 +25,7 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Map;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 
@@ -127,6 +128,7 @@ public class IdpAuthController {
    */
   @GET
   @Path("/return-location")
+  @Operation(operationId = "getReturnLocation")
   public RestResponse<ReturnLocation> returnLocation(
       @QueryParam("return_host") String host, @QueryParam("return_path") String path) {
     return RestResponse.ResponseBuilder.ok(new ReturnLocation(browserSso.returnLocation(host, path)))
@@ -148,6 +150,7 @@ public class IdpAuthController {
   @POST
   @Path("/register-options")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "getRegisterOptions")
   public String registerOptions(
       @Context RoutingContext ctx,
       @CookieParam(SessionCookie.NAME) String sessionToken,
@@ -170,6 +173,7 @@ public class IdpAuthController {
   @POST
   @Path("/register")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "register")
   public RestResponse<SessionView> register(
       @Context RoutingContext ctx,
       @CookieParam(SessionCookie.NAME) String sessionToken,
@@ -217,6 +221,7 @@ public class IdpAuthController {
   @POST
   @Path("/login-options")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "getLoginOptions")
   public String loginOptions(@Context RoutingContext ctx, LoginRequest request) {
     String username = request == null || request.username() == null ? "" : request.username().trim();
     return webAuthn.toJsonString(
@@ -227,6 +232,7 @@ public class IdpAuthController {
   @POST
   @Path("/login")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "login")
   public RestResponse<SessionView> login(@Context RoutingContext ctx, LoginRequest request) {
     if (request == null) {
       throw AuthException.invalidRequest("a JSON body is required");
@@ -247,6 +253,7 @@ public class IdpAuthController {
    */
   @POST
   @Path("/logout")
+  @Operation(operationId = "logout")
   public Response logout(
       @Context RoutingContext ctx, @CookieParam(SessionCookie.NAME) String sessionToken) {
     requireSession(sessionToken);
@@ -272,6 +279,7 @@ public class IdpAuthController {
   @POST
   @Path("/password")
   @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(operationId = "setPassword")
   public Response password(
       @CookieParam(SessionCookie.NAME) String sessionToken, PasswordRequest request) {
     Sessions.Live session = requireSession(sessionToken);
