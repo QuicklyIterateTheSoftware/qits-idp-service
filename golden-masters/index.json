@@ -1,0 +1,383 @@
+{
+  "formatVersion": 1,
+  "provider": "qits-idp",
+  "states": [
+    {
+      "name": "a commissioned client",
+      "slug": "a-commissioned-client",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "clientId": "dyn-contract-run-1-0000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "listCommissionedClients",
+          "method": "GET",
+          "path": "/idp/api/clients",
+          "status": 200,
+          "file": "a-commissioned-client/listCommissionedClients.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [
+              "$[*].clientId"
+            ],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "replaceCommissionedClientGitRefs",
+          "method": "PUT",
+          "path": "/idp/api/clients/{clientId}/git-refs",
+          "status": 200,
+          "file": "a-commissioned-client/replaceCommissionedClientGitRefs.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.clientId"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a commissioned token",
+      "slug": "a-commissioned-token",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "token": "qits_tok_0000000000000000000000000000000000000000002",
+        "tokenId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "introspectCommissionedToken",
+          "method": "POST",
+          "path": "/idp/api/tokens/introspect",
+          "status": 200,
+          "file": "a-commissioned-token/introspectCommissionedToken.json",
+          "frozen": {
+            "ids": [
+              "$.tokenId"
+            ],
+            "instants": [],
+            "strings": [
+              "$.subject",
+              "$.roles[*]",
+              "$.accessToken"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listCommissionedTokens",
+          "method": "GET",
+          "path": "/idp/api/tokens",
+          "status": 200,
+          "file": "a-commissioned-token/listCommissionedTokens.json",
+          "frozen": {
+            "ids": [
+              "$[*].tokenId"
+            ],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [
+              "$[*].subject"
+            ],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "replaceCommissionedTokenGitRefs",
+          "method": "PUT",
+          "path": "/idp/api/tokens/{tokenId}/git-refs",
+          "status": 200,
+          "file": "a-commissioned-token/replaceCommissionedTokenGitRefs.json",
+          "frozen": {
+            "ids": [
+              "$.tokenId"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.subject"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a database service client",
+      "slug": "a-database-service-client",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "clientId": "contract-00000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getServiceClient",
+          "method": "GET",
+          "path": "/idp/api/service-clients/{clientId}",
+          "status": 200,
+          "file": "a-database-service-client/getServiceClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.clientId"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listServiceClients",
+          "method": "GET",
+          "path": "/idp/api/service-clients",
+          "status": 200,
+          "file": "a-database-service-client/listServiceClients.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [
+              "$[*].clientId"
+            ],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "rotateServiceClientSecret",
+          "method": "POST",
+          "path": "/idp/api/service-clients/{clientId}/secret",
+          "status": 200,
+          "file": "a-database-service-client/rotateServiceClientSecret.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.rotatedAt"
+            ],
+            "strings": [
+              "$.clientId",
+              "$.secret"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a service client with the system role",
+      "slug": "a-service-client-with-the-system-role",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "commissionClient",
+          "method": "POST",
+          "path": "/idp/api/clients",
+          "status": 201,
+          "file": "a-service-client-with-the-system-role/commissionClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.clientId",
+              "$.secret"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "commissionToken",
+          "method": "POST",
+          "path": "/idp/api/tokens",
+          "status": 201,
+          "file": "a-service-client-with-the-system-role/commissionToken.json",
+          "frozen": {
+            "ids": [
+              "$.tokenId"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.token",
+              "$.subject"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "status": 200,
+          "file": "a-service-client-with-the-system-role/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "mintRegisterToken",
+          "method": "POST",
+          "path": "/idp/api/register-tokens",
+          "status": 201,
+          "file": "a-service-client-with-the-system-role/mintRegisterToken.json",
+          "frozen": {
+            "ids": [
+              "$.id"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a signed-in person",
+      "slug": "a-signed-in-person",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "sessionToken": "0000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "introspectSession",
+          "method": "POST",
+          "path": "/idp/api/sessions/introspect",
+          "status": 200,
+          "file": "a-signed-in-person/introspectSession.json",
+          "frozen": {
+            "ids": [
+              "$.userId"
+            ],
+            "instants": [
+              "$.expiresAt"
+            ],
+            "strings": [
+              "$.username"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no service client with the given id",
+      "slug": "no-service-client-with-the-given-id",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "clientId": "contract-00000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "createServiceClient",
+          "method": "POST",
+          "path": "/idp/api/service-clients",
+          "status": 201,
+          "file": "no-service-client-with-the-given-id/createServiceClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.clientId",
+              "$.secret"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "getServiceClient",
+          "method": "GET",
+          "path": "/idp/api/service-clients/{clientId}",
+          "status": 404,
+          "file": "no-service-client-with-the-given-id/getServiceClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "the published signing key",
+      "slug": "the-published-signing-key",
+      "params": {
+        "kid": "0000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getJwks",
+          "method": "GET",
+          "path": "/idp/jwks",
+          "status": 200,
+          "file": "the-published-signing-key/getJwks.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.keys[*].kid",
+              "$.keys[*].n"
+            ],
+            "listFilteredTo": "$.keys"
+          }
+        },
+        {
+          "operationId": "getOpenIdConfiguration",
+          "method": "GET",
+          "path": "/idp/.well-known/openid-configuration",
+          "status": 200,
+          "file": "the-published-signing-key/getOpenIdConfiguration.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    }
+  ]
+}
