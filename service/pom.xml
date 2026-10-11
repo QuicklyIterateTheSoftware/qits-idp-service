@@ -41,6 +41,13 @@
             <artifactId>qits-idp-domain</artifactId>
         </dependency>
         <dependency>
+            <!-- CallerServerFilter: jandex-indexed, so merely being on this deployable's classpath
+                 records inbound X-Qits-Caller as the qits.caller span attribute. This service
+                 builds no HttpClient of its own, so nothing here calls QitsHttpClients.wrap. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-http-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
