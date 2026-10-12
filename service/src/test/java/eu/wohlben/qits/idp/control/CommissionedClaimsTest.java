@@ -52,6 +52,24 @@ public class CommissionedClaimsTest {
   }
 
   @Test
+  public void theWildcardIsRefusedForEveryName() {
+    // agent included: a token belongs to one agent, never to every agent.
+    for (String name : ClaimNames.GRANTABLE) {
+      OAuthException refused =
+          assertThrows(OAuthException.class, () -> CommissionedClaims.stated(Map.of(name, "*")));
+      assertEquals("invalid_request", refused.error(), name);
+    }
+  }
+
+  @Test
+  public void anAgentIdIsAccepted() {
+    String agentId = "07a79d74-b3ff-40a3-9b66-bceda7435a37";
+    assertEquals(
+        Map.of(ClaimNames.AGENT, agentId),
+        CommissionedClaims.stated(Map.of(ClaimNames.AGENT, agentId)));
+  }
+
+  @Test
   public void onlyTheGrantableNamesAreAccepted() {
     // Every name the vocabulary has, at once, so this test fails the day one is added without a
     // decision about whether a commission may state it.

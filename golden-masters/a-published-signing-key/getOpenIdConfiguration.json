@@ -37,6 +37,7 @@
     "git_ref_pattern",
     "project",
     "workspace",
-    "branch"
+    "branch",
+    "agent"
   ]
 }

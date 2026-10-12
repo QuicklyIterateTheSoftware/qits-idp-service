@@ -449,6 +449,29 @@ public class CommissionedClientsTest {
         .body("find { it.contextKind == 'scoped-listing' }.claims.project", equalTo(A_PROJECT));
   }
 
+  @Test
+  public void anAgentClaimStatedOnACommissionedClientReachesItsTokens() throws Exception {
+    // qits-1213: the client-credentials path signs the same stated claims as a token's.
+    String agentId = "07a79d74-b3ff-40a3-9b66-bceda7435a37";
+    ValidatableResponse answer =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"agent-claim-kind\",\"contextId\":\"agent-" + agentId + "\","
+                    + "\"claims\":{\"agent\":\"" + agentId + "\"}}")
+            .statusCode(201)
+            .body("claims.agent", equalTo(agentId));
+    String clientId = answer.extract().path("clientId");
+    String secret = answer.extract().path("secret");
+
+    JwtClaims claims =
+        PublishedJwks.verify(
+            token(clientId, secret, "").statusCode(200).extract().path("access_token"),
+            "qits-platform");
+    assertEquals(agentId, claims.getClaimValueAsString("agent"));
+    decommission(OWNER, OWNER_SECRET, clientId).statusCode(204);
+  }
+
   // --- helpers ------------------------------------------------------------------------------
 
   /**

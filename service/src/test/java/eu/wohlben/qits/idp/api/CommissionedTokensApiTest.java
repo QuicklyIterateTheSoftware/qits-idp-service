@@ -372,6 +372,40 @@ public class CommissionedTokensApiTest {
   }
 
   @Test
+  public void anAgentClaimStatedOnTheTokenReachesTheIntrospectionJwt() throws Exception {
+    // qits-1213: the JWT the edge gets for an agent's token says which agent is calling.
+    String agentId = "07a79d74-b3ff-40a3-9b66-bceda7435a37";
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"workspace\",\"contextId\":\"agent-" + agentId + "\","
+                    + "\"claims\":{\"project\":\"qits\",\"agent\":\"" + agentId + "\"}}")
+            .statusCode(201)
+            .extract();
+
+    ExtractableResponse<?> answer =
+        introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+            .statusCode(200)
+            .body("claims.agent", equalTo(agentId))
+            .extract();
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-platform");
+    assertEquals(agentId, claims.getClaimValueAsString("agent"), "the stated claim, verbatim");
+    assertEquals("qits", claims.getClaimValueAsString("project"));
+    delete(basic(OWNER, OWNER_SECRET), issued.path("tokenId")).statusCode(204);
+  }
+
+  @Test
+  public void anAgentClaimOfStarIsRefused() {
+    commissionRaw(
+            OWNER,
+            OWNER_SECRET,
+            "{\"contextKind\":\"workspace\",\"contextId\":\"agent-wild\","
+                + "\"claims\":{\"agent\":\"*\"}}")
+        .statusCode(400);
+  }
+
+  @Test
   public void anAgentContainerTokenIntrospectsWithTheAgentRole() throws Exception {
     // agent-container gets qits:agent for a commissioned client (CommissionedGitRefsTest) and for
     // a commissioned token alike (CommissionRoles#forKind is the one map TokenService and

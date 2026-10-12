@@ -24,8 +24,15 @@ public final class ClaimNames {
   /** The branch a token may act on — a workspace agent pushes only to its own. */
   public static final String BRANCH = "branch";
 
-  /** Every grantable claim, in the order they are read from config. */
-  public static final List<String> GRANTABLE = List.of(PROJECT, WORKSPACE, BRANCH);
+  /**
+   * The coding agent a token belongs to: the agent's UUID. Only a commission states it, for an
+   * agent's own credential — no service client carries it, because a service client's claims are
+   * fixed in code ({@link ClientRegistry}) and name only {@link #PROJECT}.
+   */
+  public static final String AGENT = "agent";
+
+  /** Every claim a commission may state, in the order a token carries them. */
+  public static final List<String> GRANTABLE = List.of(PROJECT, WORKSPACE, BRANCH, AGENT);
 
   /**
    * The Git refs a token may push, a JSON array — see {@link GitRefs}. NOT grantable: the idp sets
