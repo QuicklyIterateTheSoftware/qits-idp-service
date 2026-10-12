@@ -7,7 +7,7 @@
     <parent>
         <groupId>eu.wohlben.qits</groupId>
         <artifactId>qits-idp</artifactId>
-        <version>2026.1010.170821</version>
+        <version>2026.1011.203033</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -39,6 +39,13 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>qits-idp-domain</artifactId>
+        </dependency>
+        <dependency>
+            <!-- CallerServerFilter: jandex-indexed, so merely being on this deployable's classpath
+                 records inbound X-Qits-Caller as the qits.caller span attribute. This service
+                 builds no HttpClient of its own, so nothing here calls QitsHttpClients.wrap. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-http-core</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
