@@ -50,7 +50,7 @@
         <!-- CallerServerFilter/CallerClientFilter: jandex-indexed filters that record inbound
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
-        <qits.http-core.version>2026.1011.185745</qits.http-core.version>
+        <qits.http-core.version>2026.1013.64811</qits.http-core.version>
         <!-- The user-story framework (test scope): this module's story catalogue —
              api/TokenIssuanceBootstrapIT plus the classes under api/../stories/ — is written as
              @UserStory methods, so a run that boots the packaged artifact also regenerates
