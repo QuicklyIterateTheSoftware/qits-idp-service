@@ -149,7 +149,15 @@ verb there, GET included, requires `qits:system` and refuses `qits:agent` — mi
 own secret is not a thing an agent's context has any business doing, so `IdpServiceClientsController`
 calls `BasicCaller.staticOnly` rather than `requireAnyRole` throughout.
 
-**`POST /api/gc/service-clients` is the one write that takes a bearer** (qits-878,
+**The admin doors take a person's bearer, and they are the second write that does** (user ruling
+2026-10-15, qits-1260): `POST /api/register-tokens`, `GET /api/users` and `DELETE
+/api/users/{username}` all go through `AdminCaller` — a `qits:system` service client over Basic, a
+`qits:admin` session, or a `qits:admin` bearer whose `sub` is an account that still holds the role.
+A machine bearer (`qits:system`, `qits:agent`) is 403 there. **`GET /api/users` is a read that
+refuses `qits:agent`**, a deliberate exception to the rule above like `/api/service-clients`: it is
+the installation's roster of people, and its contract is "the same callers as the mint".
+
+**`POST /api/gc/service-clients` is the other write that takes a bearer** (qits-878,
 `IdpGcController`): a `qits:system` bearer from this idp whose `sub` is a service client, beside the
 usual Basic pair. It is safe there and nowhere else because the door can only remove credentials —
 the service clients no `GET /deployments/api/claims/idp-clients` claim names, past a six-hour grace,
@@ -222,8 +230,9 @@ package:
   `RandomSecret` are the two value helpers beside them.
 - `service/` — `api` only, and it is the HTTP boundary plus the one bean the web stack demands:
   the two metadata routes, the token endpoint, the commission API, the user surface
-  (`IdpAuthController`, `IdpSessionsController`, `IdpRegisterTokensController`), the shared
-  machine-caller check (`BasicCaller`), the session cookie's spelling (`SessionCookie`), and two
+  (`IdpAuthController`, `IdpSessionsController`, `IdpRegisterTokensController`,
+  `IdpUsersController`), the shared machine-caller check (`BasicCaller`), the admin-caller check
+  over Basic, session and person bearer (`AdminCaller`), the session cookie's spelling (`SessionCookie`), and two
   error mappers. `WebAuthnCredentials` lives here rather than in the domain because
   quarkus-security-webauthn is a web stack — it depends on quarkus-vertx-http and its ceremonies
   take a `RoutingContext` — and the domain jar's rule is that it does not.
@@ -464,6 +473,11 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   `BrowserSsoTest` pins the arithmetic and `DerivedBrowserHostsTest` pins that the config source
   factory composing it is actually discovered, which is the only way that wiring can fail.
   Every test invents its own username, because the suite shares one application and one store.
+- `UserAdministrationTest` is the admin doors (qits-1260): each of the three admin callers mints,
+  lists and deletes; every machine bearer, a commissioned client and a non-admin person are 403; no
+  credentials is 401 with no challenge; a delete takes the sessions, roles, passkey, password,
+  authorization code and refresh token with it; self-delete is 409. The person's bearer comes from
+  `TokenService.cli`, the CLI's own mint.
 - `SessionLifetimeTest` costs its own application start to pin `qits.idp.session-ttl`, the way
   `TokenLifetimeTest` does for the token's. It is also the only place expiry is proven: the shipped
   twelve hours cannot be waited out, and expiry is the third of the three states — unknown, revoked,

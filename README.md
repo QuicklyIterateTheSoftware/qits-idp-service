@@ -7,8 +7,8 @@ The machine half is an RS256 signing key that survives restarts, a JWKS, an OIDC
 and a `client_credentials` token endpoint the platform's services authenticate to each other with,
 plus a commission API for the credentials that belong to one dynamic context.
 
-The user half is accounts: an operator registers with a one-time token minted at bootstrap, logs in
-with a passkey (WebAuthn) or an optional password, and holds an opaque `qits-session` cookie that
+The user half is accounts: an operator registers with a one-time token minted at bootstrap (or by
+an admin, as an invite), logs in with a passkey (WebAuthn) or the password the idp set, and holds an opaque `qits-session` cookie that
 the edge introspects here and turns into the `X-Qits-User` / `X-Qits-User-Id` / `X-Qits-Roles`
 headers services already read. **There is no OAuth dance for the first-party UI** and no session at
 the gateway any more: the edge is the single ingress and terminates the browser session against
@@ -38,13 +38,15 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `GET /idp/api/service-clients` / `.../{id}` | the service clients, never a secret. |
 | `DELETE /idp/api/service-clients/{id}` | remove its database row. |
 | `POST /idp/api/auth/register-options` | WebAuthn creation options. Guarded by a register token or a session. |
-| `POST /idp/api/auth/register` | an attestation or a password → an account and a session. |
+| `POST /idp/api/auth/register` | an attestation → an account and a session; with a token and no attestation, the idp generates the password and answers it once as `password`. A body that sends a `password` is 400. |
 | `POST /idp/api/auth/login-options` | WebAuthn request options. Anonymous. |
 | `POST /idp/api/auth/login` | an assertion or `{username, password}` → a session. |
 | `POST /idp/api/auth/logout` | revoke the session and clear the cookie. |
 | `POST /idp/api/auth/password` | set or replace the signed-in account's password. |
 | `POST /idp/api/sessions/introspect` | what the edge asks a cookie about. Basic, a service client. |
-| `POST /idp/api/register-tokens` | mint a one-time register token. Basic, a service client. |
+| `POST /idp/api/register-tokens` | mint a one-time register token. An admin caller (below). |
+| `GET /idp/api/users` | every account, `[{username, createdAt, roles}]`, sorted by username. An admin caller. |
+| `DELETE /idp/api/users/{username}` | 204, the account and everything keyed to it; 404 unknown; 409 for the caller's own account. An admin caller. |
 | `GET /idp/api/workstations` | the signed-in user's revocable Git workstation credentials. |
 | `DELETE /idp/api/workstations/{familyId}` | revoke one signed-in user's workstation refresh-token family. |
 | `GET /idp/q/health/ready` | readiness, where the deployment convention expects it. |
@@ -433,8 +435,9 @@ table today. The idp stores them and interprets none of them.
 
 A register token is a row, minted through the API, printed by the bootstrap — never logged, because
 this service's logs ship to qits-observability and a credential must not ride the log plane. It is
-good for exactly one account, and only a **service** client may mint one (the commissioning
-rule, reused).
+good for exactly one account, and only an **admin caller** may mint one: a service client over
+Basic holding `qits:system` (never a commissioned one — the commissioning rule, reused), a signed-in
+`qits:admin` session, or a `qits:admin` person's bearer (see [Administering users](#administering-users)).
 
     # mint — the token is in this answer and nowhere else
     curl -s -X POST -u prod-qits-ci:$SECRET \
@@ -448,8 +451,41 @@ token and a username, which answers the WebAuthn creation options verbatim for
 never asked to make a key that will be thrown away. The second call creates the account, stores the
 passkey, spends the token, grants the two roles and opens a session — one transaction.
 
-`{"password":"…"}` instead of an attestation registers without a passkey. That path exists for
-automated callers and for the one browsing route with no secure context (see below).
+`{"username":"…","token":"…"}` with no attestation registers without a passkey, and **the idp sets
+the password** (qits-1260): 24 random bytes, base64url (32 characters), stored only as its bcrypt
+hash and answered **once**, as `password` beside the four session fields — no endpoint reads it
+again. A passkey registration answers no `password` member at all. A body that sends a `password`
+of its own is refused, 400 `invalid_request`. That path exists for automated callers and for the
+one browsing route with no secure context (see below); a signed-in user changes the password with
+`POST /idp/api/auth/password`.
+
+### Administering users
+
+Every user holds `qits:admin`, and three doors are an admin's (qits-1260): minting a register token
+(an invite), `GET /idp/api/users`, and `DELETE /idp/api/users/{username}`. Each accepts the same
+three callers (`AdminCaller`):
+
+- a **service client over Basic** holding `qits:system` — the bootstrap's path, unchanged;
+- a **signed-in session** (`qits-session`) whose account holds `qits:admin`, used when no
+  `Authorization` header is sent;
+- a **`qits:admin` person's bearer**: a JWT from this idp (verified like `BearerCaller` does) whose
+  `groups` hold `qits:admin` and whose `sub` — a person token's `sub` is the user's id, as the CLI's
+  is — names an account that still holds `qits:admin`. This is the second write that takes a bearer
+  (user ruling 2026-10-15); a `qits:system` or `qits:agent` bearer is 403.
+
+No credentials at all is 401 `invalid_credentials` with no Basic challenge (a browser's `fetch`
+would otherwise show a dialog); a Basic pair or bearer that does not authenticate is the machine
+401; authenticated but not an admin — a commissioned client, a machine bearer, a non-admin person —
+is 403 `access_denied`.
+
+    GET /idp/api/users
+    # 200 [{"username":"alice","createdAt":"2026-10-15T09:00:00Z","roles":["qits:admin"]}, …]
+    DELETE /idp/api/users/bob
+    # 204; 404 {"error":"not_found",…}; 409 {"error":"conflict","error_description":"an admin cannot delete themselves"}
+
+A delete removes the account's roles, passkeys, password, sessions, authorization codes and refresh
+tokens in one transaction; the register token it was made from stays spent and loses only its
+link to the account. A token minted by a person records `minted_by = user:<user id>`.
 
 ### Logging in, and the session
 
@@ -633,9 +669,8 @@ a token may be presented is not a lever any more; narrowing what it may do is ro
 **nothing enforces one yet**. Which route demands which role is a later plan, together with
 per-context scoping on dynamic clients.
 
-**Invites for user #2, and an account page.** The register-token API already has the shape an invite
-needs — a session-authenticated user minting one — but the UX is undecided, and there is no listing
-of a user's own authenticators or sessions to remove one from.
+**An account page.** Invites (an admin minting a register token) and the user list exist since
+qits-1260, but there is no listing of a user's own authenticators or sessions to remove one from.
 
 **Sliding session renewal, and "remember me".** The TTL is absolute. Logging in again is one
 ceremony, so this is a comfort question rather than a blocker.
