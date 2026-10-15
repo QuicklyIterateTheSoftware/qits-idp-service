@@ -20,9 +20,10 @@ import org.jboss.logging.Logger;
  * guess. Deliberately <b>not</b> a log line: this service's logs ship to qits-observability, and a
  * credential must not ride the log plane.
  *
- * <p><b>Only a service client may mint.</b> That check lives at the boundary, on the caller's
- * credentials, and it is the commissioning rule reused verbatim: a credential handed to a build step
- * or an agent container must not be able to produce platform accounts.
+ * <p><b>Only a service client or a {@code qits:admin} person may mint</b> (qits-1260). That check
+ * lives at the boundary, on the caller's credentials ({@code AdminCaller}), and for a machine it is
+ * the commissioning rule reused verbatim: a credential handed to a build step or an agent container
+ * must not be able to produce platform accounts.
  *
  * <p><b>There is no expiry.</b> A register token is spent or it is not, and the operator who minted
  * it is the one holding it — a deadline would only turn a bootstrap interrupted by lunch into a
@@ -33,6 +34,19 @@ public class RegisterTokens {
 
   private static final Logger LOG = Logger.getLogger(RegisterTokens.class);
 
+  /**
+   * How a register token minted by a <b>person</b> records its minter in {@code minted_by}
+   * (qits-1260): {@code user:<user id>}. The column was written for a client id, and a client id
+   * never holds a colon, so the two cannot be confused; the user's id rather than its name because
+   * a name may be up to the column's whole width and is the user's own string.
+   */
+  public static final String PERSON_PREFIX = "user:";
+
+  /** The {@code minted_by} value for a register token a signed-in person minted. */
+  public static String mintedByPerson(UUID userId) {
+    return PERSON_PREFIX + userId;
+  }
+
   /** A freshly minted token, with the plaintext that exists only in this answer. */
   public record Minted(UUID id, String token, Instant createdAt) {}
 
@@ -41,8 +55,8 @@ public class RegisterTokens {
   /**
    * Mint a token for whoever asked.
    *
-   * @param mintedBy the client id of the caller, already authenticated and already known to be a
-   *     service client
+   * @param mintedBy who asked, already authenticated and already known to be allowed: a service
+   *     client's id, or {@link #mintedByPerson} for a {@code qits:admin} person (qits-1260)
    */
   public Minted mint(String mintedBy) {
     String plaintext = RandomSecret.credential();
@@ -60,7 +74,11 @@ public class RegisterTokens {
     DbRetry.runInNewTx("mint an idp register token", () -> tokens.persist(row));
 
     LOG.infof(
-        "minted register token %s for %s", row.id, LoggableClientId.of(mintedBy));
+        "minted register token %s for %s",
+        row.id,
+        // A person's minter is built here from a user id, so it is safe to write as it is; anything
+        // else is a client id and goes through the bound every client id in a log line does.
+        mintedBy.startsWith(PERSON_PREFIX) ? mintedBy : LoggableClientId.of(mintedBy));
     return new Minted(row.id, plaintext, row.createdAt);
   }
 

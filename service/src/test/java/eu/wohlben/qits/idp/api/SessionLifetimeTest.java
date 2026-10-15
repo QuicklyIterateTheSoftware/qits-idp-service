@@ -62,12 +62,7 @@ public class SessionLifetimeTest {
     Response registered =
         given()
             .contentType(ContentType.JSON)
-            .body(
-                new JsonObject()
-                    .put("username", username)
-                    .put("token", token)
-                    .put("password", "p")
-                    .encode())
+            .body(new JsonObject().put("username", username).put("token", token).encode())
             .when()
             .post("/idp/api/auth/register");
     registered.then().statusCode(200);

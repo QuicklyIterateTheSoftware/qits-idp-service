@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.RandomSecret;
 import eu.wohlben.qits.idp.control.RegisterTokens;
 import eu.wohlben.qits.idp.control.Registrations;
 import eu.wohlben.qits.idp.control.Sessions;
@@ -45,7 +46,9 @@ import org.jboss.resteasy.reactive.RestResponse;
  *
  * <p><b>Register is guarded by a register token or by an existing session</b>, never by nothing.
  * With a token it is a first registration: a new account, its factor, the token spent, the two
- * bootstrap roles, and a session — one transaction, in {@link Registrations}. With a session it is
+ * bootstrap roles, and a session — one transaction, in {@link Registrations}. Its factor is the
+ * passkey the ceremony made or, with none, a password <b>the idp generates</b> and answers once
+ * (qits-1260); a registrant never chooses one. With a session it is
  * the same ceremony used to add a <i>second</i> authenticator to the account already signed in, so
  * there is no new account, no token to spend and no new cookie.
  *
@@ -83,7 +86,9 @@ public class IdpAuthController {
    * @param username the requested login name. Ignored when a session is guarding the call: an
    *     authenticator is added to the account that is signed in, never to a name it asks for.
    * @param token the one-time register token. Absent on the session-guarded path.
-   * @param password a password instead of (or as well as) a passkey. Non-empty is the only rule.
+   * @param password <b>refused when non-empty</b> (qits-1260): the idp sets the password on
+   *     registration and answers it once. The member stays so that a client still sending one is
+   *     told so (400) rather than having it silently dropped.
    * @param attestation the browser's {@code PublicKeyCredential}, verbatim — the object
    *     {@code navigator.credentials.create()} resolved to, serialized with its {@code ArrayBuffer}
    *     members base64url-encoded. Passed through to the extension untouched.
@@ -163,21 +168,31 @@ public class IdpAuthController {
   }
 
   /**
-   * Finish a registration: an attestation, a password, or both.
+   * Finish a registration: an attestation, or — on the token path — none, and the idp makes a
+   * password.
    *
    * <p>On the token path the answer opens a session and sets the cookie — a fresh operator is
-   * signed in by the act of registering, which is the whole point of the bootstrap flow. On the
-   * session path nothing about the session changes; the answer describes the session that was
-   * already there, so a client can render the same thing either way.
+   * signed in by the act of registering, which is the whole point of the bootstrap flow. <b>With no
+   * attestation the idp generates the password</b> (qits-1260): {@link RandomSecret#password()},
+   * stored only as its hash, answered once as {@code password} and never again. With an attestation
+   * the account is passkey-only and the answer has no {@code password}. A body that sends a
+   * password of its own is refused (400) on every path.
+   *
+   * <p>On the session path nothing about the session changes; the answer describes the session that
+   * was already there, so a client can render the same thing either way.
    */
   @POST
   @Path("/register")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(operationId = "register")
-  public RestResponse<SessionView> register(
+  public RestResponse<RegisteredView> register(
       @Context RoutingContext ctx,
       @CookieParam(SessionCookie.NAME) String sessionToken,
       RegisterRequest request) {
+    if (request != null && request.password() != null && !request.password().isEmpty()) {
+      throw AuthException.invalidRequest(
+          "the idp sets the password on registration; do not send one");
+    }
     Registrant who = registrant(request, sessionToken);
 
     Users.NewAuthenticator authenticator = null;
@@ -198,15 +213,22 @@ public class IdpAuthController {
       users.addCredential(who.session().userId(), authenticator);
       LOG.infof("added an authenticator to %s", who.username());
       // No cookie: the session that authorised this call is the session that continues.
-      return RestResponse.ResponseBuilder.create(Response.Status.OK, SessionView.of(who.session()))
+      return RestResponse.ResponseBuilder.create(
+              Response.Status.OK, RegisteredView.of(SessionView.of(who.session()), null))
           .header(HttpHeaders.CACHE_CONTROL, "no-store")
           .header("Pragma", "no-cache")
           .build();
     }
 
-    String password = request.password() == null || request.password().isEmpty() ? null : request.password();
-    return issued(
-        ctx, registrations.withToken(who.token(), who.username(), authenticator, password));
+    // No passkey: the idp makes the password. It goes to the store only as its hash (Users'
+    // ordinary path), and to the registrant only in this one answer — never to a log line.
+    String password = authenticator == null ? RandomSecret.password() : null;
+    Sessions.Opened opened =
+        registrations.withToken(who.token(), who.username(), authenticator, password);
+    return withSession(
+        ctx,
+        opened,
+        RegisteredView.of(SessionView.of(opened.session()), password));
   }
 
   /**
@@ -375,8 +397,12 @@ public class IdpAuthController {
 
   /** The answer that opens a session: the view, the cookie, and no caching of either. */
   private RestResponse<SessionView> issued(RoutingContext ctx, Sessions.Opened opened) {
-    return RestResponse.ResponseBuilder.create(
-            Response.Status.OK, SessionView.of(opened.session()))
+    return withSession(ctx, opened, SessionView.of(opened.session()));
+  }
+
+  /** {@link #issued}, for any body: the register answer carries one more field than a login's. */
+  private <T> RestResponse<T> withSession(RoutingContext ctx, Sessions.Opened opened, T body) {
+    return RestResponse.ResponseBuilder.create(Response.Status.OK, body)
         .header(
             HttpHeaders.SET_COOKIE,
             SessionCookie.set(

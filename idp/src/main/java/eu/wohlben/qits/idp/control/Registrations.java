@@ -45,13 +45,14 @@ public class Registrations {
    * Spend a register token on a new account and log it straight in.
    *
    * <p>Exactly one factor arrives: an authenticator the WebAuthn ceremony has already verified, or
-   * a password. Neither is checked for strength here — an attestation was verified at the boundary,
-   * and non-empty is the whole of the password rule.
+   * a password. Since qits-1260 the password is never the registrant's: the boundary generates it
+   * ({@link RandomSecret#password()}) and refuses one sent in the body, and it reaches the store
+   * only as its hash, through {@link Users}' ordinary path. Nothing here logs it.
    *
    * @param plaintextToken the token as the operator was handed it
    * @param username the requested login name, already normalised
    * @param authenticator the verified passkey, or null when registering with a password
-   * @param password the chosen password, or null when registering with a passkey
+   * @param password the idp-generated password, or null when registering with a passkey
    * @throws AuthException {@code invalid_credentials} (401) for a token that is unknown or already
    *     spent; {@code invalid_request} (400) for a name that is taken or a body naming no factor
    */

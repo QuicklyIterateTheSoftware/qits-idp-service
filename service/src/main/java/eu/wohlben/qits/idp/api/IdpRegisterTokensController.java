@@ -1,9 +1,9 @@
 package eu.wohlben.qits.idp.api;
 
-import eu.wohlben.qits.idp.control.IdpClient;
 import eu.wohlben.qits.idp.control.RegisterTokens;
 import eu.wohlben.qits.idp.control.RegisterTokens.Minted;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -23,11 +23,14 @@ import org.jboss.resteasy.reactive.RestResponse;
  * qits-observability, so a token in a log line is a credential on the log plane, readable by
  * everything that can read logs and durable for as long as they are kept.
  *
- * <p><b>Only a service client may mint</b> (never a commissioned one) —
- * the commissioning rule, reused verbatim through
- * {@link BasicCaller}. A commissioned credential belongs to one dynamic context and lives as long
- * as it does; if it could mint register tokens it could produce platform accounts that outlive it,
- * and the blast radius of a leaked build-step secret would stop being one build.
+ * <p><b>A service client or a {@code qits:admin} person may mint</b> (qits-1260, {@link
+ * AdminCaller}): the service client over Basic as the bootstrap always has, a person from a
+ * signed-in browser session or with their own CLI bearer — which is how an admin invites user #2.
+ * <b>Never a commissioned client</b> — the commissioning rule, reused verbatim. A commissioned
+ * credential belongs to one dynamic context and lives as long as it does; if it could mint register
+ * tokens it could produce platform accounts that outlive it, and the blast radius of a leaked
+ * build-step secret would stop being one build. The row's {@code minted_by} names the client id,
+ * or {@code user:<user id>} for a person.
  *
  * <p>There is no listing and no revocation verb. A token is spent or it is not, the row records
  * which and by whom, and an installation that wants one gone deletes the row — which is a decision
@@ -47,7 +50,7 @@ public class IdpRegisterTokensController {
    */
   public record MintResponse(String id, String token, String createdAt) {}
 
-  @Inject BasicCaller caller;
+  @Inject AdminCaller caller;
 
   @Inject RegisterTokens tokens;
 
@@ -66,13 +69,12 @@ public class IdpRegisterTokensController {
   @POST
   @Operation(operationId = "mintRegisterToken")
   public RestResponse<MintResponse> mint(
-      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
-    IdpClient client =
-        caller.staticOnly(
-            authorization,
-            "a commissioned client may not mint register tokens",
-            BasicCaller.SYSTEM);
-    Minted minted = tokens.mint(client.clientId());
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @CookieParam(SessionCookie.NAME) String sessionToken) {
+    AdminCaller.Admin admin =
+        caller.require(
+            authorization, sessionToken, "a commissioned client may not mint register tokens");
+    Minted minted = tokens.mint(admin.mintedBy());
     return RestResponse.ResponseBuilder.create(
             Response.Status.CREATED,
             new MintResponse(

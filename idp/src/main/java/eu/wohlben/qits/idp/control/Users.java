@@ -5,15 +5,22 @@ import eu.wohlben.qits.idp.entity.IdpUser;
 import eu.wohlben.qits.idp.entity.IdpUserRole;
 import eu.wohlben.qits.idp.entity.IdpWebAuthnCredential;
 import eu.wohlben.qits.idp.error.AuthException;
+import eu.wohlben.qits.idp.persistence.IdpAuthorizationCodeRepository;
+import eu.wohlben.qits.idp.persistence.IdpRegisterTokenRepository;
+import eu.wohlben.qits.idp.persistence.IdpSessionRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRoleRepository;
 import eu.wohlben.qits.idp.persistence.IdpWebAuthnCredentialRepository;
+import eu.wohlben.qits.idp.persistence.IdpWorkstationRefreshTokenRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The account store: users, their roles, their authenticators and their optional password.
@@ -52,6 +59,12 @@ public class Users {
   public record Account(UUID id, String username, List<String> roles) {}
 
   /**
+   * One account as the admin listing shows it (qits-1260): its name, when it was made, its roles.
+   * Never a hash and never a credential — there is no field here that could carry one.
+   */
+  public record Summary(String username, Instant createdAt, List<String> roles) {}
+
+  /**
    * One stored authenticator, in the shape quarkus-security-webauthn needs it back in. It carries
    * the username as well as the user id because the extension's own credential record is keyed by
    * name.
@@ -84,6 +97,14 @@ public class Users {
 
   @Inject IdpWebAuthnCredentialRepository credentials;
 
+  @Inject IdpSessionRepository sessions;
+
+  @Inject IdpAuthorizationCodeRepository authorizationCodes;
+
+  @Inject IdpWorkstationRefreshTokenRepository refreshTokens;
+
+  @Inject IdpRegisterTokenRepository registerTokens;
+
   /** The account with this login name, or empty. */
   public Optional<Account> byUsername(String username) {
     return DbRetry.inNewTx(
@@ -94,6 +115,78 @@ public class Users {
   public Optional<Account> byId(UUID userId) {
     return DbRetry.inNewTx(
         "load an idp user", () -> Optional.ofNullable(accountOf(users.findById(userId))));
+  }
+
+  /**
+   * Every account, sorted by username in Java's natural string order — the same reason {@link
+   * IdpUserRoleRepository#rolesOf} sorts in memory: a postgres collation would order punctuation
+   * differently per installation, and this list leaves the service.
+   *
+   * <p>Two reads, the users and every role row, rather than one role read per user: an
+   * installation's accounts are a handful, and this keeps it a handful of rows either way.
+   */
+  public List<Summary> list() {
+    return DbRetry.inNewTx(
+        "list idp users",
+        () -> {
+          Map<UUID, List<String>> rolesByUser =
+              roles.listAll().stream()
+                  .collect(
+                      Collectors.groupingBy(
+                          row -> row.userId,
+                          Collectors.mapping(row -> row.role, Collectors.toList())));
+          return users.listAll().stream()
+              .map(
+                  user ->
+                      new Summary(
+                          user.username,
+                          user.createdAt,
+                          rolesByUser.getOrDefault(user.id, List.of()).stream().sorted().toList()))
+              .sorted(Comparator.comparing(Summary::username))
+              .toList();
+        });
+  }
+
+  /**
+   * Remove an account and everything keyed to it (qits-1260): its roles, its passkeys, its password
+   * (a column of the row itself), its sessions, its authorization codes and its workstation/CLI
+   * refresh tokens. One transaction, so a half-deleted account — a session that still introspects
+   * for a user who is gone, or a user with no way in and no way out — is unreachable.
+   *
+   * <p><b>This owns its transaction and touches the other user tables through their repositories
+   * directly</b>, not through {@link Sessions}' or {@link RegisterTokens}' {@code …Row} methods: it
+   * is a public method of this class, so it is the "owns its boundary" half of the two shapes, and
+   * nothing it writes needs the logic those classes keep (a session row is deleted, not revoked —
+   * there is no account left for an audit of it to belong to).
+   *
+   * <p><b>A register token the account was made from keeps its {@code consumed_at}</b> and loses
+   * only its {@code created_user_id} link: the token stays spent, which is what matters, and V3's
+   * foreign key leaves no other way to let the user row go short of a migration. Register tokens
+   * the account itself <i>minted</i> are untouched: an outstanding invite is for somebody else.
+   *
+   * <p>None of the foreign keys cascade (V3, V4), which is why the order below is children first.
+   * Deleted sessions stop introspecting on the next call; the edge's own cache is the only lag.
+   *
+   * @return false when no account has this name
+   */
+  public boolean delete(String username) {
+    return DbRetry.inNewTx(
+        "delete an idp user",
+        () -> {
+          IdpUser user = users.findByUsername(username);
+          if (user == null) {
+            return false;
+          }
+          UUID id = user.id;
+          registerTokens.update("createdUserId = null where createdUserId = ?1", id);
+          sessions.delete("userId", id);
+          authorizationCodes.delete("userId", id);
+          refreshTokens.delete("userId", id);
+          credentials.delete("userId", id);
+          roles.delete("userId", id);
+          users.delete("id", id);
+          return true;
+        });
   }
 
   /** Every authenticator registered under this login name. Empty for an unknown name. */

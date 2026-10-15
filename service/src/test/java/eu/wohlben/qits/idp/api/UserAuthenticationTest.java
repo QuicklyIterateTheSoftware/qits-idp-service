@@ -46,7 +46,9 @@ import org.junit.jupiter.api.Test;
  *
  * <p>The cases are the invariants rather than the endpoints: a token registers exactly one account,
  * the two bootstrap roles are granted, the cookie carries the attributes the plan fixed, a session
- * introspects until it is revoked and not after, only a service client may mint or introspect, and
+ * introspects until it is revoked and not after, only a service client may introspect (and, of the
+ * machines, mint — the admin callers are {@link UserAdministrationTest}'s), the idp sets a
+ * password-registration's password, and
  * every way a login can fail is the same 401.
  */
 @QuarkusTest
@@ -75,6 +77,10 @@ public class UserAuthenticationTest {
 
     Response registered = register(browser, authenticator, username, mintToken());
     registered.then().statusCode(200).body("username", equalTo(username));
+    // A passkey account has no password, and the answer has no password member — absent, not null.
+    assertFalse(
+        registered.jsonPath().getMap("$").containsKey("password"),
+        "a passkey registration answers no password: " + registered.asString());
     String userId = registered.jsonPath().getString("userId");
     assertNotNull(userId, "the answer names the account the edge will inject");
     assertNotNull(registered.jsonPath().getString("expiresAt"), "and when it stops being true");
@@ -286,43 +292,115 @@ public class UserAuthenticationTest {
 
   // --- the password path ------------------------------------------------------------------------
 
+  /**
+   * THE IDP SETS THE PASSWORD (qits-1260). A token spent with no passkey makes an account whose
+   * password the idp generated: 192 random bits, base64url, answered once in this response and
+   * stored only as a bcrypt digest. It logs in like any password.
+   */
   @Test
-  public void aPasswordRegistersAndLogsInWithNoAuthenticatorAtAll() {
+  public void aTokenWithNoPasskeyRegistersWithAPasswordTheIdpSetsAndAnswersOnce() {
     String username = someUsername();
 
     Response registered =
         given()
             .contentType(ContentType.JSON)
-            .body(
-                new JsonObject()
-                    .put("username", username)
-                    .put("token", mintToken())
-                    .put("password", "correct horse battery staple")
-                    .encode())
+            .body(new JsonObject().put("username", username).put("token", mintToken()).encode())
             .when()
             .post("/idp/api/auth/register");
-    registered.then().statusCode(200).body("username", equalTo(username));
+    registered
+        .then()
+        .statusCode(200)
+        .header("Cache-Control", "no-store")
+        .body("username", equalTo(username))
+        .body("roles", equalTo(List.of("qits:admin")));
+    assertNotNull(registered.jsonPath().getString("userId"));
+    assertNotNull(registered.jsonPath().getString("expiresAt"));
     assertNotNull(sessionCookieOf(registered), "a password registration signs in like any other");
+    String password = registered.jsonPath().getString("password");
+    assertNotNull(password, "the idp answers the password it set");
+    assertEquals(32, password.length(), "24 random bytes, base64url, unpadded: " + password);
+    assertTrue(password.matches("[A-Za-z0-9_-]+"), "URL-safe characters only: " + password);
 
     // This is the path that exists for the one browsing route with no secure context — a raw IP,
     // where navigator.credentials does not exist — and for automated callers.
     Response loggedIn =
         given()
             .contentType(ContentType.JSON)
-            .body(
-                new JsonObject()
-                    .put("username", username)
-                    .put("password", "correct horse battery staple")
-                    .encode())
+            .body(new JsonObject().put("username", username).put("password", password).encode())
             .when()
             .post("/idp/api/auth/login");
     loggedIn.then().statusCode(200).body("username", equalTo(username));
+    assertFalse(
+        loggedIn.jsonPath().getMap("$").containsKey("password"),
+        "nothing but the registration ever answers the password");
     introspect(sessionCookieOf(loggedIn)).then().statusCode(200);
 
     // The row holds no plaintext, under a named scheme, so a second scheme can land beside it.
     IdpUser row = inTx(() -> users.findByUsername(username));
     assertTrue(row.passwordHash.startsWith("bcrypt:"), row.passwordHash);
-    assertFalse(row.passwordHash.contains("correct horse"), "nor any part of it");
+    assertFalse(row.passwordHash.contains(password), "nor the password itself");
+
+    // Two registrations, two passwords.
+    String another =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                new JsonObject().put("username", someUsername()).put("token", mintToken()).encode())
+            .when()
+            .post("/idp/api/auth/register")
+            .then()
+            .statusCode(200)
+            .extract()
+            .path("password");
+    assertNotEquals(password, another);
+  }
+
+  /** A body that brings its own password is refused on every path — the idp sets it. */
+  @Test
+  public void aRegistrationThatSendsAPasswordIsRefused() throws Exception {
+    String token = mintToken();
+    String username = someUsername();
+    given()
+        .contentType(ContentType.JSON)
+        .body(
+            new JsonObject()
+                .put("username", username)
+                .put("token", token)
+                .put("password", "correct horse battery staple")
+                .encode())
+        .when()
+        .post("/idp/api/auth/register")
+        .then()
+        .statusCode(400)
+        .header("Cache-Control", "no-store")
+        .body("error", equalTo("invalid_request"))
+        .body(
+            "error_description",
+            equalTo("the idp sets the password on registration; do not send one"));
+    assertEquals(null, inTx(() -> users.findByUsername(username)), "nothing was created");
+
+    // The token is still good: the refusal spent nothing.
+    given()
+        .contentType(ContentType.JSON)
+        .body(new JsonObject().put("username", username).put("token", token).encode())
+        .when()
+        .post("/idp/api/auth/register")
+        .then()
+        .statusCode(200);
+
+    // And on the session path too.
+    String session =
+        sessionCookieOf(
+            register(new CookieFilter(), new WebAuthnTestHardware(), someUsername(), mintToken()));
+    given()
+        .cookie(SessionCookie.NAME, session)
+        .contentType(ContentType.JSON)
+        .body(new JsonObject().put("password", "x").encode())
+        .when()
+        .post("/idp/api/auth/register")
+        .then()
+        .statusCode(400)
+        .body("error", equalTo("invalid_request"));
   }
 
   @Test
@@ -445,12 +523,7 @@ public class UserAuthenticationTest {
     String username = someUsername();
     given()
         .contentType(ContentType.JSON)
-        .body(
-            new JsonObject()
-                .put("username", username)
-                .put("token", mintToken())
-                .put("password", "right")
-                .encode())
+        .body(new JsonObject().put("username", username).put("token", mintToken()).encode())
         .when()
         .post("/idp/api/auth/register")
         .then()
@@ -605,12 +678,7 @@ public class UserAuthenticationTest {
     Response registered =
         given()
             .contentType(ContentType.JSON)
-            .body(
-                new JsonObject()
-                    .put("username", username)
-                    .put("token", token)
-                    .put("password", "p")
-                    .encode())
+            .body(new JsonObject().put("username", username).put("token", token).encode())
             .when()
             .post("/idp/api/auth/register");
     registered.then().statusCode(200);
