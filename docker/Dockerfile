@@ -63,12 +63,16 @@
 # The builder JDK MUST be 25: native-image cannot read bytecode newer than its own JDK, and this
 # project targets release 25.
 #
+# The platform's public domain; the release recipes pass --opt build-arg:QITS_DOMAIN. Global so the
+# FROM lines below can read it.
+ARG QITS_DOMAIN=wohlben.eu
+
 # The mirror vhost, like every sibling's FROM, not the bare upstream this file used to spell: the
 # platform builder resolves the committed reference through its own registry config, and a bare
 # `quay.io/…` there would dial upstream directly — the loud form of a pull the offline posture
 # forbids. A developer's `docker build` resolves the same spelling through the host daemon exactly
 # as before. The tag is upstream's, unchanged.
-FROM mirror.dev.localhost:8080/quay/quarkus/ubi9-quarkus-mandrel-builder-image:jdk-25 AS build
+FROM mirror.qits.${QITS_DOMAIN}/quay/quarkus/ubi9-quarkus-mandrel-builder-image:jdk-25 AS build
 USER root
 WORKDIR /src
 
@@ -200,7 +204,7 @@ COPY --from=build /src/service/target/sbom.json /sbom.json
 
 # --- runtime --------------------------------------------------------------------------------------
 # The mirror vhost for the same reason as the builder stage's.
-FROM mirror.dev.localhost:8080/redhat/ubi9/ubi-minimal:9.6
+FROM mirror.qits.${QITS_DOMAIN}/redhat/ubi9/ubi-minimal:9.6
 WORKDIR /work
 
 # curl, so the container answers a docker healthcheck — the deployer injects one at `docker run`
