@@ -377,6 +377,38 @@
       ]
     },
     {
+      "name": "a service client calling its peers",
+      "slug": "a-service-client-calling-its-peers",
+      "params": {
+        "audience": "qits-platform",
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=client_credentials&audience={audience}",
+          "status": 200,
+          "file": "a-service-client-calling-its-peers/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a service client nothing claims",
       "slug": "a-service-client-nothing-claims",
       "params": {
@@ -416,6 +448,36 @@
               "$.removed[*].clientId",
               "$.kept[*].clientId"
             ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a service client presenting a wrong secret",
+      "slug": "a-service-client-presenting-a-wrong-secret",
+      "params": {
+        "audience": "qits-platform",
+        "authorization": "Basic dGVzdC1icm9hZDpub3QtdGVzdC1icm9hZC1zZWNyZXQ=",
+        "callerClientId": "test-broad"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=client_credentials&audience={audience}",
+          "status": 401,
+          "file": "a-service-client-presenting-a-wrong-secret/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
             "listFilteredTo": null
           }
         }
@@ -628,6 +690,76 @@
       ]
     },
     {
+      "name": "an admin signed in to the CLI",
+      "slug": "an-admin-signed-in-to-the-cli",
+      "params": {
+        "authorization": "Bearer 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "username": "contract-00000000-0000-4000-8000-000000000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "deleteUser",
+          "method": "DELETE",
+          "path": "/idp/api/users/{username}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listUsers",
+          "method": "GET",
+          "path": "/idp/api/users",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 200,
+          "file": "an-admin-signed-in-to-the-cli/listUsers.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [
+              "$[*].username"
+            ],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "mintRegisterToken",
+          "method": "POST",
+          "path": "/idp/api/register-tokens",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 201,
+          "file": "an-admin-signed-in-to-the-cli/mintRegisterToken.json",
+          "frozen": {
+            "ids": [
+              "$.id"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "an authorization code issued to the CLI",
       "slug": "an-authorization-code-issued-to-the-cli",
       "params": {
@@ -690,16 +822,70 @@
       ]
     },
     {
+      "name": "an unspent register token",
+      "slug": "an-unspent-register-token",
+      "params": {
+        "token": "0000000000000000000000000000000000000000001",
+        "username": "contract-00000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "register",
+          "method": "POST",
+          "path": "/idp/api/auth/register",
+          "contentType": "application/json",
+          "body": {
+            "username": "{username}",
+            "token": "{token}"
+          },
+          "status": 200,
+          "file": "an-unspent-register-token/register.json",
+          "frozen": {
+            "ids": [
+              "$.userId"
+            ],
+            "instants": [
+              "$.expiresAt"
+            ],
+            "strings": [
+              "$.username",
+              "$.password"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "no commissioned client with the given id",
       "slug": "no-commissioned-client-with-the-given-id",
       "params": {
         "audience": "qits-platform",
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
         "clientId": "dyn-contract-unknown",
         "clientSecret": "contract-unknown-secret",
         "secret": "contract-unknown-secret"
       },
       "dependsOn": [],
       "operations": [
+        {
+          "operationId": "decommissionClient",
+          "method": "DELETE",
+          "path": "/idp/api/clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 404,
+          "file": "no-commissioned-client-with-the-given-id/decommissionClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
         {
           "operationId": "issueToken",
           "method": "POST",
@@ -708,6 +894,128 @@
           "body": "grant_type=client_credentials&client_id={clientId}&client_secret={clientSecret}&audience={audience}",
           "status": 401,
           "file": "no-commissioned-client-with-the-given-id/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "replaceClientGitRefs",
+          "method": "PUT",
+          "path": "/idp/api/clients/{clientId}/git-refs",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "gitRefs": [
+              "refs/heads/contract/run-1"
+            ]
+          },
+          "status": 404,
+          "file": "no-commissioned-client-with-the-given-id/replaceClientGitRefs.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no commissioned token with the given id",
+      "slug": "no-commissioned-token-with-the-given-id",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "token": "qits_tok_contract-unknown",
+        "tokenId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "deleteToken",
+          "method": "DELETE",
+          "path": "/idp/api/tokens/{tokenId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 404,
+          "file": "no-commissioned-token-with-the-given-id/deleteToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "introspectToken",
+          "method": "POST",
+          "path": "/idp/api/tokens/introspect",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "token": "{token}"
+          },
+          "status": 404,
+          "file": "no-commissioned-token-with-the-given-id/introspectToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "replaceTokenGitRefs",
+          "method": "PUT",
+          "path": "/idp/api/tokens/{tokenId}/git-refs",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "gitRefs": [
+              "refs/heads/contract/run-1"
+            ]
+          },
+          "status": 404,
+          "file": "no-commissioned-token-with-the-given-id/replaceTokenGitRefs.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no register token with the given value",
+      "slug": "no-register-token-with-the-given-value",
+      "params": {
+        "token": "contract-unknown-register-token",
+        "username": "contract-00000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "register",
+          "method": "POST",
+          "path": "/idp/api/auth/register",
+          "contentType": "application/json",
+          "body": {
+            "username": "{username}",
+            "token": "{token}"
+          },
+          "status": 401,
+          "file": "no-register-token-with-the-given-value/register.json",
           "frozen": {
             "ids": [],
             "instants": [],
@@ -777,6 +1085,92 @@
           },
           "status": 404,
           "file": "no-service-client-with-the-given-id/rotateServiceClientSecret.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no session with the given refresh token",
+      "slug": "no-session-with-the-given-refresh-token",
+      "params": {
+        "clientId": "qits-cli",
+        "refreshToken": "contract-unknown-refresh-token"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=refresh_token&client_id={clientId}&refresh_token={refreshToken}",
+          "status": 400,
+          "file": "no-session-with-the-given-refresh-token/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no session with the given token",
+      "slug": "no-session-with-the-given-token",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "sessionToken": "contract-unknown-session"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "introspectSession",
+          "method": "POST",
+          "path": "/idp/api/sessions/introspect",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "token": "{sessionToken}"
+          },
+          "status": 404,
+          "file": "no-session-with-the-given-token/introspectSession.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "no user with the given name",
+      "slug": "no-user-with-the-given-name",
+      "params": {
+        "authorization": "Bearer 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "username": "contract-unknown-user"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "deleteUser",
+          "method": "DELETE",
+          "path": "/idp/api/users/{username}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 404,
+          "file": "no-user-with-the-given-name/deleteUser.json",
           "frozen": {
             "ids": [],
             "instants": [],

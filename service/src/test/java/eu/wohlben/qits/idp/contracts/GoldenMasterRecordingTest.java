@@ -193,6 +193,13 @@ class GoldenMasterRecordingTest {
 
   static final String GIT_REFS_BODY = "{\"gitRefs\":[\"refs/heads/contract/run-1\"]}";
 
+  /** What the CLI's {@code qits users register} sends: no password, the idp makes one. */
+  static final String REGISTER_BODY = "{\"username\":\"{username}\",\"token\":\"{token}\"}";
+
+  /** A peer service's mint: Basic carries the pair, the form the grant and the audience. */
+  static final String CLIENT_CREDENTIALS_FOR_THE_PLATFORM =
+      "grant_type=client_credentials&audience={audience}";
+
   static final String CLIENT_CREDENTIALS_IN_THE_FORM =
       "grant_type=client_credentials&client_id={clientId}&client_secret={clientSecret}"
           + "&audience={audience}";
@@ -220,6 +227,17 @@ class GoldenMasterRecordingTest {
               true,
               "grant_type=client_credentials",
               "$.access_token"),
+          token(
+              ProviderStates.A_SERVICE_CLIENT_CALLING_ITS_PEERS,
+              200,
+              true,
+              CLIENT_CREDENTIALS_FOR_THE_PLATFORM,
+              "$.access_token"),
+          token(
+              ProviderStates.A_SERVICE_CLIENT_PRESENTING_A_WRONG_SECRET,
+              401,
+              true,
+              CLIENT_CREDENTIALS_FOR_THE_PLATFORM),
           token(
               ProviderStates.A_COMMISSIONED_CLIENT,
               200,
@@ -259,6 +277,7 @@ class GoldenMasterRecordingTest {
               REFRESH_FORM + "&audience={audience}",
               "$.access_token",
               "$.refresh_token"),
+          token(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN, 400, false, REFRESH_FORM),
           // --- the browser's half of the code grant -------------------------------------------
           new Interaction(
               ProviderStates.A_SIGNED_IN_PERSON,
@@ -310,6 +329,22 @@ class GoldenMasterRecordingTest {
               JSON_TYPE,
               "{\"token\":\"{sessionToken}\"}"),
           send(
+              ProviderStates.NO_SESSION_WITH_THE_GIVEN_TOKEN,
+              "introspectSession",
+              "POST",
+              "/idp/api/sessions/introspect",
+              404,
+              JSON_TYPE,
+              "{\"token\":\"{sessionToken}\"}"),
+          send(
+              ProviderStates.NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID,
+              "introspectToken",
+              "POST",
+              "/idp/api/tokens/introspect",
+              404,
+              JSON_TYPE,
+              "{\"token\":\"{token}\"}"),
+          send(
               ProviderStates.A_COMMISSIONED_TOKEN,
               "introspectToken",
               "POST",
@@ -342,6 +377,22 @@ class GoldenMasterRecordingTest {
               ProviderStates.A_COMMISSIONED_CLIENT,
               "decommissionClient",
               "/idp/api/clients/{clientId}"),
+          send(
+              ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID,
+              "replaceClientGitRefs",
+              "PUT",
+              "/idp/api/clients/{clientId}/git-refs",
+              404,
+              JSON_TYPE,
+              GIT_REFS_BODY),
+          send(
+              ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID,
+              "decommissionClient",
+              "DELETE",
+              "/idp/api/clients/{clientId}",
+              404,
+              null,
+              null),
           // --- commissioned tokens -----------------------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,
@@ -363,6 +414,22 @@ class GoldenMasterRecordingTest {
               JSON_TYPE,
               GIT_REFS_BODY),
           delete(ProviderStates.A_COMMISSIONED_TOKEN, "deleteToken", "/idp/api/tokens/{tokenId}"),
+          send(
+              ProviderStates.NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID,
+              "replaceTokenGitRefs",
+              "PUT",
+              "/idp/api/tokens/{tokenId}/git-refs",
+              404,
+              JSON_TYPE,
+              GIT_REFS_BODY),
+          send(
+              ProviderStates.NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID,
+              "deleteToken",
+              "DELETE",
+              "/idp/api/tokens/{tokenId}",
+              404,
+              null,
+              null),
           // --- service clients ---------------------------------------------------------------
           send(
               ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID,
@@ -440,7 +507,56 @@ class GoldenMasterRecordingTest {
               201,
               null,
               null,
-              "$.token"));
+              "$.token"),
+          // --- the admin doors and registration: the platform-access CLI ------------------------
+          send(
+              ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI,
+              "mintRegisterToken",
+              "POST",
+              "/idp/api/register-tokens",
+              201,
+              null,
+              null,
+              "$.token"),
+          list(ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI, "listUsers", "/idp/api/users"),
+          delete(
+              ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI,
+              "deleteUser",
+              "/idp/api/users/{username}"),
+          send(
+              ProviderStates.NO_USER_WITH_THE_GIVEN_NAME,
+              "deleteUser",
+              "DELETE",
+              "/idp/api/users/{username}",
+              404,
+              null,
+              null),
+          new Interaction(
+              ProviderStates.AN_UNSPENT_REGISTER_TOKEN,
+              "register",
+              "POST",
+              "/idp/api/auth/register",
+              200,
+              null,
+              null,
+              JSON_TYPE,
+              REGISTER_BODY,
+              Map.of(),
+              List.of("$.password"),
+              List.of()),
+          new Interaction(
+              ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE,
+              "register",
+              "POST",
+              "/idp/api/auth/register",
+              401,
+              null,
+              null,
+              JSON_TYPE,
+              REGISTER_BODY,
+              Map.of(),
+              List.of(),
+              List.of()));
 
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final Pattern TEMPLATE_PARAM = Pattern.compile("\\{([A-Za-z][A-Za-z0-9]*)}");

@@ -1,20 +1,25 @@
 package eu.wohlben.qits.idp.contracts;
 
+import eu.wohlben.qits.idp.control.ClientSecret;
 import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.DynamicClients;
 import eu.wohlben.qits.idp.control.PublicClients;
 import eu.wohlben.qits.idp.control.PublicClients.PublicClient;
+import eu.wohlben.qits.idp.control.RegisterTokens;
 import eu.wohlben.qits.idp.control.ServiceClients;
 import eu.wohlben.qits.idp.control.ServiceClientsAccess;
 import eu.wohlben.qits.idp.control.Sessions;
 import eu.wohlben.qits.idp.control.SigningKeys;
+import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.control.UnclaimedServiceClientCollector;
 import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.control.WorkstationCredentials;
+import eu.wohlben.qits.idp.entity.IdpDynamicClient;
 import eu.wohlben.qits.idp.entity.IdpSigningKey;
 import eu.wohlben.qits.idp.entity.IdpSigningKeyStatus;
 import eu.wohlben.qits.idp.entity.IdpUser;
 import eu.wohlben.qits.idp.entity.IdpUserRole;
+import eu.wohlben.qits.idp.persistence.IdpDynamicClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpSigningKeyRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
@@ -80,6 +85,20 @@ public class ProviderStates {
       "an authorization code issued to the git client";
   public static final String A_SESSION_TO_REFRESH = "a session to refresh";
   public static final String A_GIT_SESSION_TO_REFRESH = "a git session to refresh";
+  public static final String A_SERVICE_CLIENT_CALLING_ITS_PEERS =
+      "a service client calling its peers";
+  public static final String A_SERVICE_CLIENT_PRESENTING_A_WRONG_SECRET =
+      "a service client presenting a wrong secret";
+  public static final String NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID =
+      "no commissioned token with the given id";
+  public static final String NO_SESSION_WITH_THE_GIVEN_TOKEN = "no session with the given token";
+  public static final String NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN =
+      "no session with the given refresh token";
+  public static final String AN_ADMIN_SIGNED_IN_TO_THE_CLI = "an admin signed in to the CLI";
+  public static final String NO_USER_WITH_THE_GIVEN_NAME = "no user with the given name";
+  public static final String AN_UNSPENT_REGISTER_TOKEN = "an unspent register token";
+  public static final String NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE =
+      "no register token with the given value";
 
   /** The calling service client: adopted at start, holds {@code qits:system}. */
   static final String CALLER = "test-broad";
@@ -132,6 +151,9 @@ public class ProviderStates {
   @Inject IdpSigningKeyRepository signingKeyRows;
   @Inject PublicClients publicClients;
   @Inject WorkstationCredentials workstations;
+  @Inject TokenService tokenService;
+  @Inject RegisterTokens registerTokens;
+  @Inject IdpDynamicClientRepository dynamicClientRows;
 
   private final Map<String, Supplier<Setup>> states = new LinkedHashMap<>();
 
@@ -149,6 +171,18 @@ public class ProviderStates {
     states.put(AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT, () -> anAuthorizationCode(false));
     states.put(A_SESSION_TO_REFRESH, () -> aSessionToRefresh(true));
     states.put(A_GIT_SESSION_TO_REFRESH, () -> aSessionToRefresh(false));
+    states.put(A_SERVICE_CLIENT_CALLING_ITS_PEERS, this::aServiceClientCallingItsPeers);
+    states.put(
+        A_SERVICE_CLIENT_PRESENTING_A_WRONG_SECRET, this::aServiceClientPresentingAWrongSecret);
+    states.put(NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID, this::noCommissionedTokenWithTheGivenId);
+    states.put(NO_SESSION_WITH_THE_GIVEN_TOKEN, this::noSessionWithTheGivenToken);
+    states.put(
+        NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN, this::noSessionWithTheGivenRefreshToken);
+    states.put(AN_ADMIN_SIGNED_IN_TO_THE_CLI, this::anAdminSignedInToTheCli);
+    states.put(NO_USER_WITH_THE_GIVEN_NAME, this::noUserWithTheGivenName);
+    states.put(AN_UNSPENT_REGISTER_TOKEN, this::anUnspentRegisterToken);
+    states.put(
+        NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE, this::noRegisterTokenWithTheGivenValue);
   }
 
   /** Every state name this provider answers for. */
@@ -169,6 +203,42 @@ public class ProviderStates {
   /** {@link #setUp} for a pact {@code @State} method, which returns only the params. */
   public Map<String, String> params(String state) {
     return setUp(state).params();
+  }
+
+  /**
+   * {@value #A_COMMISSIONED_CLIENT} as a consumer's pact states it, for verification.
+   *
+   * <p>A commissioned client's id and secret are random, so a consumer can only send the ones the
+   * state hands back. A consumer that names them with provider-state generators gets this state's
+   * fresh pair either way; one that sends the form literally (the daemons' pacts do: a form body
+   * carries no generator there) sends the frozen pair its params state. When those params name a
+   * {@code dyn-} id and a secret, this commissions exactly that client — the same row a commission
+   * leaves, owned by {@value #CALLER} — so the state the consumer describes is the state it gets.
+   */
+  public Map<String, String> commissionedClientAsStated(Map<String, ?> stated) {
+    Object id = stated == null ? null : stated.get("clientId");
+    Object secret = stated == null ? null : stated.get("clientSecret");
+    if (!(id instanceof String clientId)
+        || !clientId.startsWith(DynamicClients.ID_PREFIX)
+        || !(secret instanceof String clientSecret)
+        || clientSecret.isEmpty()) {
+      return params(A_COMMISSIONED_CLIENT);
+    }
+    // Evicts the cache too, so a row an earlier interaction seeded is not answered from it.
+    dynamicClients.decommission(clientId, CALLER);
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              IdpDynamicClient row = new IdpDynamicClient();
+              row.clientId = clientId;
+              row.secretHash = ClientSecret.hash(clientSecret);
+              row.owner = CALLER;
+              row.contextKind = CONTEXT_KIND;
+              row.contextId = CONTEXT_ID;
+              row.createdAt = Instant.now();
+              dynamicClientRows.persist(row);
+            });
+    return commissionedClientParams(clientId, clientSecret);
   }
 
   /** The state's slug: lower-cased, every run of non-alphanumerics replaced by {@code -}. */
@@ -231,27 +301,121 @@ public class ProviderStates {
         dynamicClients.commission(CALLER, CONTEXT_KIND, CONTEXT_ID, null, null);
     String clientId = issued.client().clientId();
     return new Setup(
-        // clientSecret and secret are the same value: consumers asked for both names.
-        with(
-            with(
-                with(with(caller(), "clientId", clientId), "clientSecret", issued.secret()),
-                "secret",
-                issued.secret()),
-            "audience",
-            AUDIENCE),
+        commissionedClientParams(clientId, issued.secret()),
         List.of(randomSuffix(clientId), issued.secret()),
         List.of(clientId));
   }
 
+  private static Map<String, String> commissionedClientParams(String clientId, String secret) {
+    // clientSecret and secret are the same value: consumers asked for both names.
+    return with(
+        with(with(with(caller(), "clientId", clientId), "clientSecret", secret), "secret", secret),
+        "audience",
+        AUDIENCE);
+  }
+
   /** A client id nothing ever commissions: commissioned ids end in 22 random characters. */
   private Setup noCommissionedClientWithTheGivenId() {
+    Map<String, String> params = caller();
+    params = with(params, "clientId", DynamicClients.ID_PREFIX + "contract-unknown");
+    params = with(params, "clientSecret", "contract-unknown-secret");
+    params = with(params, "secret", "contract-unknown-secret");
+    return new Setup(with(params, "audience", AUDIENCE), List.of(), List.of());
+  }
+
+  /**
+   * The caller as a peer-calling service mints: HTTP Basic and {@code audience} in the form, which
+   * is how {@code quarkus-oidc-client} sends a {@code client_credentials} grant
+   * ({@code credentials.secret} is {@code client_secret_basic}) and how the bootstrap CLI does.
+   */
+  private Setup aServiceClientCallingItsPeers() {
+    return new Setup(with(caller(), "audience", AUDIENCE), List.of(), List.of());
+  }
+
+  /** The caller's id with a secret that is not its own: a rotated-away or mistyped secret. */
+  private Setup aServiceClientPresentingAWrongSecret() {
+    String authorization =
+        "Basic "
+            + Base64.getEncoder()
+                .encodeToString(
+                    (CALLER + ":not-" + CALLER_SECRET).getBytes(StandardCharsets.UTF_8));
+    return new Setup(
+        params("authorization", authorization, "callerClientId", CALLER, "audience", AUDIENCE),
+        List.of(),
+        List.of());
+  }
+
+  /** A token id and value nothing ever commissioned: the decommissioned or never-issued case. */
+  private Setup noCommissionedTokenWithTheGivenId() {
+    String tokenId = UUID.randomUUID().toString();
+    return new Setup(
+        with(with(caller(), "tokenId", tokenId), "token", TOKEN_PREFIX + "contract-unknown"),
+        List.of(),
+        List.of());
+  }
+
+  /** A session cookie value no sign-in opened: an expired or signed-out browser. */
+  private Setup noSessionWithTheGivenToken() {
+    return new Setup(
+        with(caller(), "sessionToken", "contract-unknown-session"), List.of(), List.of());
+  }
+
+  /** The CLI's refresh token that no live session holds: spent, revoked or never issued. */
+  private Setup noSessionWithTheGivenRefreshToken() {
     return new Setup(
         params(
-            "clientId", DynamicClients.ID_PREFIX + "contract-unknown",
-            "clientSecret", "contract-unknown-secret",
-            "secret", "contract-unknown-secret",
-            "audience", AUDIENCE),
+            "clientId", publicClients.cli().id(), "refreshToken", "contract-unknown-refresh-token"),
         List.of(),
+        List.of());
+  }
+
+  /**
+   * A {@code qits:admin} person signed in to the CLI — {@code authorization} is their bearer, as
+   * the CLI's login leaves it — and a second person, {@code username}, for the admin to list and
+   * delete.
+   */
+  private Setup anAdminSignedInToTheCli() {
+    Setup admin = adminBearer();
+    UUID other = person();
+    String username = "contract-" + other;
+    return new Setup(
+        with(admin.params(), "username", username), admin.uniqueTokens(), List.of(username));
+  }
+
+  /** {@value #AN_ADMIN_SIGNED_IN_TO_THE_CLI}'s bearer, and a username no account holds. */
+  private Setup noUserWithTheGivenName() {
+    Setup admin = adminBearer();
+    return new Setup(
+        with(admin.params(), "username", "contract-unknown-user"),
+        admin.uniqueTokens(),
+        List.of());
+  }
+
+  private Setup adminBearer() {
+    UUID id = person();
+    String bearer = tokenService.cli(id).accessToken();
+    return new Setup(
+        params("authorization", "Bearer " + bearer, "userId", id.toString()),
+        List.of(bearer),
+        List.of(id.toString()));
+  }
+
+  /** A register token an admin minted and nobody spent, and a username no account holds yet. */
+  private Setup anUnspentRegisterToken() {
+    String token = registerTokens.mint(CALLER).token();
+    String suffix = hex();
+    return new Setup(
+        params("token", token, "username", "contract-" + suffix),
+        List.of(token, suffix),
+        List.of());
+  }
+
+  /** A register token value this idp never minted (or one already spent: the same answer). */
+  private Setup noRegisterTokenWithTheGivenValue() {
+    String suffix = hex();
+    return new Setup(
+        params("token", "contract-unknown-register-token", "username", "contract-" + suffix),
+        List.of(suffix),
         List.of());
   }
 

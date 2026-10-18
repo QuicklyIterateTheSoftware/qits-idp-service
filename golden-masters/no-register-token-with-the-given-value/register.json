@@ -1,0 +1,4 @@
+{
+  "error": "invalid_credentials",
+  "error_description": "that register token is not valid"
+}

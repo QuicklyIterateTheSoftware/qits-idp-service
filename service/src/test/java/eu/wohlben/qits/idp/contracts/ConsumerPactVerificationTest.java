@@ -8,7 +8,6 @@ import au.com.dius.pact.core.model.ProviderState;
 import au.com.dius.pact.provider.junit5.HttpTestTarget;
 import au.com.dius.pact.provider.junit5.PactVerificationContext;
 import au.com.dius.pact.provider.junit5.PactVerificationInvocationContextProvider;
-import au.com.dius.pact.provider.junitsupport.IgnoreNoPactsToVerify;
 import au.com.dius.pact.provider.junitsupport.Provider;
 import au.com.dius.pact.provider.junitsupport.State;
 import au.com.dius.pact.provider.junitsupport.loader.PactSource;
@@ -31,9 +30,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>No consumer pins a pact yet</b>, so {@code @IgnoreNoPactsToVerify} lets an empty classpath
- * pass and the loader logs that nothing was verified. When the first consumer's pact jar is pinned,
- * drop the annotation and set {@link ClasspathPactLoader#REQUIRED} to true.
+ * <p><b>Eleven consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}): the
+ * ci-runner, projects and workspace daemons, and the configuration, containers, deployments, edge,
+ * events, mirror, observability and system services. {@link ClasspathPactLoader#REQUIRED} is
+ * therefore true, so a classpath that lost them fails rather than verifying nothing. An
+ * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
+ * the state here, with its golden master, never a weaker check.
  *
  * <p>Each interaction runs against this {@code @QuarkusTest} application over real HTTP. The idp
  * has no synthetic user: a door that takes HTTP Basic gets the state's {@code authorization} param,
@@ -46,7 +48,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @QuarkusTest
 @Provider(ConsumerPactVerificationTest.PROVIDER)
 @PactSource(ClasspathPactLoader.class)
-@IgnoreNoPactsToVerify
 class ConsumerPactVerificationTest {
 
   /** The provider's name in a pact: the repository name, not the application name. */
@@ -64,9 +65,6 @@ class ConsumerPactVerificationTest {
 
   @BeforeEach
   void target(PactVerificationContext context, Pact pact, Interaction interaction) {
-    if (context == null) {
-      return; // no pact to verify: @IgnoreNoPactsToVerify's single empty run
-    }
     String consumer = pact.getConsumer().getName();
     for (ProviderState state : interaction.getProviderStates()) {
       if (!states.names().contains(state.getName())) {
@@ -99,9 +97,7 @@ class ConsumerPactVerificationTest {
   @TestTemplate
   @ExtendWith(PactVerificationInvocationContextProvider.class)
   void consumerPactHolds(PactVerificationContext context) {
-    if (context != null) {
-      context.verifyInteraction();
-    }
+    context.verifyInteraction();
   }
 
   // --- the states: each one line into the registry -------------------------------------------
@@ -116,9 +112,10 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_PUBLISHED_SIGNING_KEY);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#commissionedClientAsStated}. */
   @State(ProviderStates.A_COMMISSIONED_CLIENT)
-  Map<String, String> aCommissionedClient() {
-    return states.params(ProviderStates.A_COMMISSIONED_CLIENT);
+  Map<String, String> aCommissionedClient(Map<String, Object> stated) {
+    return states.commissionedClientAsStated(stated);
   }
 
   @State(ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID)
@@ -169,5 +166,50 @@ class ConsumerPactVerificationTest {
   @State(ProviderStates.A_GIT_SESSION_TO_REFRESH)
   Map<String, String> aGitSessionToRefresh() {
     return states.params(ProviderStates.A_GIT_SESSION_TO_REFRESH);
+  }
+
+  @State(ProviderStates.A_SERVICE_CLIENT_CALLING_ITS_PEERS)
+  Map<String, String> aServiceClientCallingItsPeers() {
+    return states.params(ProviderStates.A_SERVICE_CLIENT_CALLING_ITS_PEERS);
+  }
+
+  @State(ProviderStates.A_SERVICE_CLIENT_PRESENTING_A_WRONG_SECRET)
+  Map<String, String> aServiceClientPresentingAWrongSecret() {
+    return states.params(ProviderStates.A_SERVICE_CLIENT_PRESENTING_A_WRONG_SECRET);
+  }
+
+  @State(ProviderStates.NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID)
+  Map<String, String> noCommissionedTokenWithTheGivenId() {
+    return states.params(ProviderStates.NO_COMMISSIONED_TOKEN_WITH_THE_GIVEN_ID);
+  }
+
+  @State(ProviderStates.NO_SESSION_WITH_THE_GIVEN_TOKEN)
+  Map<String, String> noSessionWithTheGivenToken() {
+    return states.params(ProviderStates.NO_SESSION_WITH_THE_GIVEN_TOKEN);
+  }
+
+  @State(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN)
+  Map<String, String> noSessionWithTheGivenRefreshToken() {
+    return states.params(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN);
+  }
+
+  @State(ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI)
+  Map<String, String> anAdminSignedInToTheCli() {
+    return states.params(ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI);
+  }
+
+  @State(ProviderStates.NO_USER_WITH_THE_GIVEN_NAME)
+  Map<String, String> noUserWithTheGivenName() {
+    return states.params(ProviderStates.NO_USER_WITH_THE_GIVEN_NAME);
+  }
+
+  @State(ProviderStates.AN_UNSPENT_REGISTER_TOKEN)
+  Map<String, String> anUnspentRegisterToken() {
+    return states.params(ProviderStates.AN_UNSPENT_REGISTER_TOKEN);
+  }
+
+  @State(ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE)
+  Map<String, String> noRegisterTokenWithTheGivenValue() {
+    return states.params(ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE);
   }
 }

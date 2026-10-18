@@ -154,6 +154,65 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- The consumer pacts ConsumerPactVerificationTest verifies: each jar carries one
+                 `pacts/<consumer>_qits-idp-service.json`, and the test reads them off the
+                 classpath. The pinned jar IS the source of the pact; nothing is copied into this
+                 tree. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-ci-runner-daemon-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-configuration-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-containers-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-deployments-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-edge-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-events-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-mirror-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-observability-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-projects-daemon-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-system-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-workspace-daemon-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <!-- ConsumerPactVerificationTest: verifies the consumer pacts this provider pins. -->
             <groupId>au.com.dius.pact.provider</groupId>
             <artifactId>junit5</artifactId>
