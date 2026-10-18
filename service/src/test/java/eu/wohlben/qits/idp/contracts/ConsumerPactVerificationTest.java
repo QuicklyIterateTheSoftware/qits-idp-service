@@ -30,9 +30,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Eleven consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}): the
- * ci-runner, projects and workspace daemons, and the configuration, containers, deployments, edge,
- * events, mirror, observability and system services. {@link ClasspathPactLoader#REQUIRED} is
+ * <p><b>Fourteen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * the ci-runner, projects and workspace daemons, and the artifacts, ci, configuration, containers,
+ * deployments, edge, events, githost, mirror, observability and system services. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
  * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
  * the state here, with its golden master, never a weaker check.
@@ -107,6 +107,11 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE);
   }
 
+  @State(ProviderStates.A_SERVICE_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED)
+  Map<String, String> aServiceClientWhoseStatedGitRefsAreRefused() {
+    return states.params(ProviderStates.A_SERVICE_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED);
+  }
+
   @State(ProviderStates.A_PUBLISHED_SIGNING_KEY)
   Map<String, String> aPublishedSigningKey() {
     return states.params(ProviderStates.A_PUBLISHED_SIGNING_KEY);
@@ -151,6 +156,12 @@ class ConsumerPactVerificationTest {
   @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI)
   Map<String, String> anAuthorizationCodeIssuedToTheCli() {
     return states.params(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI);
+  }
+
+  @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE)
+  Map<String, String> anAuthorizationCodeIssuedToTheCliForTheConnectPage() {
+    return states.params(
+        ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE);
   }
 
   @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT)

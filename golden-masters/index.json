@@ -484,6 +484,43 @@
       ]
     },
     {
+      "name": "a service client whose stated Git refs are refused",
+      "slug": "a-service-client-whose-stated-git-refs-are-refused",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "clientSecret": "test-broad-secret",
+        "refusedGitRef": "refs/tags/contract"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "commissionClient",
+          "method": "POST",
+          "path": "/idp/api/clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "contextKind": "contract",
+            "contextId": "run-1",
+            "gitRefs": [
+              "{refusedGitRef}"
+            ]
+          },
+          "status": 400,
+          "file": "a-service-client-whose-stated-git-refs-are-refused/commissionClient.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a service client with the system role",
       "slug": "a-service-client-with-the-system-role",
       "params": {
@@ -502,8 +539,9 @@
           },
           "contentType": "application/json",
           "body": {
-            "contextKind": "contract",
-            "contextId": "run-1"
+            "contextKind": "bootstrap-publish",
+            "contextId": "dev",
+            "gitRefs": []
           },
           "status": 201,
           "file": "a-service-client-with-the-system-role/commissionClient.json",
@@ -778,6 +816,37 @@
           "body": "grant_type=authorization_code&client_id={clientId}&code={code}&redirect_uri={redirectUri}&code_verifier={codeVerifier}",
           "status": 200,
           "file": "an-authorization-code-issued-to-the-cli/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token",
+              "$.refresh_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "an authorization code issued to the CLI for the connect page",
+      "slug": "an-authorization-code-issued-to-the-cli-for-the-connect-page",
+      "params": {
+        "clientId": "qits-cli",
+        "code": "0000000000000000000000000000000000000000001",
+        "codeVerifier": "contract-verifier-0123456789-abcdefghijklmnopqrstuvwxyz",
+        "redirectUri": "http://dev-qits-idp:8080/idp/connect/cli"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=authorization_code&client_id={clientId}&code={code}&redirect_uri={redirectUri}&code_verifier={codeVerifier}",
+          "status": 200,
+          "file": "an-authorization-code-issued-to-the-cli-for-the-connect-page/issueToken.json",
           "frozen": {
             "ids": [],
             "instants": [],

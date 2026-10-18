@@ -69,6 +69,8 @@ public class ProviderStates {
 
   public static final String A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE =
       "a service client with the system role";
+  public static final String A_SERVICE_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED =
+      "a service client whose stated Git refs are refused";
   public static final String A_PUBLISHED_SIGNING_KEY = "a published signing key";
   public static final String A_COMMISSIONED_CLIENT = "a commissioned client";
   public static final String NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID =
@@ -81,6 +83,8 @@ public class ProviderStates {
   public static final String A_SERVICE_CLIENT_NOTHING_CLAIMS = "a service client nothing claims";
   public static final String AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI =
       "an authorization code issued to the CLI";
+  public static final String AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE =
+      "an authorization code issued to the CLI for the connect page";
   public static final String AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT =
       "an authorization code issued to the git client";
   public static final String A_SESSION_TO_REFRESH = "a session to refresh";
@@ -122,6 +126,21 @@ public class ProviderStates {
   /** The loopback callback every authorization code here is bound to. */
   static final String REDIRECT_URI = "http://127.0.0.1:53682/callback";
 
+  /**
+   * The CLI's connect page, {@code <idp>/connect/cli}, as {@code qits login} names it: the code
+   * page this idp serves under the endpoint base its discovery document advertises (with nothing
+   * configured, {@code http://dev-qits-idp:8080/idp}). Written out rather than read off {@code
+   * Issuer}, so the recorded param is the same whatever environment the suite runs in; a consumer
+   * names it with a provider-state generator, because its own idp address is a mock server's.
+   */
+  static final String CLI_PAGE_URI = "http://dev-qits-idp:8080/idp/connect/cli";
+
+  /**
+   * A Git ref the idp refuses in any list: outside {@code refs/heads/} ({@code GitRefs}). A
+   * commission that states it answers 400 {@code invalid_request}, whatever else it says.
+   */
+  static final String REFUSED_GIT_REF = "refs/tags/contract";
+
   /** The audience a refresh names; the idp accepts and ignores it (qits-163). */
   static final String AUDIENCE = "qits-platform";
 
@@ -159,6 +178,9 @@ public class ProviderStates {
 
   public ProviderStates() {
     states.put(A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE, this::aServiceClientWithTheSystemRole);
+    states.put(
+        A_SERVICE_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+        this::aServiceClientWhoseStatedGitRefsAreRefused);
     states.put(A_PUBLISHED_SIGNING_KEY, this::aPublishedSigningKey);
     states.put(A_COMMISSIONED_CLIENT, this::aCommissionedClient);
     states.put(NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID, this::noCommissionedClientWithTheGivenId);
@@ -167,8 +189,14 @@ public class ProviderStates {
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
     states.put(A_SERVICE_CLIENT_NOTHING_CLAIMS, this::aServiceClientNothingClaims);
-    states.put(AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI, () -> anAuthorizationCode(true));
-    states.put(AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT, () -> anAuthorizationCode(false));
+    states.put(
+        AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI, () -> anAuthorizationCode(true, REDIRECT_URI));
+    states.put(
+        AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE,
+        () -> anAuthorizationCode(true, CLI_PAGE_URI));
+    states.put(
+        AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT,
+        () -> anAuthorizationCode(false, REDIRECT_URI));
     states.put(A_SESSION_TO_REFRESH, () -> aSessionToRefresh(true));
     states.put(A_GIT_SESSION_TO_REFRESH, () -> aSessionToRefresh(false));
     states.put(A_SERVICE_CLIENT_CALLING_ITS_PEERS, this::aServiceClientCallingItsPeers);
@@ -261,6 +289,20 @@ public class ProviderStates {
    */
   private Setup aServiceClientWithTheSystemRole() {
     return new Setup(with(caller(), "clientSecret", CALLER_SECRET), List.of(), List.of());
+  }
+
+  /**
+   * The same caller, and {@code refusedGitRef}: a ref no list may hold ({@link #REFUSED_GIT_REF}).
+   * The idp checks a stated list by its entries alone, so what makes a commission refused is what
+   * it states; a consumer names the entry with a provider-state generator on {@code
+   * ${refusedGitRef}}, and the commission it sends answers 400. Its retry with {@code gitRefs: []}
+   * is an ordinary commission by a {@code qits:system} caller and answers 201.
+   */
+  private Setup aServiceClientWhoseStatedGitRefsAreRefused() {
+    return new Setup(
+        with(with(caller(), "clientSecret", CALLER_SECRET), "refusedGitRef", REFUSED_GIT_REF),
+        List.of(),
+        List.of());
   }
 
   /**
@@ -490,19 +532,20 @@ public class ProviderStates {
 
   /**
    * A code the person approved for the CLI ({@code qits-cli}) or the git client ({@code
-   * qits-git-workstation}), bound to {@link #REDIRECT_URI} and to {@link #CODE_VERIFIER}'s
-   * challenge — what {@code GET /idp/authorize} leaves in the store, without a browser.
+   * qits-git-workstation}), bound to {@code redirectUri} — the loopback {@link #REDIRECT_URI}, or
+   * for {@code qits login} the connect page {@link #CLI_PAGE_URI} — and to {@link
+   * #CODE_VERIFIER}'s challenge: what {@code GET /idp/authorize} leaves in the store, without a
+   * browser. The exchange must name the same {@code redirect_uri}, so it is the state's param.
    */
-  private Setup anAuthorizationCode(boolean cli) {
+  private Setup anAuthorizationCode(boolean cli, String redirectUri) {
     PublicClient client = cli ? publicClients.cli() : publicClients.workstation();
-    String code =
-        workstations.authorize(client, person(), REDIRECT_URI, CODE_CHALLENGE).value();
+    String code = workstations.authorize(client, person(), redirectUri, CODE_CHALLENGE).value();
     return new Setup(
         params(
             "clientId", client.id(),
             "code", code,
             "codeVerifier", CODE_VERIFIER,
-            "redirectUri", REDIRECT_URI),
+            "redirectUri", redirectUri),
         List.of(code),
         List.of());
   }

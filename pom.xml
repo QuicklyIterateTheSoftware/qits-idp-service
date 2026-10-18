@@ -73,12 +73,15 @@
              scope at the declaration site; a pin in <properties> like every other qits jar, so
              qits-maintenance bumps it when the consumer releases a changed pact (its PomParser
              reads pins regardless of scope). -->
+        <qits.artifacts-service-pacts-qits-idp-service.version>2026.1018.153037</qits.artifacts-service-pacts-qits-idp-service.version>
+        <qits.ci-service-pacts-qits-idp-service.version>2026.1018.160604</qits.ci-service-pacts-qits-idp-service.version>
         <qits.ci-runner-daemon-pacts-qits-idp-service.version>2026.1010.182056</qits.ci-runner-daemon-pacts-qits-idp-service.version>
         <qits.configuration-service-pacts-qits-idp-service.version>2026.1010.152418</qits.configuration-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
-        <qits.deployments-service-pacts-qits-idp-service.version>2026.1010.160720</qits.deployments-service-pacts-qits-idp-service.version>
+        <qits.deployments-service-pacts-qits-idp-service.version>2026.1018.151611</qits.deployments-service-pacts-qits-idp-service.version>
         <qits.edge-service-pacts-qits-idp-service.version>2026.1010.160354</qits.edge-service-pacts-qits-idp-service.version>
         <qits.events-service-pacts-qits-idp-service.version>2026.1010.151218</qits.events-service-pacts-qits-idp-service.version>
+        <qits.githost-service-pacts-qits-idp-service.version>2026.1018.160706</qits.githost-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
         <qits.projects-daemon-pacts-qits-idp-service.version>2026.1010.154418</qits.projects-daemon-pacts-qits-idp-service.version>
@@ -152,6 +155,20 @@
                 <!-- Test scope at every declaration site: a consumer's pact, verified by
                      ConsumerPactVerificationTest. -->
                 <groupId>${project.groupId}</groupId>
+                <artifactId>qits-artifacts-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.artifacts-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-ci-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.ci-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
                 <artifactId>qits-ci-runner-daemon-pacts-qits-idp-service</artifactId>
                 <version>${qits.ci-runner-daemon-pacts-qits-idp-service.version}</version>
             </dependency>
@@ -189,6 +206,13 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-events-service-pacts-qits-idp-service</artifactId>
                 <version>${qits.events-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-githost-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.githost-service-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by

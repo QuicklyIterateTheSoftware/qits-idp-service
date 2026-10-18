@@ -191,6 +191,23 @@ class GoldenMasterRecordingTest {
           + ProviderStates.CONTEXT_ID
           + "\"}";
 
+  /**
+   * The commission recorded for {@value ProviderStates#A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE}: the
+   * bootstrap's own, byte for byte ({@code BootstrapPublishCredential}), because qits-bootstrap-cli
+   * binds its row to a recording of exactly the request it sends. Every other commissioner sends
+   * its own body, which verification replays; the answer is the same shape whatever the kind.
+   */
+  static final String BOOTSTRAP_PUBLISH_COMMISSION_BODY =
+      "{\"contextKind\":\"bootstrap-publish\",\"contextId\":\"dev\",\"gitRefs\":[]}";
+
+  /** A commission stating a list the idp refuses: the state's {@code refusedGitRef}. */
+  static final String REFUSED_GIT_REFS_COMMISSION_BODY =
+      "{\"contextKind\":\""
+          + ProviderStates.CONTEXT_KIND
+          + "\",\"contextId\":\""
+          + ProviderStates.CONTEXT_ID
+          + "\",\"gitRefs\":[\"{refusedGitRef}\"]}";
+
   static final String GIT_REFS_BODY = "{\"gitRefs\":[\"refs/heads/contract/run-1\"]}";
 
   /** What the CLI's {@code qits users register} sends: no password, the idp makes one. */
@@ -251,6 +268,13 @@ class GoldenMasterRecordingTest {
               CLIENT_CREDENTIALS_IN_THE_FORM),
           token(
               ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI,
+              200,
+              false,
+              AUTHORIZATION_CODE_FORM,
+              "$.access_token",
+              "$.refresh_token"),
+          token(
+              ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE,
               200,
               false,
               AUTHORIZATION_CODE_FORM,
@@ -361,9 +385,17 @@ class GoldenMasterRecordingTest {
               "/idp/api/clients",
               201,
               JSON_TYPE,
-              COMMISSION_BODY,
+              BOOTSTRAP_PUBLISH_COMMISSION_BODY,
               "$.clientId",
               "$.secret"),
+          send(
+              ProviderStates.A_SERVICE_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+              "commissionClient",
+              "POST",
+              "/idp/api/clients",
+              400,
+              JSON_TYPE,
+              REFUSED_GIT_REFS_COMMISSION_BODY),
           list(ProviderStates.A_COMMISSIONED_CLIENT, "listClients", "/idp/api/clients"),
           send(
               ProviderStates.A_COMMISSIONED_CLIENT,

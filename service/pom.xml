@@ -164,6 +164,16 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>qits-artifacts-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-ci-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>qits-configuration-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
         </dependency>
@@ -185,6 +195,11 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>qits-events-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-githost-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
