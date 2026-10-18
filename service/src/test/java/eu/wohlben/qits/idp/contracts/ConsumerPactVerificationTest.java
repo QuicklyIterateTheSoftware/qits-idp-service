@@ -30,9 +30,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Fourteen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * <p><b>Sixteen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
  * the ci-runner, projects and workspace daemons, and the artifacts, ci, configuration, containers,
- * deployments, edge, events, githost, mirror, observability and system services. {@link ClasspathPactLoader#REQUIRED} is
+ * deployments, edge, events, githost, mirror, observability and system services — plus, through
+ * qits-runner-toolkit (qits-1163), the workspaces-runner and projects-desk-runner daemons, whose
+ * jars carry a three-part {@code pacts/<daemon>_qits-runner-javalib_qits-idp-service.json}:
+ * {@link ClasspathPactLoader} matches on the {@code _qits-idp-service.json} suffix alone, so the
+ * extra segment loads the same as everyone else's. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
  * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
  * the state here, with its golden master, never a weaker check.
