@@ -28,7 +28,7 @@
          API. Each comes back the day something here needs it, not before. -->
     <groupId>eu.wohlben.qits</groupId>
     <artifactId>qits-idp</artifactId>
-    <version>2026.1018.175524</version>
+    <version>2026.1018.231753</version>
     <packaging>pom</packaging>
     <name>qits-idp</name>
 
