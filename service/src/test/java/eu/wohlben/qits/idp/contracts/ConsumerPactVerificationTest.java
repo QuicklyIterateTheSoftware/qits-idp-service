@@ -31,11 +31,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
  * <p><b>Seventeen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
- * the ci-runner, projects, projects-desk-runner, workspace and workspaces-runner daemons, and the
- * artifacts, ci, configuration, containers, deployments, edge, events, githost, maintenance,
- * mirror, observability and system services. A runner daemon's pact is named for the toolkit it
- * calls through ({@code <consumer>_qits-runner-javalib_qits-idp-service.json}), and the loader
- * matches it by the provider suffix all the same. {@link ClasspathPactLoader#REQUIRED} is
+ * the ci-runner, projects and workspace daemons, and the artifacts, ci, configuration, containers,
+ * deployments, edge, events, githost, maintenance, mirror, observability and system services — plus, through
+ * qits-runner-toolkit (qits-1163), the workspaces-runner and projects-desk-runner daemons, whose
+ * jars carry a three-part {@code pacts/<daemon>_qits-runner-javalib_qits-idp-service.json}:
+ * {@link ClasspathPactLoader} matches on the {@code _qits-idp-service.json} suffix alone, so the
+ * extra segment loads the same as everyone else's. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
  * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
  * the state here, with its golden master, never a weaker check.

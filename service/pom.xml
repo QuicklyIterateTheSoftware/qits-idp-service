@@ -204,6 +204,11 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
+            <artifactId>qits-maintenance-service-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
             <artifactId>qits-mirror-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
         </dependency>
@@ -218,6 +223,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- Through qits-runner-toolkit (qits-1163): a three-part
+                 `pacts/qits-projects-desk-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-projects-desk-runner-daemon-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>qits-system-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
@@ -228,16 +240,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>qits-maintenance-service-pacts-qits-idp-service</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>qits-projects-desk-runner-daemon-pacts-qits-idp-service</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
+            <!-- Through qits-runner-toolkit (qits-1163): a three-part
+                 `pacts/qits-workspaces-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
             <groupId>${project.groupId}</groupId>
             <artifactId>qits-workspaces-runner-daemon-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
