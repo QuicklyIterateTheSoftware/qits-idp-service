@@ -208,6 +208,88 @@ class GoldenMasterRecordingTest {
           + ProviderStates.CONTEXT_ID
           + "\",\"gitRefs\":[\"{refusedGitRef}\"]}";
 
+  /**
+   * The commissioners' own bodies, one per caller (qits-1149 round 3): each consumer binds its
+   * commission to a recording of exactly what it sends. Every value that varies between calls is a
+   * {@code {param}} of the state; a member a caller leaves out is left out here, and {@code
+   * "claims": null} is what qits-workspaces-service's runner commission really sends.
+   */
+  static final String CI_RUNNER_COMMISSION_BODY =
+      "{\"contextKind\":\"ci-runner\",\"contextId\":\"{runnerId}\",\"gitRefs\":[]}";
+
+  static final String CI_RUNNER_REGISTRATION_COMMISSION_BODY =
+      "{\"contextKind\":\"ci-runner-registration\",\"contextId\":\"{runnerId}\",\"gitRefs\":[]}";
+
+  static final String CI_RUN_COMMISSION_BODY =
+      "{\"contextKind\":\"ci-run\",\"contextId\":\"{runId}\",\"gitRefs\":[\"{gitRef}\"]}";
+
+  static final String CI_RUN_UNSCOPED_COMMISSION_BODY =
+      "{\"contextKind\":\"ci-run\",\"contextId\":\"{runId}\"}";
+
+  static final String WORKSPACE_COMMISSION_BODY = workspaceBody("\"{gitRef}\"");
+
+  static final String WORKSPACE_REFUSED_COMMISSION_BODY = workspaceBody("\"{refusedGitRef}\"");
+
+  static final String WORKSPACE_PUSHING_NOTHING_COMMISSION_BODY = workspaceBody("");
+
+  static final String AGENT_COMMISSION_BODY = agentBody("\"{gitRef}\",\"{gitRef}-*\"");
+
+  static final String AGENT_REFUSED_COMMISSION_BODY = agentBody("\"{refusedGitRef}\"");
+
+  static final String AGENT_PUSHING_NOTHING_COMMISSION_BODY = agentBody("");
+
+  static final String WORKSPACE_RUNNER_COMMISSION_BODY =
+      "{\"contextKind\":\"workspaces-runner\",\"contextId\":\"{runnerId}\",\"claims\":null}";
+
+  static final String WORKSPACE_RUNNER_REGISTRATION_COMMISSION_BODY =
+      "{\"contextKind\":\"workspaces-runner-registration\",\"contextId\":\"{runnerId}\"}";
+
+  static final String DESK_RUNNER_COMMISSION_BODY =
+      "{\"contextKind\":\"desk-runner\",\"contextId\":\"{runnerId}\"}";
+
+  static final String DESK_RUNNER_REGISTRATION_COMMISSION_BODY =
+      "{\"contextKind\":\"desk-runner-registration\",\"contextId\":\"{runnerId}\"}";
+
+  static final String REFINEMENT_COMMISSION_BODY =
+      "{\"contextKind\":\"refinement\",\"contextId\":\"{refinementId}\","
+          + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":[]}";
+
+  static final String FRONT_DESK_COMMISSION_BODY =
+      "{\"contextKind\":\"agent-container\",\"contextId\":\"{projectId}\","
+          + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":[]}";
+
+  /** A workspace's commission, client and token alike, stating {@code refs}. */
+  private static String workspaceBody(String refs) {
+    return "{\"contextKind\":\"workspace\",\"contextId\":\"{workspaceId}\","
+        + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":["
+        + refs
+        + "]}";
+  }
+
+  /** An agent's token: the workspace's kind, {@code agent-<id>}, both claims, and {@code refs}. */
+  private static String agentBody(String refs) {
+    return "{\"contextKind\":\"workspace\",\"contextId\":\"agent-{agentId}\","
+        + "\"claims\":{\"project\":\"{projectId}\",\"agent\":\"{agentId}\"},\"gitRefs\":["
+        + refs
+        + "]}";
+  }
+
+  /** A commission answered 201: the client's pair, or the token's value and subject, opaque. */
+  private static Interaction commissions(String state, boolean client, String body) {
+    return client
+        ? send(state, "commissionClient", "POST", "/idp/api/clients", 201, JSON_TYPE, body,
+            "$.clientId", "$.secret")
+        : send(state, "commissionToken", "POST", "/idp/api/tokens", 201, JSON_TYPE, body,
+            "$.token", "$.subject");
+  }
+
+  /** A commission answered 400: the stated list is refused. */
+  private static Interaction refused(String state, boolean client, String body) {
+    return client
+        ? send(state, "commissionClient", "POST", "/idp/api/clients", 400, JSON_TYPE, body)
+        : send(state, "commissionToken", "POST", "/idp/api/tokens", 400, JSON_TYPE, body);
+  }
+
   static final String GIT_REFS_BODY = "{\"gitRefs\":[\"refs/heads/contract/run-1\"]}";
 
   /** What the CLI's {@code qits users register} sends: no password, the idp makes one. */
@@ -425,6 +507,75 @@ class GoldenMasterRecordingTest {
               404,
               null,
               null),
+          // --- each commissioner's own body ------------------------------------------------
+          commissions(
+              ProviderStates.A_CI_RUNNER_BEING_COMMISSIONED, true, CI_RUNNER_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_CI_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+              false,
+              CI_RUNNER_REGISTRATION_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED, false, CI_RUN_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE,
+              false,
+              CI_RUN_UNSCOPED_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED,
+              true,
+              WORKSPACE_COMMISSION_BODY),
+          refused(
+              ProviderStates.A_WORKSPACES_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+              true,
+              WORKSPACE_REFUSED_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED_TO_PUSH_NOTHING,
+              true,
+              WORKSPACE_PUSHING_NOTHING_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED,
+              false,
+              WORKSPACE_COMMISSION_BODY),
+          refused(
+              ProviderStates.A_WORKSPACES_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+              false,
+              WORKSPACE_REFUSED_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING,
+              false,
+              WORKSPACE_PUSHING_NOTHING_COMMISSION_BODY),
+          commissions(
+              ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED, false, AGENT_COMMISSION_BODY),
+          refused(
+              ProviderStates.AN_AGENTS_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+              false,
+              AGENT_REFUSED_COMMISSION_BODY),
+          commissions(
+              ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING,
+              false,
+              AGENT_PUSHING_NOTHING_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACE_RUNNER_BEING_COMMISSIONED,
+              true,
+              WORKSPACE_RUNNER_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+              false,
+              WORKSPACE_RUNNER_REGISTRATION_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED, true, DESK_RUNNER_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+              false,
+              DESK_RUNNER_REGISTRATION_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_REFINEMENTS_CLIENT_BEING_COMMISSIONED,
+              true,
+              REFINEMENT_COMMISSION_BODY),
+          commissions(
+              ProviderStates.A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED,
+              false,
+              FRONT_DESK_COMMISSION_BODY),
           // --- commissioned tokens -----------------------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,

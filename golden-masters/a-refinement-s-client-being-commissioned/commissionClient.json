@@ -1,0 +1,12 @@
+{
+  "clientId": "opaque",
+  "secret": "opaque",
+  "owner": "test-broad",
+  "contextKind": "refinement",
+  "contextId": "41",
+  "claims": {
+    "project": "00000000-0000-4000-8000-000000000001"
+  },
+  "gitRefs": [],
+  "createdAt": "2026-01-01T00:00:00Z"
+}

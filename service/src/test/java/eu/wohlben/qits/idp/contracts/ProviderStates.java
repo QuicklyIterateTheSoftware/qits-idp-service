@@ -104,6 +104,47 @@ public class ProviderStates {
   public static final String NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE =
       "no register token with the given value";
 
+  // --- one state per commissioner's body (qits-1149 round 3) -----------------------------------
+  // A consumer binds a commission by replaying the recorded body exactly, so each caller whose body
+  // differs gets its own recording. The values that vary between calls are the state's params.
+
+  public static final String A_CI_RUNNER_BEING_COMMISSIONED = "a ci runner being commissioned";
+  public static final String A_CI_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED =
+      "a ci runner's registration token being commissioned";
+  public static final String A_CI_RUNS_TOKEN_BEING_COMMISSIONED =
+      "a ci run's token being commissioned";
+  public static final String A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE =
+      "a ci run's token being commissioned without a Git scope";
+  public static final String A_WORKSPACES_CLIENT_BEING_COMMISSIONED =
+      "a workspace's client being commissioned";
+  public static final String A_WORKSPACES_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED =
+      "a workspace's client whose stated Git refs are refused";
+  public static final String A_WORKSPACES_CLIENT_BEING_COMMISSIONED_TO_PUSH_NOTHING =
+      "a workspace's client being commissioned to push nothing";
+  public static final String A_WORKSPACES_TOKEN_BEING_COMMISSIONED =
+      "a workspace's token being commissioned";
+  public static final String A_WORKSPACES_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED =
+      "a workspace's token whose stated Git refs are refused";
+  public static final String A_WORKSPACES_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING =
+      "a workspace's token being commissioned to push nothing";
+  public static final String AN_AGENTS_TOKEN_BEING_COMMISSIONED =
+      "an agent's token being commissioned";
+  public static final String AN_AGENTS_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED =
+      "an agent's token whose stated Git refs are refused";
+  public static final String AN_AGENTS_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING =
+      "an agent's token being commissioned to push nothing";
+  public static final String A_WORKSPACE_RUNNER_BEING_COMMISSIONED =
+      "a workspace runner being commissioned";
+  public static final String A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED =
+      "a workspace runner's registration token being commissioned";
+  public static final String A_DESK_RUNNER_BEING_COMMISSIONED = "a desk runner being commissioned";
+  public static final String A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED =
+      "a desk runner's registration token being commissioned";
+  public static final String A_REFINEMENTS_CLIENT_BEING_COMMISSIONED =
+      "a refinement's client being commissioned";
+  public static final String A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED =
+      "a front desk's token being commissioned";
+
   /** The calling service client: adopted at start, holds {@code qits:system}. */
   static final String CALLER = "test-broad";
 
@@ -140,6 +181,15 @@ public class ProviderStates {
    * commission that states it answers 400 {@code invalid_request}, whatever else it says.
    */
   static final String REFUSED_GIT_REF = "refs/tags/contract";
+
+  /** The Git ref a commissioner's stated list names: a branch, as every list entry must be. */
+  static final String GIT_REF = "refs/heads/ticket/contract";
+
+  /** A workspace's row id, as qits-workspaces-service names its commission's context. */
+  static final String WORKSPACE_ID = "7";
+
+  /** A refinement's row id, as qits-projects-service names its commission's context. */
+  static final String REFINEMENT_ID = "41";
 
   /** The audience a refresh names; the idp accepts and ignores it (qits-163). */
   static final String AUDIENCE = "qits-platform";
@@ -211,6 +261,63 @@ public class ProviderStates {
     states.put(AN_UNSPENT_REGISTER_TOKEN, this::anUnspentRegisterToken);
     states.put(
         NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE, this::noRegisterTokenWithTheGivenValue);
+    // The commissioners: each the caller and the context its body names.
+    states.put(A_CI_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
+    states.put(
+        A_CI_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+        () -> commissioning("runnerId", uuid()));
+    states.put(
+        A_CI_RUNS_TOKEN_BEING_COMMISSIONED,
+        () -> commissioning("runId", uuid(), "gitRef", GIT_REF));
+    states.put(
+        A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE,
+        () -> commissioning("runId", uuid()));
+    for (String state :
+        List.of(
+            A_WORKSPACES_CLIENT_BEING_COMMISSIONED,
+            A_WORKSPACES_CLIENT_BEING_COMMISSIONED_TO_PUSH_NOTHING,
+            A_WORKSPACES_TOKEN_BEING_COMMISSIONED,
+            A_WORKSPACES_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING)) {
+      states.put(
+          state,
+          () ->
+              commissioning(
+                  "workspaceId", WORKSPACE_ID, "projectId", uuid(), "gitRef", GIT_REF));
+    }
+    for (String state :
+        List.of(
+            A_WORKSPACES_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+            A_WORKSPACES_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED)) {
+      states.put(
+          state,
+          () ->
+              commissioning(
+                  "workspaceId", WORKSPACE_ID, "projectId", uuid(),
+                  "refusedGitRef", REFUSED_GIT_REF));
+    }
+    states.put(
+        AN_AGENTS_TOKEN_BEING_COMMISSIONED,
+        () -> commissioning("agentId", uuid(), "projectId", uuid(), "gitRef", GIT_REF));
+    states.put(
+        AN_AGENTS_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING,
+        () -> commissioning("agentId", uuid(), "projectId", uuid(), "gitRef", GIT_REF));
+    states.put(
+        AN_AGENTS_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED,
+        () ->
+            commissioning(
+                "agentId", uuid(), "projectId", uuid(), "refusedGitRef", REFUSED_GIT_REF));
+    states.put(A_WORKSPACE_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
+    states.put(
+        A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+        () -> commissioning("runnerId", uuid()));
+    states.put(A_DESK_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
+    states.put(
+        A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
+        () -> commissioning("runnerId", uuid()));
+    states.put(
+        A_REFINEMENTS_CLIENT_BEING_COMMISSIONED,
+        () -> commissioning("refinementId", REFINEMENT_ID, "projectId", uuid()));
+    states.put(A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED, () -> commissioning("projectId", uuid()));
   }
 
   /** Every state name this provider answers for. */
@@ -562,6 +669,25 @@ public class ProviderStates {
       params = with(params, "audience", AUDIENCE);
     }
     return new Setup(params, List.of(refreshToken), List.of());
+  }
+
+  /**
+   * A commissioner about to commission: the caller, and the context values its body names — the
+   * ids it varies per call, the project it scopes to, the branch it states. Nothing is seeded: the
+   * commission the consumer sends is what makes the row, and a row's id is fresh every time. A
+   * {@code {param}} the recording's body names is filled from these, and a consumer names each
+   * with a provider-state generator.
+   */
+  private Setup commissioning(String... keysAndValues) {
+    Map<String, String> params = caller();
+    for (int i = 0; i < keysAndValues.length; i += 2) {
+      params = with(params, keysAndValues[i], keysAndValues[i + 1]);
+    }
+    return new Setup(params, List.of(), List.of());
+  }
+
+  private static String uuid() {
+    return UUID.randomUUID().toString();
   }
 
   /** A fresh person holding {@code qits:admin}; their id. */

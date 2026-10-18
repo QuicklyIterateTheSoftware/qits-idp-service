@@ -30,9 +30,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Fourteen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
- * the ci-runner, projects and workspace daemons, and the artifacts, ci, configuration, containers,
- * deployments, edge, events, githost, mirror, observability and system services. {@link ClasspathPactLoader#REQUIRED} is
+ * <p><b>Seventeen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * the ci-runner, projects, projects-desk-runner, workspace and workspaces-runner daemons, and the
+ * artifacts, ci, configuration, containers, deployments, edge, events, githost, maintenance,
+ * mirror, observability and system services. A runner daemon's pact is named for the toolkit it
+ * calls through ({@code <consumer>_qits-runner-javalib_qits-idp-service.json}), and the loader
+ * matches it by the provider suffix all the same. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
  * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
  * the state here, with its golden master, never a weaker check.
@@ -222,5 +225,102 @@ class ConsumerPactVerificationTest {
   @State(ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE)
   Map<String, String> noRegisterTokenWithTheGivenValue() {
     return states.params(ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE);
+  }
+
+  // --- the commissioners, one state per body each ---------------------------------------------
+
+  @State(ProviderStates.A_CI_RUNNER_BEING_COMMISSIONED)
+  Map<String, String> aCiRunnerBeingCommissioned() {
+    return states.params(ProviderStates.A_CI_RUNNER_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_CI_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aCiRunnersRegistrationTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_CI_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aCiRunsTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE)
+  Map<String, String> aCiRunsTokenBeingCommissionedWithoutAGitScope() {
+    return states.params(ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED)
+  Map<String, String> aWorkspacesClientBeingCommissioned() {
+    return states.params(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED)
+  Map<String, String> aWorkspacesClientWhoseStatedGitRefsAreRefused() {
+    return states.params(ProviderStates.A_WORKSPACES_CLIENT_WHOSE_STATED_GIT_REFS_ARE_REFUSED);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED_TO_PUSH_NOTHING)
+  Map<String, String> aWorkspacesClientBeingCommissionedToPushNothing() {
+    return states.params(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED_TO_PUSH_NOTHING);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aWorkspacesTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED)
+  Map<String, String> aWorkspacesTokenWhoseStatedGitRefsAreRefused() {
+    return states.params(ProviderStates.A_WORKSPACES_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED);
+  }
+
+  @State(ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING)
+  Map<String, String> aWorkspacesTokenBeingCommissionedToPushNothing() {
+    return states.params(ProviderStates.A_WORKSPACES_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING);
+  }
+
+  @State(ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> anAgentsTokenBeingCommissioned() {
+    return states.params(ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.AN_AGENTS_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED)
+  Map<String, String> anAgentsTokenWhoseStatedGitRefsAreRefused() {
+    return states.params(ProviderStates.AN_AGENTS_TOKEN_WHOSE_STATED_GIT_REFS_ARE_REFUSED);
+  }
+
+  @State(ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING)
+  Map<String, String> anAgentsTokenBeingCommissionedToPushNothing() {
+    return states.params(ProviderStates.AN_AGENTS_TOKEN_BEING_COMMISSIONED_TO_PUSH_NOTHING);
+  }
+
+  @State(ProviderStates.A_WORKSPACE_RUNNER_BEING_COMMISSIONED)
+  Map<String, String> aWorkspaceRunnerBeingCommissioned() {
+    return states.params(ProviderStates.A_WORKSPACE_RUNNER_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aWorkspaceRunnersRegistrationTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED)
+  Map<String, String> aDeskRunnerBeingCommissioned() {
+    return states.params(ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aDeskRunnersRegistrationTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_REFINEMENTS_CLIENT_BEING_COMMISSIONED)
+  Map<String, String> aRefinementsClientBeingCommissioned() {
+    return states.params(ProviderStates.A_REFINEMENTS_CLIENT_BEING_COMMISSIONED);
+  }
+
+  @State(ProviderStates.A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aFrontDesksTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED);
   }
 }
