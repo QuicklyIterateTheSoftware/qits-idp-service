@@ -77,63 +77,15 @@ class ConsumerPactVerificationTest {
     }
   }
 
-  private static final String NO_CREDENTIAL =
-      "the request carries no Authorization header, so the honest answer of a door that"
-          + " authenticates its caller is 401 — the state names the caller's Basic credential in"
-          + " its 'authorization' param, but the row declares no header with a provider-state"
-          + " generator on ${authorization} (as qits-projects-service's and"
-          + " qits-workspaces-service's rows do); the fix is a new pact version from the consumer"
-          + " (ticket qits-1149)";
-
   /**
    * The pinned interactions that are wrong, each by the version of the consumer's jar: the entry
    * is for that version alone, so the bump carrying the consumer's fix verifies the interaction
    * for real, and a bump that does not fix it goes red here. Each is skipped with its reason —
    * never answered by bending the provider to it (the pattern of qits-maintenance-service's).
+   * None now: bootstrap 2026.1019.84610 and orchestrator 2026.1019.92500 send the credential their
+   * states name, which the six bootstrap and two orchestrator entries of the earlier jars did not.
    */
-  static final List<KnownWrong> KNOWN_WRONG =
-      List.of(
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: every phase that presents a machine token: issueToken",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: idp-clients: createServiceClient",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: idp-clients: rotateServiceClientSecret",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: images-publish, daemon-publish (the publishing"
-                  + " credential): commissionClient",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: publish-credential-release: decommissionClient",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-bootstrap-cli",
-              "2026.1018.214549",
-              "qits-bootstrap bootstrap: register-token: mintRegisterToken",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-orchestrator-service",
-              "2026.1018.172917",
-              "GcSchedule.onSchedule: collectServiceClients",
-              NO_CREDENTIAL),
-          new KnownWrong(
-              "qits-orchestrator-service",
-              "2026.1018.172917",
-              "PeerTokens.token: issueToken",
-              NO_CREDENTIAL));
+  static final List<KnownWrong> KNOWN_WRONG = List.of();
 
   @Inject ProviderStates states;
 
