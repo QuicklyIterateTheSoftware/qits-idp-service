@@ -81,8 +81,9 @@
              ClasspathPactLoader matches by the `_qits-idp-service.json` suffix alone, so the extra
              segment loads exactly like qits-ci-runner-daemon's two-part one. -->
         <qits.artifacts-service-pacts-qits-idp-service.version>2026.1019.62657</qits.artifacts-service-pacts-qits-idp-service.version>
-        <qits.ci-service-pacts-qits-idp-service.version>2026.1019.5831</qits.ci-service-pacts-qits-idp-service.version>
+        <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1018.214549</qits.bootstrap-cli-pacts-qits-idp-service.version>
         <qits.ci-runner-daemon-pacts-qits-idp-service.version>2026.1019.612</qits.ci-runner-daemon-pacts-qits-idp-service.version>
+        <qits.ci-service-pacts-qits-idp-service.version>2026.1019.5831</qits.ci-service-pacts-qits-idp-service.version>
         <qits.configuration-service-pacts-qits-idp-service.version>2026.1010.152418</qits.configuration-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1018.151611</qits.deployments-service-pacts-qits-idp-service.version>
@@ -92,11 +93,15 @@
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1018.165353</qits.maintenance-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
+        <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1018.172917</qits.orchestrator-service-pacts-qits-idp-service.version>
+        <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1019.65035</qits.platform-access-cli-pacts-qits-idp-service.version>
         <qits.projects-daemon-pacts-qits-idp-service.version>2026.1010.154418</qits.projects-daemon-pacts-qits-idp-service.version>
         <qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>2026.1018.162220</qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>
+        <qits.projects-service-pacts-qits-idp-service.version>2026.1018.195756</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1010.145705</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspace-daemon-pacts-qits-idp-service.version>2026.1010.154553</qits.workspace-daemon-pacts-qits-idp-service.version>
         <qits.workspaces-runner-daemon-pacts-qits-idp-service.version>2026.1018.164439</qits.workspaces-runner-daemon-pacts-qits-idp-service.version>
+        <qits.workspaces-service-pacts-qits-idp-service.version>2026.1019.70413</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -281,6 +286,41 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-workspaces-runner-daemon-pacts-qits-idp-service</artifactId>
                 <version>${qits.workspaces-runner-daemon-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-bootstrap-cli-pacts-qits-idp-service</artifactId>
+                <version>${qits.bootstrap-cli-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-orchestrator-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.orchestrator-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-platform-access-cli-pacts-qits-idp-service</artifactId>
+                <version>${qits.platform-access-cli-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-projects-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.projects-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-workspaces-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.workspaces-service-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site. -->

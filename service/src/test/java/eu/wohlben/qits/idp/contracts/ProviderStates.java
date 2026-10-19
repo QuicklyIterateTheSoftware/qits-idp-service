@@ -14,21 +14,26 @@ import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.control.UnclaimedServiceClientCollector;
 import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.control.WorkstationCredentials;
+import eu.wohlben.qits.idp.entity.IdpAuthorizationCode;
 import eu.wohlben.qits.idp.entity.IdpDynamicClient;
 import eu.wohlben.qits.idp.entity.IdpSigningKey;
 import eu.wohlben.qits.idp.entity.IdpSigningKeyStatus;
 import eu.wohlben.qits.idp.entity.IdpUser;
 import eu.wohlben.qits.idp.entity.IdpUserRole;
+import eu.wohlben.qits.idp.entity.IdpWorkstationRefreshToken;
+import eu.wohlben.qits.idp.persistence.IdpAuthorizationCodeRepository;
 import eu.wohlben.qits.idp.persistence.IdpDynamicClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpSigningKeyRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
+import eu.wohlben.qits.idp.persistence.IdpWorkstationRefreshTokenRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
@@ -223,6 +228,9 @@ public class ProviderStates {
   @Inject TokenService tokenService;
   @Inject RegisterTokens registerTokens;
   @Inject IdpDynamicClientRepository dynamicClientRows;
+  @Inject IdpAuthorizationCodeRepository codeRows;
+  @Inject Users accounts;
+  @Inject IdpWorkstationRefreshTokenRepository refreshTokenRows;
 
   private final Map<String, Supplier<Setup>> states = new LinkedHashMap<>();
 
@@ -376,6 +384,100 @@ public class ProviderStates {
     return commissionedClientParams(clientId, clientSecret);
   }
 
+  /**
+   * {@value #AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI}, {@value
+   * #AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE} or {@value
+   * #AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT} as a consumer's pact states it, for
+   * verification.
+   *
+   * <p>The same reasoning as {@link #commissionedClientAsStated}: a code is random, and a consumer
+   * that sends the token form literally (the two CLIs' pacts do: a form body carries no generator
+   * there) sends the frozen {@code code} its params state. When the params name a {@code code},
+   * this issues exactly that code — the row {@code GET /idp/authorize} leaves, for a fresh person,
+   * bound to the stated {@code redirectUri} and to the stated {@code codeVerifier}'s challenge — so
+   * the state the consumer describes is the state it gets. An earlier interaction's row of the same
+   * value (spent, by then) is replaced. Without a stated code it is the ordinary state.
+   */
+  public Map<String, String> authorizationCodeAsStated(String state, Map<String, ?> stated) {
+    boolean cli = !AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT.equals(state);
+    String fallbackUri =
+        AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE.equals(state)
+            ? CLI_PAGE_URI
+            : REDIRECT_URI;
+    String code = statedString(stated, "code");
+    if (code == null) {
+      return params(state);
+    }
+    String redirectUri = orElse(statedString(stated, "redirectUri"), fallbackUri);
+    String verifier = orElse(statedString(stated, "codeVerifier"), CODE_VERIFIER);
+    PublicClient client = cli ? publicClients.cli() : publicClients.workstation();
+    UUID person = person();
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              codeRows.delete("codeHash", ClientSecret.hash(code));
+              Instant now = Instant.now();
+              IdpAuthorizationCode row = new IdpAuthorizationCode();
+              row.id = UUID.randomUUID();
+              row.codeHash = ClientSecret.hash(code);
+              row.clientId = client.id();
+              row.userId = person;
+              row.redirectUri = redirectUri;
+              row.codeChallenge = s256(verifier);
+              row.createdAt = now;
+              row.expiresAt = now.plus(client.authorizationCodeTtl());
+              codeRows.persist(row);
+            });
+    return params(
+        "clientId", client.id(),
+        "code", code,
+        "codeVerifier", verifier,
+        "redirectUri", redirectUri);
+  }
+
+  /**
+   * {@value #A_SESSION_TO_REFRESH} or {@value #A_GIT_SESSION_TO_REFRESH} as a consumer's pact
+   * states it, for verification: when the params name a {@code refreshToken}, this starts a live
+   * refresh family holding exactly that value for a fresh person — what a spent code leaves —
+   * replacing an earlier interaction's row of the same value (rotated away, by then). Without a
+   * stated value it is the ordinary state. See {@link #authorizationCodeAsStated}.
+   */
+  public Map<String, String> sessionToRefreshAsStated(String state, Map<String, ?> stated) {
+    boolean cli = A_SESSION_TO_REFRESH.equals(state);
+    String refreshToken = statedString(stated, "refreshToken");
+    if (refreshToken == null) {
+      return params(state);
+    }
+    PublicClient client = cli ? publicClients.cli() : publicClients.workstation();
+    UUID person = person();
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              refreshTokenRows.delete("tokenHash", ClientSecret.hash(refreshToken));
+              Instant now = Instant.now();
+              IdpWorkstationRefreshToken row = new IdpWorkstationRefreshToken();
+              row.id = UUID.randomUUID();
+              row.familyId = UUID.randomUUID();
+              row.clientId = client.id();
+              row.tokenHash = ClientSecret.hash(refreshToken);
+              row.userId = person;
+              row.createdAt = now;
+              row.expiresAt = now.plus(Duration.ofDays(1));
+              refreshTokenRows.persist(row);
+            });
+    Map<String, String> params = params("clientId", client.id(), "refreshToken", refreshToken);
+    return cli ? params : with(params, "audience", AUDIENCE);
+  }
+
+  private static String statedString(Map<String, ?> stated, String key) {
+    Object value = stated == null ? null : stated.get(key);
+    return value instanceof String text && !text.isEmpty() ? text : null;
+  }
+
+  private static String orElse(String value, String fallback) {
+    return value != null ? value : fallback;
+  }
+
   /** The state's slug: lower-cased, every run of non-alphanumerics replaced by {@code -}. */
   public static String slug(String state) {
     return state.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
@@ -522,8 +624,15 @@ public class ProviderStates {
    * A {@code qits:admin} person signed in to the CLI — {@code authorization} is their bearer, as
    * the CLI's login leaves it — and a second person, {@code username}, for the admin to list and
    * delete.
+   *
+   * <p><b>Those two are the only accounts</b>: every other one — what earlier tests and states
+   * left, some without a role — is deleted first, so {@code GET /idp/api/users}, whose answer is
+   * every account there is, lists exactly the people this state describes, whatever ran before it.
    */
   private Setup anAdminSignedInToTheCli() {
+    for (Users.Summary account : accounts.list()) {
+      accounts.delete(account.username());
+    }
     Setup admin = adminBearer();
     UUID other = person();
     String username = "contract-" + other;

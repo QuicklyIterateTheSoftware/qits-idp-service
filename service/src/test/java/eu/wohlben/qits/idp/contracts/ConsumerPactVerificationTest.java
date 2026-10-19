@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,16 +31,20 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Seventeen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
- * the ci-runner, projects and workspace daemons, and the artifacts, ci, configuration, containers,
- * deployments, edge, events, githost, maintenance, mirror, observability and system services — plus, through
- * qits-runner-toolkit (qits-1163), the workspaces-runner and projects-desk-runner daemons, whose
- * jars carry a three-part {@code pacts/<daemon>_qits-runner-javalib_qits-idp-service.json}:
+ * <p><b>Twenty-two consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * both CLIs (qits-bootstrap-cli, qits-platform-access-cli), the ci-runner, projects and workspace
+ * daemons, and the artifacts, ci, configuration, containers, deployments, edge, events, githost,
+ * maintenance, mirror, observability, orchestrator, projects, system and workspaces services —
+ * plus, through qits-runner-toolkit (qits-1163), the workspaces-runner and projects-desk-runner
+ * daemons, whose jars carry a three-part {@code pacts/<daemon>_qits-runner-javalib_qits-idp-service.json}:
  * {@link ClasspathPactLoader} matches on the {@code _qits-idp-service.json} suffix alone, so the
  * extra segment loads the same as everyone else's. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
  * interaction naming a state this provider does not answer fails in {@link #target}: the fix is
  * the state here, with its golden master, never a weaker check.
+ *
+ * <p><b>A pinned pact that is wrong is named in {@link #KNOWN_WRONG}, by its jar's version</b>, and
+ * its interaction is reported as skipped with the reason.
  *
  * <p>Each interaction runs against this {@code @QuarkusTest} application over real HTTP. The idp
  * has no synthetic user: a door that takes HTTP Basic gets the state's {@code authorization} param,
@@ -61,6 +66,74 @@ class ConsumerPactVerificationTest {
     // pact-jvm reports usage metrics over the network unless told not to; a test never should.
     System.setProperty("pact_do_not_track", "true");
   }
+
+  /** A pinned pact interaction this provider cannot honour, and why: the consumer must fix it. */
+  record KnownWrong(String consumer, String version, String description, String reason) {
+
+    boolean names(Pact pact, Interaction interaction) {
+      return consumer.equals(pact.getConsumer().getName())
+          && description.equals(interaction.getDescription())
+          && String.valueOf(pact.getSource()).contains("/" + version + "/");
+    }
+  }
+
+  private static final String NO_CREDENTIAL =
+      "the request carries no Authorization header, so the honest answer of a door that"
+          + " authenticates its caller is 401 — the state names the caller's Basic credential in"
+          + " its 'authorization' param, but the row declares no header with a provider-state"
+          + " generator on ${authorization} (as qits-projects-service's and"
+          + " qits-workspaces-service's rows do); the fix is a new pact version from the consumer"
+          + " (ticket qits-1149)";
+
+  /**
+   * The pinned interactions that are wrong, each by the version of the consumer's jar: the entry
+   * is for that version alone, so the bump carrying the consumer's fix verifies the interaction
+   * for real, and a bump that does not fix it goes red here. Each is skipped with its reason —
+   * never answered by bending the provider to it (the pattern of qits-maintenance-service's).
+   */
+  static final List<KnownWrong> KNOWN_WRONG =
+      List.of(
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: every phase that presents a machine token: issueToken",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: idp-clients: createServiceClient",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: idp-clients: rotateServiceClientSecret",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: images-publish, daemon-publish (the publishing"
+                  + " credential): commissionClient",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: publish-credential-release: decommissionClient",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-bootstrap-cli",
+              "2026.1018.214549",
+              "qits-bootstrap bootstrap: register-token: mintRegisterToken",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-orchestrator-service",
+              "2026.1018.172917",
+              "GcSchedule.onSchedule: collectServiceClients",
+              NO_CREDENTIAL),
+          new KnownWrong(
+              "qits-orchestrator-service",
+              "2026.1018.172917",
+              "PeerTokens.token: issueToken",
+              NO_CREDENTIAL));
 
   @Inject ProviderStates states;
 
@@ -93,6 +166,13 @@ class ConsumerPactVerificationTest {
                 + interaction.getDescription()
                 + "' carries no comments.references."
                 + key);
+      }
+    }
+    for (KnownWrong wrong : KNOWN_WRONG) {
+      if (wrong.names(pact, interaction)) {
+        Assumptions.abort(
+            consumer + " " + wrong.version() + " '" + interaction.getDescription() + "': "
+                + wrong.reason());
       }
     }
     context.setTarget(new HttpTestTarget(base.getHost(), base.getPort()));
@@ -157,30 +237,37 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#authorizationCodeAsStated}. */
   @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI)
-  Map<String, String> anAuthorizationCodeIssuedToTheCli() {
-    return states.params(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI);
+  Map<String, String> anAuthorizationCodeIssuedToTheCli(Map<String, Object> stated) {
+    return states.authorizationCodeAsStated(
+        ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI, stated);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#authorizationCodeAsStated}. */
   @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE)
-  Map<String, String> anAuthorizationCodeIssuedToTheCliForTheConnectPage() {
-    return states.params(
-        ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE);
+  Map<String, String> anAuthorizationCodeIssuedToTheCliForTheConnectPage(Map<String, Object> stated) {
+    return states.authorizationCodeAsStated(
+        ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE, stated);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#authorizationCodeAsStated}. */
   @State(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT)
-  Map<String, String> anAuthorizationCodeIssuedToTheGitClient() {
-    return states.params(ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT);
+  Map<String, String> anAuthorizationCodeIssuedToTheGitClient(Map<String, Object> stated) {
+    return states.authorizationCodeAsStated(
+        ProviderStates.AN_AUTHORIZATION_CODE_ISSUED_TO_THE_GIT_CLIENT, stated);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#sessionToRefreshAsStated}. */
   @State(ProviderStates.A_SESSION_TO_REFRESH)
-  Map<String, String> aSessionToRefresh() {
-    return states.params(ProviderStates.A_SESSION_TO_REFRESH);
+  Map<String, String> aSessionToRefresh(Map<String, Object> stated) {
+    return states.sessionToRefreshAsStated(ProviderStates.A_SESSION_TO_REFRESH, stated);
   }
 
+  /** Reads the consumer's params: {@link ProviderStates#sessionToRefreshAsStated}. */
   @State(ProviderStates.A_GIT_SESSION_TO_REFRESH)
-  Map<String, String> aGitSessionToRefresh() {
-    return states.params(ProviderStates.A_GIT_SESSION_TO_REFRESH);
+  Map<String, String> aGitSessionToRefresh(Map<String, Object> stated) {
+    return states.sessionToRefreshAsStated(ProviderStates.A_GIT_SESSION_TO_REFRESH, stated);
   }
 
   @State(ProviderStates.A_SERVICE_CLIENT_CALLING_ITS_PEERS)
