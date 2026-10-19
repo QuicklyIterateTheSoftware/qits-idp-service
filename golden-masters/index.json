@@ -266,6 +266,35 @@
       ]
     },
     {
+      "name": "a commissioned client handing itself back",
+      "slug": "a-commissioned-client-handing-itself-back",
+      "params": {
+        "authorization": "Basic ZHluLWNvbnRyYWN0LXJ1bi0xLTAwMDAwMDAwMDAwMDAwMDAwMDAwMDE6MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMg==",
+        "clientId": "dyn-contract-run-1-0000000000000000000001",
+        "clientSecret": "0000000000000000000000000000000000000000002",
+        "secret": "0000000000000000000000000000000000000000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "decommissionClient",
+          "method": "DELETE",
+          "path": "/idp/api/clients/{clientId}",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a commissioned token",
       "slug": "a-commissioned-token",
       "params": {
@@ -779,6 +808,51 @@
           },
           "status": 200,
           "file": "a-service-client-nothing-claims/collectServiceClients.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$.removed[*].createdAt",
+              "$.kept[*].createdAt"
+            ],
+            "strings": [
+              "$.removed[*].clientId",
+              "$.kept[*].clientId"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a service client nothing claims, calling with its bearer",
+      "slug": "a-service-client-nothing-claims-calling-with-its-bearer",
+      "params": {
+        "authorization": "Bearer 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "callerClientId": "test-broad",
+        "claimedClientId": "contract-claimed-00000002",
+        "unclaimedClientId": "contract-unclaimed-00000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "collectServiceClients",
+          "method": "POST",
+          "path": "/idp/api/gc/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "dryRun": false,
+            "claims": [
+              {
+                "clientId": "{claimedClientId}",
+                "applicationName": "contract"
+              }
+            ]
+          },
+          "status": 200,
+          "file": "a-service-client-nothing-claims-calling-with-its-bearer/collectServiceClients.json",
           "frozen": {
             "ids": [],
             "instants": [

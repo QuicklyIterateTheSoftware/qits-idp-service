@@ -491,6 +491,10 @@ class GoldenMasterRecordingTest {
               ProviderStates.A_COMMISSIONED_CLIENT,
               "decommissionClient",
               "/idp/api/clients/{clientId}"),
+          delete(
+              ProviderStates.A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK,
+              "decommissionClient",
+              "/idp/api/clients/{clientId}"),
           send(
               ProviderStates.NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID,
               "replaceClientGitRefs",
@@ -669,6 +673,20 @@ class GoldenMasterRecordingTest {
           // --- the orchestrator's collection --------------------------------------------------
           new Interaction(
               ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS,
+              "collectServiceClients",
+              "POST",
+              "/idp/api/gc/service-clients",
+              200,
+              null,
+              "$.removed:clientId;$.kept:clientId",
+              JSON_TYPE,
+              "{\"dryRun\":false,\"claims\":[{\"clientId\":\"{claimedClientId}\","
+                  + "\"applicationName\":\"contract\"}]}",
+              BASIC,
+              List.of(),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS_CALLING_WITH_ITS_BEARER,
               "collectServiceClients",
               "POST",
               "/idp/api/gc/service-clients",

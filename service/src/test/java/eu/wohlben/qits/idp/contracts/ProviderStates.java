@@ -35,6 +35,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HexFormat;
@@ -86,6 +87,10 @@ public class ProviderStates {
   public static final String NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID =
       "no service client with the given id";
   public static final String A_SERVICE_CLIENT_NOTHING_CLAIMS = "a service client nothing claims";
+  public static final String A_SERVICE_CLIENT_NOTHING_CLAIMS_CALLING_WITH_ITS_BEARER =
+      "a service client nothing claims, calling with its bearer";
+  public static final String A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK =
+      "a commissioned client handing itself back";
   public static final String AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI =
       "an authorization code issued to the CLI";
   public static final String AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI_FOR_THE_CONNECT_PAGE =
@@ -159,6 +164,16 @@ public class ProviderStates {
   static final String CONTEXT_KIND = "contract";
 
   static final String CONTEXT_ID = "run-1";
+
+  /**
+   * {@value #A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK}'s pair: the shape of a commissioned id and
+   * secret (22 random characters, 43 for the secret), spelled as {@value #A_COMMISSIONED_CLIENT}'s
+   * frozen pair reads.
+   */
+  static final String HANDBACK_CLIENT_ID =
+      DynamicClients.ID_PREFIX + CONTEXT_KIND + "-" + CONTEXT_ID + "-0000000000000000000001";
+
+  static final String HANDBACK_SECRET = "0000000000000000000000000000000000000000002";
 
   /**
    * The PKCE verifier of every authorization code a state makes: fixed, so a consumer sends the
@@ -247,6 +262,11 @@ public class ProviderStates {
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
     states.put(A_SERVICE_CLIENT_NOTHING_CLAIMS, this::aServiceClientNothingClaims);
+    states.put(
+        A_SERVICE_CLIENT_NOTHING_CLAIMS_CALLING_WITH_ITS_BEARER,
+        this::aServiceClientNothingClaimsCallingWithItsBearer);
+    states.put(
+        A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK, this::aCommissionedClientHandingItselfBack);
     states.put(
         AN_AUTHORIZATION_CODE_ISSUED_TO_THE_CLI, () -> anAuthorizationCode(true, REDIRECT_URI));
     states.put(
@@ -367,6 +387,28 @@ public class ProviderStates {
         || clientSecret.isEmpty()) {
       return params(A_COMMISSIONED_CLIENT);
     }
+    seedCommissionedClient(clientId, clientSecret);
+    return commissionedClientParams(clientId, clientSecret);
+  }
+
+  /**
+   * {@value #A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK} as a consumer's pact states it: a {@code
+   * dyn-} id and secret in its params are the client seeded, and its {@code authorization} is that
+   * pair's own Basic. Without them it is the ordinary state.
+   */
+  public Map<String, String> commissionedClientHandingItselfBackAsStated(Map<String, ?> stated) {
+    String clientId = statedString(stated, "clientId");
+    String clientSecret = statedString(stated, "clientSecret");
+    if (clientId == null
+        || !clientId.startsWith(DynamicClients.ID_PREFIX)
+        || clientSecret == null) {
+      return params(A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK);
+    }
+    return handingItselfBack(clientId, clientSecret).params();
+  }
+
+  /** A {@code dyn-} client of exactly this id and secret, owned by {@link #CALLER}. */
+  private void seedCommissionedClient(String clientId, String clientSecret) {
     // Evicts the cache too, so a row an earlier interaction seeded is not answered from it.
     dynamicClients.decommission(clientId, CALLER);
     QuarkusTransaction.requiringNew()
@@ -381,7 +423,6 @@ public class ProviderStates {
               row.createdAt = Instant.now();
               dynamicClientRows.persist(row);
             });
-    return commissionedClientParams(clientId, clientSecret);
   }
 
   /**
@@ -744,6 +785,52 @@ public class ProviderStates {
         with(with(caller(), "claimedClientId", claimed), "unclaimedClientId", unclaimed),
         List.of(token),
         List.of());
+  }
+
+  /**
+   * {@value #A_SERVICE_CLIENT_NOTHING_CLAIMS}, the caller presenting its own bearer instead of its
+   * Basic pair: {@code authorization} is {@code Bearer <token>}, a token this idp minted for
+   * {@value #CALLER} by client credentials — a service client holding {@code qits:system}, which is
+   * what the collection door takes a bearer from (the orchestrator calls it so). The store is set up
+   * exactly as for the Basic caller, so the answer is the same.
+   */
+  private Setup aServiceClientNothingClaimsCallingWithItsBearer() {
+    Setup claims = aServiceClientNothingClaims();
+    String bearer = tokenService.clientCredentials(CALLER, CALLER_SECRET).accessToken();
+    List<String> unique = new ArrayList<>(claims.uniqueTokens());
+    unique.add(bearer);
+    return new Setup(
+        with(claims.params(), "authorization", "Bearer " + bearer),
+        List.copyOf(unique),
+        claims.created());
+  }
+
+  /**
+   * A commissioned {@code dyn-} client about to hand itself back: the caller is the client ITSELF,
+   * {@code authorization} the Basic of its own {@code clientId} and {@code clientSecret} — any
+   * credential may decommission its own row with no platform role (the bootstrap hands back its
+   * publishing credential so). The pair is fixed, {@link #HANDBACK_CLIENT_ID} and {@link
+   * #HANDBACK_SECRET}, rather than random: a random pair's Basic header could not be frozen, and
+   * the row is seeded afresh (any earlier one of that id evicted first) on every run.
+   */
+  private Setup aCommissionedClientHandingItselfBack() {
+    return handingItselfBack(HANDBACK_CLIENT_ID, HANDBACK_SECRET);
+  }
+
+  private Setup handingItselfBack(String clientId, String clientSecret) {
+    seedCommissionedClient(clientId, clientSecret);
+    String own =
+        "Basic "
+            + Base64.getEncoder()
+                .encodeToString(
+                    (clientId + ":" + clientSecret).getBytes(StandardCharsets.UTF_8));
+    Map<String, String> params =
+        params(
+            "authorization", own,
+            "clientId", clientId,
+            "clientSecret", clientSecret,
+            "secret", clientSecret);
+    return new Setup(params, List.of(), List.of(clientId));
   }
 
   /**

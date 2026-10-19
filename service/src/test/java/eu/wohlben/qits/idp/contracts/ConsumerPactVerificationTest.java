@@ -232,6 +232,20 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID);
   }
 
+  @State(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS_CALLING_WITH_ITS_BEARER)
+  Map<String, String> aServiceClientNothingClaimsCallingWithItsBearer() {
+    return states.params(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS_CALLING_WITH_ITS_BEARER);
+  }
+
+  /**
+   * Reads the consumer's params: {@link
+   * ProviderStates#commissionedClientHandingItselfBackAsStated}.
+   */
+  @State(ProviderStates.A_COMMISSIONED_CLIENT_HANDING_ITSELF_BACK)
+  Map<String, String> aCommissionedClientHandingItselfBack(Map<String, Object> stated) {
+    return states.commissionedClientHandingItselfBackAsStated(stated);
+  }
+
   @State(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS)
   Map<String, String> aServiceClientNothingClaims() {
     return states.params(ProviderStates.A_SERVICE_CLIENT_NOTHING_CLAIMS);
