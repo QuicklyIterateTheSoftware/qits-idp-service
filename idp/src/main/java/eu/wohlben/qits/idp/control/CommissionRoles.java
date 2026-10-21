@@ -10,8 +10,8 @@ import java.util.Optional;
  *
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
- * is a dynamic context a service provisioned, so it gets the kind's own role or none at all. Twelve
- * kinds carry a role:
+ * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
+ * Thirteen kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container} and {@code refinement} get {@code qits:agent};
@@ -22,6 +22,9 @@ import java.util.Optional;
  *       named explicitly next to every such check, until the doors that must stay human-only drop
  *       it one by one. It is issued here and nowhere else — never to a person, never by
  *       configuration;
+ *   <li>{@code desk-delivery} gets {@code qits:agent} and {@code qits:desk} — the project's own
+ *       delivery loop (qits-1440). {@code qits:desk} is admitted on dispatch, prompt delivery and
+ *       approve, and is always bound to the token's {@code project} claim;
  *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run} — since the CI-runners
  *       campaign's closing release (qits-444, 2026-09-30), qits-ci commissions {@code ci-run} as a
  *       token ({@link CommissionedTokens}) rather than as a client; {@code bootstrap-publish} is
@@ -71,6 +74,13 @@ public final class CommissionRoles {
    */
   private static final List<String> ADMIN_AGENT = List.of("qits:agent", "qits:admin-agent");
 
+  /**
+   * The project's own delivery loop (qits-1440): an agent, plus {@code qits:desk}, admitted on
+   * dispatch, prompt delivery and approve and always bound to the token's {@code project} claim.
+   * See the class javadoc.
+   */
+  private static final List<String> DESK_DELIVERY = List.of("qits:agent", "qits:desk");
+
   private static final List<String> CI_RUN = List.of("qits:ci-run");
 
   private static final List<String> CI_RUNNER = List.of("qits:ci-runner");
@@ -102,6 +112,9 @@ public final class CommissionRoles {
           Map.entry("workspace-admin", ADMIN_AGENT),
           Map.entry("agent-container", AGENT),
           Map.entry("refinement", AGENT),
+          // The project's own delivery loop (qits-1440): an agent, plus qits:desk. See the class
+          // javadoc.
+          Map.entry("desk-delivery", DESK_DELIVERY),
           Map.entry("ci-run", CI_RUN),
           // The bootstrap's own publishing identity, for its publish phase only — same role as the
           // CI publisher because publishing is CI's door, deleted by the bootstrap at the end of

@@ -23,6 +23,9 @@ public class CommissionRolesTest {
     assertEquals(
         List.of("qits:agent", "qits:admin-agent"), CommissionRoles.forKind("workspace-admin"));
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("refinement"));
+    // The project's own delivery loop (qits-1440): an agent, plus qits:desk — admitted on
+    // dispatch, prompt delivery and approve, always bound to the token's project claim.
+    assertEquals(List.of("qits:agent", "qits:desk"), CommissionRoles.forKind("desk-delivery"));
     assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("ci-run"));
     // The bootstrap's own publishing identity holds the CI publisher's role, because publishing to
     // qits-artifacts is CI's door (user ruling 2026-09-13). It is short-lived: the bootstrap
