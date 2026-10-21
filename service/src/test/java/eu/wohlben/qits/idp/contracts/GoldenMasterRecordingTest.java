@@ -459,6 +459,14 @@ class GoldenMasterRecordingTest {
               JSON_TYPE,
               "{\"token\":\"{token}\"}",
               "$.accessToken"),
+          send(
+              ProviderStates.A_COMMISSIONED_TOKEN_THAT_WAS_DELETED,
+              "introspectToken",
+              "POST",
+              "/idp/api/tokens/introspect",
+              404,
+              JSON_TYPE,
+              "{\"token\":\"{token}\"}"),
           // --- commissioned clients ----------------------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,

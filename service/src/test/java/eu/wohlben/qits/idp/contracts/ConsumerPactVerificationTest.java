@@ -169,6 +169,11 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_COMMISSIONED_TOKEN);
   }
 
+  @State(ProviderStates.A_COMMISSIONED_TOKEN_THAT_WAS_DELETED)
+  Map<String, String> aCommissionedTokenThatWasDeleted() {
+    return states.params(ProviderStates.A_COMMISSIONED_TOKEN_THAT_WAS_DELETED);
+  }
+
   @State(ProviderStates.A_SIGNED_IN_PERSON)
   Map<String, String> aSignedInPerson() {
     return states.params(ProviderStates.A_SIGNED_IN_PERSON);

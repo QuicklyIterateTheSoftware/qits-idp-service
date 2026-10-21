@@ -82,6 +82,8 @@ public class ProviderStates {
   public static final String NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID =
       "no commissioned client with the given id";
   public static final String A_COMMISSIONED_TOKEN = "a commissioned token";
+  public static final String A_COMMISSIONED_TOKEN_THAT_WAS_DELETED =
+      "a commissioned token that was deleted";
   public static final String A_SIGNED_IN_PERSON = "a signed-in person";
   public static final String A_DATABASE_SERVICE_CLIENT = "a database service client";
   public static final String NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID =
@@ -258,6 +260,7 @@ public class ProviderStates {
     states.put(A_COMMISSIONED_CLIENT, this::aCommissionedClient);
     states.put(NO_COMMISSIONED_CLIENT_WITH_THE_GIVEN_ID, this::noCommissionedClientWithTheGivenId);
     states.put(A_COMMISSIONED_TOKEN, this::aCommissionedToken);
+    states.put(A_COMMISSIONED_TOKEN_THAT_WAS_DELETED, this::aCommissionedTokenThatWasDeleted);
     states.put(A_SIGNED_IN_PERSON, this::aSignedInPerson);
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
@@ -729,6 +732,25 @@ public class ProviderStates {
             issued.value().substring(TOKEN_PREFIX.length()),
             randomSuffix(issued.token().subject())),
         List.of(tokenId));
+  }
+
+  /**
+   * A token this caller commissioned and then deleted — through {@link CommissionedTokens#delete},
+   * the same path {@code DELETE /idp/api/tokens/{tokenId}} runs. {@code token} is the value the
+   * context once held; the row behind it is gone, so introspecting it answers the same 404 as a
+   * value nothing ever commissioned. Nothing is {@linkplain Setup#created left for a listing} —
+   * there is nothing left to list.
+   */
+  private Setup aCommissionedTokenThatWasDeleted() {
+    CommissionedTokens.Commissioned issued =
+        commissionedTokens.commission(CALLER, CONTEXT_KIND, CONTEXT_ID, null, null);
+    commissionedTokens.delete(issued.token().id(), CALLER);
+    String tokenId = issued.token().id().toString();
+    return new Setup(
+        with(with(caller(), "tokenId", tokenId), "token", issued.value()),
+        // The value's random part only, so the recorded value keeps its qits_tok_ prefix.
+        List.of(issued.value().substring(TOKEN_PREFIX.length())),
+        List.of());
   }
 
   /** A person with {@code qits:admin} and a live session, as a sign-in would leave them. */

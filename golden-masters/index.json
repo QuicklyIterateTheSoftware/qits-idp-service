@@ -400,6 +400,39 @@
       ]
     },
     {
+      "name": "a commissioned token that was deleted",
+      "slug": "a-commissioned-token-that-was-deleted",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "token": "qits_tok_0000000000000000000000000000000000000000001",
+        "tokenId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "introspectToken",
+          "method": "POST",
+          "path": "/idp/api/tokens/introspect",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "token": "{token}"
+          },
+          "status": 404,
+          "file": "a-commissioned-token-that-was-deleted/introspectToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a database service client",
       "slug": "a-database-service-client",
       "params": {
