@@ -38,6 +38,7 @@
     "project",
     "workspace",
     "branch",
-    "agent"
+    "agent",
+    "entity"
   ]
 }
