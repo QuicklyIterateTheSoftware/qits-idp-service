@@ -56,6 +56,7 @@ public class IdpMetadataTest {
                 "workspace",
                 "branch",
                 "agent",
+                "entity",
                 "credential_type",
                 "git_ref_pattern"))
         .body("authorization_endpoint", equalTo(PublishedJwks.ENDPOINT_BASE + "/authorize"))

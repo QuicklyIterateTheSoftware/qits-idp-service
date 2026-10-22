@@ -31,8 +31,15 @@ public final class ClaimNames {
    */
   public static final String AGENT = "agent";
 
+  /**
+   * The work item a token is bound to: the entity's UUID. qits-projects states it on a refinement
+   * session's own token (qits-1482), and its refinement doors refuse a bearer whose entity is not
+   * the refinement's. Only a commission states it.
+   */
+  public static final String ENTITY = "entity";
+
   /** Every claim a commission may state, in the order a token carries them. */
-  public static final List<String> GRANTABLE = List.of(PROJECT, WORKSPACE, BRANCH, AGENT);
+  public static final List<String> GRANTABLE = List.of(PROJECT, WORKSPACE, BRANCH, AGENT, ENTITY);
 
   /**
    * The Git refs a token may push, a JSON array — see {@link GitRefs}. NOT grantable: the idp sets

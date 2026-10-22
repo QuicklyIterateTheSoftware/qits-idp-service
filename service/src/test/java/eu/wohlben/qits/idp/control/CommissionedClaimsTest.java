@@ -69,6 +69,15 @@ public class CommissionedClaimsTest {
         CommissionedClaims.stated(Map.of(ClaimNames.AGENT, agentId)));
   }
 
+  /** A refinement session's token names its work item (qits-1482). */
+  @Test
+  public void anEntityIdIsAccepted() {
+    String entityId = "520a4917-dbd7-49d1-9001-4bd82fa378c5";
+    assertEquals(
+        Map.of(ClaimNames.PROJECT, "p-1", ClaimNames.ENTITY, entityId),
+        CommissionedClaims.stated(Map.of(ClaimNames.ENTITY, entityId, ClaimNames.PROJECT, "p-1")));
+  }
+
   @Test
   public void onlyTheGrantableNamesAreAccepted() {
     // Every name the vocabulary has, at once, so this test fails the day one is added without a

@@ -83,7 +83,7 @@ The token is RS256, carries a `kid`, and says:
 | `aud` | always `["qits-platform"]` — see below |
 | `iat`, `exp`, `jti` | issued now, valid for `qits.idp.token-ttl-seconds` (3600 by default) |
 | `groups` | the client's roles (fixed in code), **plus `clients/<client id>`** — see below |
-| `project`, `workspace`, `branch`, `agent` | `project=*` for a service client; a commission's own stated claims |
+| `project`, `workspace`, `branch`, `agent`, `entity` | `project=*` for a service client; a commission's own stated claims |
 | `context_kind` | commissioned clients only: the commission's `contextKind` |
 | `git_refs` | commissioned clients only, and only when the commission stated a list — see [Git refs](#git-refs) |
 
@@ -328,8 +328,9 @@ The rules around them:
   (a resource service reads an absent claim as "unscoped" and answers it from roles), while `*` is
   the one value that is never a narrowing — it stays a service client's own fixed claim, which no
   request can state. Only `project`,
-  `workspace`, `branch` and `agent` may be stated; any other name is a 400. `agent` is the coding
-  agent's UUID, stated only on an agent's own credential. See `control/CommissionedClaims`.
+  `workspace`, `branch`, `agent` and `entity` may be stated; any other name is a 400. `agent` is the
+  coding agent's UUID, stated only on an agent's own credential; `entity` is the work item a
+  refinement session's token is bound to (qits-1482). See `control/CommissionedClaims`.
 - **Its self-role is its own, never its owner's.** `clients/dyn-…` is stamped from the id in `sub`,
   so a credential commissioned by a service cannot walk through a door held open for that service.
 - **Only a service client may commission** — one with an `idp_service_client` row, never a commissioned one. A
