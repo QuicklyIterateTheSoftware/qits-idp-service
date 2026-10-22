@@ -11,10 +11,12 @@ import java.util.Optional;
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
  * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
- * Thirteen kinds carry a role:
+ * Fourteen kinds carry a role:
  *
  * <ul>
- *   <li>{@code workspace}, {@code agent-container} and {@code refinement} get {@code qits:agent};
+ *   <li>{@code workspace}, {@code agent-container}, {@code refinement} and {@code desk-session}
+ *       (qits-1482, a project's front desk: one principal per desk session rather than sharing the
+ *       desk container's {@code agent-container} token) get {@code qits:agent};
  *   <li>{@code workspace-admin} gets {@code qits:agent} and {@code qits:admin-agent} — the
  *       credential of an ADMIN workspace's container, the one that holds the host's docker socket.
  *       {@code qits:admin-agent} is the owner's role for an admin workspace's agent (qits-628
@@ -112,6 +114,9 @@ public final class CommissionRoles {
           Map.entry("workspace-admin", ADMIN_AGENT),
           Map.entry("agent-container", AGENT),
           Map.entry("refinement", AGENT),
+          // One principal per front-desk session, instead of sharing the desk container's
+          // agent-container token (qits-1482).
+          Map.entry("desk-session", AGENT),
           // The project's own delivery loop (qits-1440): an agent, plus qits:desk. See the class
           // javadoc.
           Map.entry("desk-delivery", DESK_DELIVERY),

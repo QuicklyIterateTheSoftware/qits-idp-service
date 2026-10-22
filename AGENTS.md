@@ -118,7 +118,8 @@ for.
 
 **A commissioned credential's roles are code, not a merge with its owner's**
 (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
-`Map<String, List<String>>`: `workspace`, `agent-container`, `refinement` (`qits:agent`),
+`Map<String, List<String>>`: `workspace`, `agent-container`, `refinement`, `desk-session`
+(qits-1482, one principal per front-desk session) (`qits:agent`),
 `workspace-admin` (`qits:agent` and `qits:admin-agent` — an ADMIN workspace's container credential;
 `qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),

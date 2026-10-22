@@ -289,7 +289,8 @@ The rules around them:
   owner.
 - **Its roles are its context kind's fixed ones — never its owner's**
   (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles` is a plain code map, not
-  configuration: `workspace`, `agent-container` and `refinement` get `qits:agent`;
+  configuration: `workspace`, `agent-container`, `refinement` and `desk-session` (qits-1482, one
+  principal per front-desk session) get `qits:agent`;
   `workspace-admin` — the credential of an ADMIN workspace's container, which holds the host's
   docker socket — gets `qits:agent` and `qits:admin-agent`, the role every door that admits
   `qits:admin` also admits by name (qits-628 follow-up); `ci-run` and

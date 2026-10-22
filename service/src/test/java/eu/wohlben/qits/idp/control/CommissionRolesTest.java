@@ -23,6 +23,9 @@ public class CommissionRolesTest {
     assertEquals(
         List.of("qits:agent", "qits:admin-agent"), CommissionRoles.forKind("workspace-admin"));
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("refinement"));
+    // One principal per front-desk session, instead of sharing the desk container's
+    // agent-container token (qits-1482).
+    assertEquals(List.of("qits:agent"), CommissionRoles.forKind("desk-session"));
     // The project's own delivery loop (qits-1440): an agent, plus qits:desk — admitted on
     // dispatch, prompt delivery and approve, always bound to the token's project claim.
     assertEquals(List.of("qits:agent", "qits:desk"), CommissionRoles.forKind("desk-delivery"));
@@ -75,6 +78,7 @@ public class CommissionRolesTest {
             "workspace",
             "agent-container",
             "refinement",
+            "desk-session",
             "ci-run",
             "bootstrap-publish",
             "ci-runner",
