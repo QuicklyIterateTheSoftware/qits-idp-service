@@ -230,6 +230,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <!-- Through qits-runner-toolkit (qits-1163): a three-part
+                 `pacts/qits-system-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-system-runner-daemon-pacts-qits-idp-service</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>qits-system-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
