@@ -67,6 +67,21 @@ public class CommissionRolesTest {
     assertNotEquals(
         List.of("qits:workspaces-runner"),
         CommissionRoles.forKind("desk-runner-registration"));
+    // A qits-system execution target's own identity and its registration credential (epic
+    // qits-1481): each its own role, neither qits:agent nor any other runner's.
+    assertEquals(
+        List.of("qits:target-runner"), CommissionRoles.forKind("target-runner"));
+    assertEquals(
+        List.of("qits:target-runner-registration"),
+        CommissionRoles.forKind("target-runner-registration"));
+    assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("target-runner"));
+    assertNotEquals(
+        List.of("qits:agent"), CommissionRoles.forKind("target-runner-registration"));
+    assertNotEquals(
+        List.of("qits:desk-runner"), CommissionRoles.forKind("target-runner"));
+    assertNotEquals(
+        List.of("qits:desk-runner"),
+        CommissionRoles.forKind("target-runner-registration"));
   }
 
   @Test
@@ -86,7 +101,9 @@ public class CommissionRolesTest {
             "workspaces-runner",
             "workspaces-runner-registration",
             "desk-runner",
-            "desk-runner-registration")) {
+            "desk-runner-registration",
+            "target-runner",
+            "target-runner-registration")) {
       assertFalse(CommissionRoles.forKind(kind).contains("qits:admin-agent"), kind);
       assertFalse(CommissionRoles.forKind(kind).contains("qits:admin"), kind);
     }

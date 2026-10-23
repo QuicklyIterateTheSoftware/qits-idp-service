@@ -11,7 +11,7 @@ import java.util.Optional;
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
  * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
- * Fourteen kinds carry a role:
+ * Sixteen kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container}, {@code refinement} and {@code desk-session}
@@ -42,7 +42,12 @@ import java.util.Optional;
  *   <li>{@code desk-runner} gets {@code qits:desk-runner} — a front-desk runner's
  *       own identity, distinct from {@code workspaces-runner} and from {@code qits:agent};
  *   <li>{@code desk-runner-registration} gets {@code qits:desk-runner-registration}
- *       — the narrower credential a front-desk runner registers itself with, and nothing more.
+ *       — the narrower credential a front-desk runner registers itself with, and nothing more;
+ *   <li>{@code target-runner} gets {@code qits:target-runner} — a qits-system execution target's
+ *       own identity (epic qits-1481), distinct from every other runner kind and from {@code
+ *       qits:agent};
+ *   <li>{@code target-runner-registration} gets {@code qits:target-runner-registration} — the
+ *       narrower credential a target registers itself with, and nothing more.
  * </ul>
  *
  * <p>The same map applies to a commissioned token ({@link CommissionedTokens}) as to a commissioned
@@ -100,6 +105,11 @@ public final class CommissionRoles {
   private static final List<String> DESK_RUNNER_REGISTRATION =
       List.of("qits:desk-runner-registration");
 
+  private static final List<String> TARGET_RUNNER = List.of("qits:target-runner");
+
+  private static final List<String> TARGET_RUNNER_REGISTRATION =
+      List.of("qits:target-runner-registration");
+
   /**
    * Looked up by key and never iterated, which is why {@link Map#ofEntries} is safe here: its
    * iteration order is salted per JVM, so a reader that ever walks this map must sort or keep its
@@ -136,7 +146,12 @@ public final class CommissionRoles {
           // A front-desk runner's own identity, and the narrower one it registers itself with.
           // Neither is a workspace runner, so neither holds qits:workspaces-runner.
           Map.entry("desk-runner", DESK_RUNNER),
-          Map.entry("desk-runner-registration", DESK_RUNNER_REGISTRATION));
+          Map.entry("desk-runner-registration", DESK_RUNNER_REGISTRATION),
+          // A qits-system execution target's own identity (epic qits-1481), and the narrower one it
+          // registers itself with. Neither is any other runner kind, so neither holds another
+          // runner's role.
+          Map.entry("target-runner", TARGET_RUNNER),
+          Map.entry("target-runner-registration", TARGET_RUNNER_REGISTRATION));
 
   private CommissionRoles() {}
 

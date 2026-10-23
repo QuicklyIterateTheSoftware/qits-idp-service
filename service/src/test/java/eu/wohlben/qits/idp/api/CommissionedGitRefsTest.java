@@ -43,9 +43,10 @@ import org.junit.jupiter.api.Test;
  * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
  * {@code qits:workspaces-runner-registration}; {@code desk-runner} → {@code
  * qits:desk-runner}; {@code desk-runner-registration} → {@code
- * qits:desk-runner-registration}) or, for any
+ * qits:desk-runner-registration}; {@code target-runner} → {@code qits:target-runner}; {@code
+ * target-runner-registration} → {@code qits:target-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the twelve shipped kinds and an invented, deliberately unknown one rather
+ * these tests exercise the fourteen shipped kinds and an invented, deliberately unknown one rather
  * than a test-only configured kind.
  */
 @QuarkusTest
@@ -384,7 +385,10 @@ public class CommissionedGitRefsTest {
           Map.entry(
               "workspaces-runner-registration", List.of("qits:workspaces-runner-registration")),
           Map.entry("desk-runner", List.of("qits:desk-runner")),
-          Map.entry("desk-runner-registration", List.of("qits:desk-runner-registration")));
+          Map.entry("desk-runner-registration", List.of("qits:desk-runner-registration")),
+          Map.entry("target-runner", List.of("qits:target-runner")),
+          Map.entry(
+              "target-runner-registration", List.of("qits:target-runner-registration")));
 
   @Test
   public void eachShippedKindCarriesExactlyItsRoleAndItsSelfRole() throws Exception {
