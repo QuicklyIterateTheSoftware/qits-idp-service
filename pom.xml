@@ -102,7 +102,7 @@
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1023.84005</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspace-daemon-pacts-qits-idp-service.version>2026.1010.154553</qits.workspace-daemon-pacts-qits-idp-service.version>
-        <qits.workspaces-service-pacts-qits-idp-service.version>2026.1022.75919</qits.workspaces-service-pacts-qits-idp-service.version>
+        <qits.workspaces-service-pacts-qits-idp-service.version>2026.1024.141209</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
