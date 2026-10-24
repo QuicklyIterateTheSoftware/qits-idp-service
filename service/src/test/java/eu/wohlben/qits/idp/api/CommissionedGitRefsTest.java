@@ -40,13 +40,12 @@ import org.junit.jupiter.api.Test;
  * workspace-admin} → {@code qits:agent} and {@code qits:admin-agent}; {@code
  * ci-run} and {@code bootstrap-publish} → {@code qits:ci-run}; {@code ci-runner} → {@code
  * qits:ci-runner}; {@code ci-runner-registration} → {@code qits:ci-runner-registration}; {@code
- * workspaces-runner} → {@code qits:workspaces-runner}; {@code workspaces-runner-registration} →
- * {@code qits:workspaces-runner-registration}; {@code desk-runner} → {@code
+ * desk-runner} → {@code
  * qits:desk-runner}; {@code desk-runner-registration} → {@code
  * qits:desk-runner-registration}; {@code target-runner} → {@code qits:target-runner}; {@code
  * target-runner-registration} → {@code qits:target-runner-registration}) or, for any
  * other kind, none at all beyond its own self-role. There is no longer a way to configure one, so
- * these tests exercise the fourteen shipped kinds and an invented, deliberately unknown one rather
+ * these tests exercise the twelve shipped kinds and an invented, deliberately unknown one rather
  * than a test-only configured kind.
  */
 @QuarkusTest
@@ -381,9 +380,6 @@ public class CommissionedGitRefsTest {
           Map.entry("bootstrap-publish", List.of("qits:ci-run")),
           Map.entry("ci-runner", List.of("qits:ci-runner")),
           Map.entry("ci-runner-registration", List.of("qits:ci-runner-registration")),
-          Map.entry("workspaces-runner", List.of("qits:workspaces-runner")),
-          Map.entry(
-              "workspaces-runner-registration", List.of("qits:workspaces-runner-registration")),
           Map.entry("desk-runner", List.of("qits:desk-runner")),
           Map.entry("desk-runner-registration", List.of("qits:desk-runner-registration")),
           Map.entry("target-runner", List.of("qits:target-runner")),

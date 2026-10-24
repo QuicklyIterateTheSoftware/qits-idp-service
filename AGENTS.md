@@ -123,9 +123,7 @@ for.
 `workspace-admin` (`qits:agent` and `qits:admin-agent` — an ADMIN workspace's container credential;
 `qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),
-`ci-runner-registration` (`qits:ci-runner-registration`), `workspaces-runner`
-(`qits:workspaces-runner`), `workspaces-runner-registration`
-(`qits:workspaces-runner-registration`), `desk-runner`
+`ci-runner-registration` (`qits:ci-runner-registration`), `desk-runner`
 (`qits:desk-runner`), `desk-runner-registration`
 (`qits:desk-runner-registration`), `target-runner` (`qits:target-runner`, epic qits-1481, a
 qits-system execution target's own identity) and `target-runner-registration`

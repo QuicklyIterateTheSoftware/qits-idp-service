@@ -74,7 +74,7 @@
              qits-maintenance bumps it when the consumer releases a changed pact (its PomParser
              reads pins regardless of scope).
 
-             qits-workspaces-runner-daemon, qits-projects-desk-runner-daemon and
+             qits-projects-desk-runner-daemon and
              qits-system-runner-daemon (qits-1163) pin a THREE-part pact name,
              `pacts/<daemon>_qits-runner-javalib_qits-idp-service.json`: each daemon mints its
              commissioned-client token through qits-runner-toolkit, a shared library, rather than
@@ -102,7 +102,6 @@
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1023.84005</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspace-daemon-pacts-qits-idp-service.version>2026.1010.154553</qits.workspace-daemon-pacts-qits-idp-service.version>
-        <qits.workspaces-runner-daemon-pacts-qits-idp-service.version>2026.1022.101507</qits.workspaces-runner-daemon-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1022.75919</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
@@ -288,14 +287,6 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-workspace-daemon-pacts-qits-idp-service</artifactId>
                 <version>${qits.workspace-daemon-pacts-qits-idp-service.version}</version>
-            </dependency>
-            <dependency>
-                <!-- Test scope at every declaration site: a consumer's pact, verified by
-                     ConsumerPactVerificationTest. Through qits-runner-toolkit (qits-1163): a
-                     three-part `pacts/qits-workspaces-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
-                <groupId>${project.groupId}</groupId>
-                <artifactId>qits-workspaces-runner-daemon-pacts-qits-idp-service</artifactId>
-                <version>${qits.workspaces-runner-daemon-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by

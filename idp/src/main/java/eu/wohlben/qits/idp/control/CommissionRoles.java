@@ -11,7 +11,7 @@ import java.util.Optional;
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
  * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
- * Sixteen kinds carry a role:
+ * Fourteen kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container}, {@code refinement} and {@code desk-session}
@@ -35,12 +35,8 @@ import java.util.Optional;
  *       any one run's;
  *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a
  *       runner registers itself with, and nothing more;
- *   <li>{@code workspaces-runner} gets {@code qits:workspaces-runner} — a workspace runner's own
- *       identity, distinct from {@code ci-runner} and from {@code qits:agent};
- *   <li>{@code workspaces-runner-registration} gets {@code qits:workspaces-runner-registration} —
- *       the narrower credential a workspace runner registers itself with, and nothing more;
  *   <li>{@code desk-runner} gets {@code qits:desk-runner} — a front-desk runner's
- *       own identity, distinct from {@code workspaces-runner} and from {@code qits:agent};
+ *       own identity, distinct from {@code ci-runner} and from {@code qits:agent};
  *   <li>{@code desk-runner-registration} gets {@code qits:desk-runner-registration}
  *       — the narrower credential a front-desk runner registers itself with, and nothing more;
  *   <li>{@code target-runner} gets {@code qits:target-runner} — a qits-system execution target's
@@ -95,11 +91,6 @@ public final class CommissionRoles {
   private static final List<String> CI_RUNNER_REGISTRATION =
       List.of("qits:ci-runner-registration");
 
-  private static final List<String> WORKSPACES_RUNNER = List.of("qits:workspaces-runner");
-
-  private static final List<String> WORKSPACES_RUNNER_REGISTRATION =
-      List.of("qits:workspaces-runner-registration");
-
   private static final List<String> DESK_RUNNER = List.of("qits:desk-runner");
 
   private static final List<String> DESK_RUNNER_REGISTRATION =
@@ -139,12 +130,8 @@ public final class CommissionRoles {
           // run, so neither holds qits:ci-run.
           Map.entry("ci-runner", CI_RUNNER),
           Map.entry("ci-runner-registration", CI_RUNNER_REGISTRATION),
-          // A workspace runner's own identity, and the narrower one it registers itself with.
-          // Neither is an agent, so neither holds qits:agent.
-          Map.entry("workspaces-runner", WORKSPACES_RUNNER),
-          Map.entry("workspaces-runner-registration", WORKSPACES_RUNNER_REGISTRATION),
           // A front-desk runner's own identity, and the narrower one it registers itself with.
-          // Neither is a workspace runner, so neither holds qits:workspaces-runner.
+          // Neither is a ci runner, so neither holds qits:ci-runner.
           Map.entry("desk-runner", DESK_RUNNER),
           Map.entry("desk-runner-registration", DESK_RUNNER_REGISTRATION),
           // A qits-system execution target's own identity (epic qits-1481), and the narrower one it
