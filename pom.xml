@@ -97,7 +97,7 @@
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1019.110932</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1019.195617</qits.platform-access-cli-pacts-qits-idp-service.version>
         <qits.projects-daemon-pacts-qits-idp-service.version>2026.1010.154418</qits.projects-daemon-pacts-qits-idp-service.version>
-        <qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>2026.1023.213427</qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>
+        <qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>2026.1025.4118</qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1018.195756</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1023.84005</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
