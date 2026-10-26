@@ -121,7 +121,10 @@ for.
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement`, `desk-session`
 (qits-1482, one principal per front-desk session) (`qits:agent`),
 `workspace-admin` (`qits:agent` and `qits:admin-agent` — an ADMIN workspace's container credential;
-`qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up), `ci-run`
+`qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up),
+`desk-delivery` (`qits:agent`, `qits:desk` and `qits:desk-admin` — the project's own delivery loop,
+qits-1440; `qits:desk-admin` is admitted wherever `qits:admin-agent` is named, except the
+git-receive-pack door, epic qits-1621), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `ci-runner` (`qits:ci-runner`),
 `ci-runner-registration` (`qits:ci-runner-registration`), `desk-runner`
 (`qits:desk-runner`), `desk-runner-registration`

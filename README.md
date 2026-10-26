@@ -168,8 +168,9 @@ commission API next to it: the caller must be a service client — never commiss
 `qits:system`.
 
 **The two `GET`s also accept a bearer** (qits-162): a JWT this idp issued, with `aud` including
-`qits-platform`, whose `groups` hold `qits:agent`, `qits:system`, `qits:admin` or `qits:admin-agent` (an admin
-workspace's agent, admitted wherever `qits:admin` is — qits-628 follow-up) — verified in-process
+`qits-platform`, whose `groups` hold `qits:agent`, `qits:system`, `qits:admin`, `qits:admin-agent` (an admin
+workspace's agent, admitted wherever `qits:admin` is — qits-628 follow-up) or `qits:desk-admin`
+(the delivery desk's commissioned token, admitted wherever `qits:admin-agent` is — epic qits-1621) — verified in-process
 against the published signing keys (`BearerCaller`). A bearer holding none of them is 403; one that
 does not verify is 401 `invalid_token`. Every write stays Basic-only, so a bearer there is 401: an
 agent keeps every read and gains no write.
@@ -299,9 +300,12 @@ The rules around them:
   phase and deletes when that phase ends; `ci-runner` gets `qits:ci-runner`, a CI runner's own
   identity rather than any one run's; `ci-runner-registration` gets
   `qits:ci-runner-registration`, the credential a runner registers itself with; and
-  `desk-delivery` gets `qits:agent` and `qits:desk` — the project's own delivery loop (qits-1440),
-  `qits:desk` admitted on dispatch, prompt delivery and approve, always bound to the token's
-  `project` claim. Agents and CI runs are domain-scoped, so neither
+  `desk-delivery` gets `qits:agent`, `qits:desk` and `qits:desk-admin` — the project's own delivery
+  loop (qits-1440), `qits:desk` admitted on dispatch, prompt delivery and approve, always bound to
+  the token's `project` claim; `qits:desk-admin` (epic qits-1621) is admitted wherever
+  `qits:admin-agent` is named, except the git-receive-pack door, which never admits it — the desk
+  already reaches `/git/*` through `qits:agent`, and `RefScopeHook` refuses any push from a token
+  whose groups contain `qits:desk-admin`. Agents and CI runs are domain-scoped, so neither
   inherits `qits:system` or `qits:admin`; their Git scope is their `git_refs`. **Any other kind gets no role at all** — only
   its own self-role — which is D12: an unknown kind is harmless, not refused. A credential may
   always mint and hand itself back (`DELETE` of its own id), whatever role its kind gives it. Since

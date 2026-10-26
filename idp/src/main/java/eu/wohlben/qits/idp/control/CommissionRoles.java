@@ -24,9 +24,16 @@ import java.util.Optional;
  *       named explicitly next to every such check, until the doors that must stay human-only drop
  *       it one by one. It is issued here and nowhere else — never to a person, never by
  *       configuration;
- *   <li>{@code desk-delivery} gets {@code qits:agent} and {@code qits:desk} — the project's own
- *       delivery loop (qits-1440). {@code qits:desk} is admitted on dispatch, prompt delivery and
- *       approve, and is always bound to the token's {@code project} claim;
+ *   <li>{@code desk-delivery} gets {@code qits:agent}, {@code qits:desk} and {@code
+ *       qits:desk-admin} — the project's own delivery loop (qits-1440). {@code qits:desk} is
+ *       admitted on dispatch, prompt delivery and approve, and is always bound to the token's
+ *       {@code project} claim. {@code qits:desk-admin} (epic qits-1621) is admitted wherever {@code
+ *       qits:admin-agent} is named — literal parity, checked by {@code DeskAdminParityRules} in
+ *       {@code qits-arch-rules} — except the git-receive-pack door, which never admits it: the desk
+ *       already reaches {@code /git/*} through {@code qits:agent}, and {@code RefScopeHook} refuses
+ *       any push from a token whose groups contain {@code qits:desk-admin}. It is issued here and
+ *       nowhere else. A desk-admin therefore reaches every door an admin-agent reaches, but stays
+ *       bound to its project wherever a door binds the desk to one;
  *   <li>{@code ci-run} and {@code bootstrap-publish} get {@code qits:ci-run} — since the CI-runners
  *       campaign's closing release (qits-444, 2026-09-30), qits-ci commissions {@code ci-run} as a
  *       token ({@link CommissionedTokens}) rather than as a client; {@code bootstrap-publish} is
@@ -79,10 +86,12 @@ public final class CommissionRoles {
 
   /**
    * The project's own delivery loop (qits-1440): an agent, plus {@code qits:desk}, admitted on
-   * dispatch, prompt delivery and approve and always bound to the token's {@code project} claim.
-   * See the class javadoc.
+   * dispatch, prompt delivery and approve and always bound to the token's {@code project} claim,
+   * plus {@code qits:desk-admin} (epic qits-1621), admitted wherever {@code qits:admin-agent} is
+   * named, except the git-receive-pack door. See the class javadoc.
    */
-  private static final List<String> DESK_DELIVERY = List.of("qits:agent", "qits:desk");
+  private static final List<String> DESK_DELIVERY =
+      List.of("qits:agent", "qits:desk", "qits:desk-admin");
 
   private static final List<String> CI_RUN = List.of("qits:ci-run");
 
@@ -118,8 +127,8 @@ public final class CommissionRoles {
           // One principal per front-desk session, instead of sharing the desk container's
           // agent-container token (qits-1482).
           Map.entry("desk-session", AGENT),
-          // The project's own delivery loop (qits-1440): an agent, plus qits:desk. See the class
-          // javadoc.
+          // The project's own delivery loop (qits-1440): an agent, plus qits:desk and (qits-1621)
+          // qits:desk-admin. See the class javadoc.
           Map.entry("desk-delivery", DESK_DELIVERY),
           Map.entry("ci-run", CI_RUN),
           // The bootstrap's own publishing identity, for its publish phase only — same role as the

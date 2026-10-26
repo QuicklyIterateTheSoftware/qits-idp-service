@@ -360,6 +360,25 @@ public class IdpServiceClientsControllerTest {
   }
 
   @Test
+  public void aDeskAdminBearerReadsWhereverAnAdminAgentDoes() {
+    // Epic qits-1621: qits:desk-admin is admitted wherever qits:admin-agent is. A bearer holding
+    // it alone (no qits:admin, no qits:agent, no qits:admin-agent) reads; so does a real
+    // desk-delivery commission.
+    given()
+        .header("Authorization", bearer(signedWithRole("qits:desk-admin")))
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(200);
+    given()
+        .header("Authorization", bearer(commissionedToken("desk-delivery", "bearer-desk-admin-read")))
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(200);
+  }
+
+  @Test
   public void anAdminWorkspaceBearerIsStillRefusedOnEveryWrite() {
     // The service-client writes admit qits:system on a Basic pair and nothing else — never
     // qits:admin — so qits:admin-agent gains nothing here.
