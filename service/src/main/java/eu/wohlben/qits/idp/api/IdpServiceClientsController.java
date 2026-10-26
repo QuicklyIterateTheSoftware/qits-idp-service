@@ -33,8 +33,9 @@ import org.jboss.resteasy.reactive.RestResponse;
  *
  * <p><b>The two reads also accept a bearer</b> ({@link BearerCaller}): a JWT this idp issued whose
  * {@code groups} hold {@link #READ_ROLES} — {@code qits:agent}, {@code qits:system}, {@code
- * qits:admin} or {@code qits:admin-agent} (an admin workspace's agent, admitted wherever {@code
- * qits:admin} is — qits-628 follow-up). An agent keeps every read and gains no write (user ruling 2026-09-12, qits-162), and
+ * qits:admin}, {@code qits:admin-agent} (an admin workspace's agent, admitted wherever {@code
+ * qits:admin} is — qits-628 follow-up) or {@code qits:desk-admin} (the delivery desk's commissioned
+ * token, admitted wherever {@code qits:admin-agent} is — epic qits-1621). An agent keeps every read and gains no write (user ruling 2026-09-12, qits-162), and
  * the reads carry no secret, so there is nothing for a bearer to strip. A Basic caller on a read is
  * still held to the service-client rule above, unchanged.
  *
@@ -62,7 +63,7 @@ public class IdpServiceClientsController {
 
   /** Any one of these, in a bearer's {@code groups}, reads both GET routes. */
   static final String[] READ_ROLES = {
-    BasicCaller.AGENT, BasicCaller.SYSTEM, "qits:admin", "qits:admin-agent"
+    BasicCaller.AGENT, BasicCaller.SYSTEM, "qits:admin", "qits:admin-agent", "qits:desk-admin"
   };
 
   @Inject BasicCaller caller;

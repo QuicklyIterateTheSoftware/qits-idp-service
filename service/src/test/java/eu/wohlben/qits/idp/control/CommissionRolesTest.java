@@ -3,6 +3,7 @@ package eu.wohlben.qits.idp.control;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -27,8 +28,11 @@ public class CommissionRolesTest {
     // agent-container token (qits-1482).
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("desk-session"));
     // The project's own delivery loop (qits-1440): an agent, plus qits:desk — admitted on
-    // dispatch, prompt delivery and approve, always bound to the token's project claim.
-    assertEquals(List.of("qits:agent", "qits:desk"), CommissionRoles.forKind("desk-delivery"));
+    // dispatch, prompt delivery and approve, always bound to the token's project claim — and
+    // (qits-1621) qits:desk-admin, admitted wherever qits:admin-agent is named.
+    assertEquals(
+        List.of("qits:agent", "qits:desk", "qits:desk-admin"),
+        CommissionRoles.forKind("desk-delivery"));
     assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("ci-run"));
     // The bootstrap's own publishing identity holds the CI publisher's role, because publishing to
     // qits-artifacts is CI's door (user ruling 2026-09-13). It is short-lived: the bootstrap
@@ -88,6 +92,28 @@ public class CommissionRolesTest {
     assertFalse(
         CommissionRoles.forKind("workspace-admin").contains("qits:admin"),
         "an admin workspace's agent is not a person: it never holds qits:admin itself");
+  }
+
+  @Test
+  public void onlyDeskDeliveryGetsTheDeskAdminRole() {
+    // qits:desk-admin (epic qits-1621) is issued by this one line and nowhere else: every other
+    // shipped kind, including workspace-admin, stays without it.
+    for (String kind :
+        List.of(
+            "workspace",
+            "workspace-admin",
+            "agent-container",
+            "refinement",
+            "desk-session",
+            "ci-run",
+            "bootstrap-publish",
+            "desk-runner",
+            "desk-runner-registration",
+            "target-runner",
+            "target-runner-registration")) {
+      assertFalse(CommissionRoles.forKind(kind).contains("qits:desk-admin"), kind);
+    }
+    assertTrue(CommissionRoles.forKind("desk-delivery").contains("qits:desk-admin"));
   }
 
   @Test

@@ -28,7 +28,7 @@
          API. Each comes back the day something here needs it, not before. -->
     <groupId>eu.wohlben.qits</groupId>
     <artifactId>qits-idp</artifactId>
-    <version>2026.1025.13504</version>
+    <version>2026.1026.164658</version>
     <packaging>pom</packaging>
     <name>qits-idp</name>
 
@@ -46,7 +46,7 @@
              build can point it at the address the builder container can actually reach — see
              docker/Dockerfile and .qits-maven-settings.xml. -->
         <qits.db-core.version>2026.1002.70617</qits.db-core.version>
-        <qits.arch-rules.version>2026.1011.185745</qits.arch-rules.version>
+        <qits.arch-rules.version>2026.1026.133840</qits.arch-rules.version>
         <!-- CallerServerFilter/CallerClientFilter: jandex-indexed filters that record inbound
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
@@ -83,7 +83,7 @@
              segment loads exactly like qits-ci-service's two-part one. -->
         <qits.artifacts-service-pacts-qits-idp-service.version>2026.1019.62657</qits.artifacts-service-pacts-qits-idp-service.version>
         <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1019.121537</qits.bootstrap-cli-pacts-qits-idp-service.version>
-        <qits.ci-service-pacts-qits-idp-service.version>2026.1019.5831</qits.ci-service-pacts-qits-idp-service.version>
+        <qits.ci-service-pacts-qits-idp-service.version>2026.1026.93256</qits.ci-service-pacts-qits-idp-service.version>
         <qits.configuration-service-pacts-qits-idp-service.version>2026.1010.152418</qits.configuration-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1018.151611</qits.deployments-service-pacts-qits-idp-service.version>
