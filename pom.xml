@@ -80,10 +80,9 @@
              commissioned-client token through qits-runner-toolkit, a shared library, rather than
              hand-rolling the request, so its name sits in the middle segment.
              ClasspathPactLoader matches by the `_qits-idp-service.json` suffix alone, so the extra
-             segment loads exactly like qits-ci-runner-daemon's two-part one. -->
+             segment loads exactly like qits-ci-service's two-part one. -->
         <qits.artifacts-service-pacts-qits-idp-service.version>2026.1019.62657</qits.artifacts-service-pacts-qits-idp-service.version>
         <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1019.121537</qits.bootstrap-cli-pacts-qits-idp-service.version>
-        <qits.ci-runner-daemon-pacts-qits-idp-service.version>2026.1019.612</qits.ci-runner-daemon-pacts-qits-idp-service.version>
         <qits.ci-service-pacts-qits-idp-service.version>2026.1019.5831</qits.ci-service-pacts-qits-idp-service.version>
         <qits.configuration-service-pacts-qits-idp-service.version>2026.1010.152418</qits.configuration-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
@@ -180,13 +179,6 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-ci-service-pacts-qits-idp-service</artifactId>
                 <version>${qits.ci-service-pacts-qits-idp-service.version}</version>
-            </dependency>
-            <dependency>
-                <!-- Test scope at every declaration site: a consumer's pact, verified by
-                     ConsumerPactVerificationTest. -->
-                <groupId>${project.groupId}</groupId>
-                <artifactId>qits-ci-runner-daemon-pacts-qits-idp-service</artifactId>
-                <version>${qits.ci-runner-daemon-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by

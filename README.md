@@ -296,9 +296,7 @@ The rules around them:
   `qits:admin` also admits by name (qits-628 follow-up); `ci-run` and
   `bootstrap-publish` get `qits:ci-run` — publishing to qits-artifacts is CI's door, and
   `bootstrap-publish` is the short-lived identity the bootstrap commissions for its own publish
-  phase and deletes when that phase ends; `ci-runner` gets `qits:ci-runner`, a CI runner's own
-  identity rather than any one run's; `ci-runner-registration` gets
-  `qits:ci-runner-registration`, the credential a runner registers itself with; and
+  phase and deletes when that phase ends; and
   `desk-delivery` gets `qits:agent` and `qits:desk` — the project's own delivery loop (qits-1440),
   `qits:desk` admitted on dispatch, prompt delivery and approve, always bound to the token's
   `project` claim. Agents and CI runs are domain-scoped, so neither
@@ -361,16 +359,16 @@ commission API.
 
     # commission — the token is in this answer and nowhere else
     curl -s -u prod-qits-ci:$SECRET -H 'Content-Type: application/json' \
-      -d '{"contextKind":"ci-runner","contextId":"runner-7","gitRefs":[]}' \
+      -d '{"contextKind":"ci-run","contextId":"4711","gitRefs":[]}' \
       http://qits-idp:8080/idp/api/tokens
     # 201
-    # {"tokenId":"5b1c…","token":"qits_tok_Qm9…","subject":"tok-ci-runner-runner-7-kF3…",
-    #  "owner":"prod-qits-ci","contextKind":"ci-runner","contextId":"runner-7","claims":{},
+    # {"tokenId":"5b1c…","token":"qits_tok_Qm9…","subject":"tok-ci-run-4711-kF3…",
+    #  "owner":"prod-qits-ci","contextKind":"ci-run","contextId":"4711","claims":{},
     #  "gitRefs":[],"createdAt":"2026-09-27T11:02:03.412Z"}
 
     # what this caller has out — for reconciling orphans; never a value
     curl -s -u prod-qits-ci:$SECRET http://qits-idp:8080/idp/api/tokens
-    # 200 [{"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…","owner":"prod-qits-ci", …}]
+    # 200 [{"tokenId":"5b1c…","subject":"tok-ci-run-4711-kF3…","owner":"prod-qits-ci", …}]
 
     # delete — the owner; 204
     curl -s -X DELETE -u prod-qits-ci:$SECRET \
@@ -385,9 +383,9 @@ commission API.
       -d '{"token":"qits_tok_Qm9…"}' \
       http://qits-idp:8080/idp/api/tokens/introspect
     # 200
-    # {"tokenId":"5b1c…","subject":"tok-ci-runner-runner-7-kF3…",
-    #  "roles":["qits:ci-runner","clients/tok-ci-runner-runner-7-kF3…"],"claims":{},"gitRefs":[],
-    #  "contextKind":"ci-runner","contextId":"runner-7","accessToken":"eyJ…","expiresIn":300}
+    # {"tokenId":"5b1c…","subject":"tok-ci-run-4711-kF3…",
+    #  "roles":["qits:ci-run","clients/tok-ci-run-4711-kF3…"],"claims":{},"gitRefs":[],
+    #  "contextKind":"ci-run","contextId":"4711","accessToken":"eyJ…","expiresIn":300}
 
 The rules around them:
 

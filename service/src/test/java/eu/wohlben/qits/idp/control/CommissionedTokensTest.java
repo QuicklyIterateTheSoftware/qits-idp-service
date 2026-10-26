@@ -183,14 +183,6 @@ public class CommissionedTokensTest {
         "a refused replace leaves the row unchanged");
   }
 
-  @Test
-  public void theCiRunnerKindsCarryTheirOwnRoles() {
-    assertEquals(List.of("qits:ci-runner"), CommissionRoles.forKind("ci-runner"));
-    assertEquals(
-        List.of("qits:ci-runner-registration"), CommissionRoles.forKind("ci-runner-registration"));
-    assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("ci-run"), "unchanged");
-  }
-
   private List<String> kindsListed(String kind) {
     return tokens.listOwned(OWNER).stream()
         .map(StoredToken::contextKind)

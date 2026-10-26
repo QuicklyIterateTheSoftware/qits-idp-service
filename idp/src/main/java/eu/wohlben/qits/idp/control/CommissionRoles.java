@@ -11,7 +11,7 @@ import java.util.Optional;
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
  * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
- * Fourteen kinds carry a role:
+ * Twelve kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container}, {@code refinement} and {@code desk-session}
@@ -31,12 +31,8 @@ import java.util.Optional;
  *       campaign's closing release (qits-444, 2026-09-30), qits-ci commissions {@code ci-run} as a
  *       token ({@link CommissionedTokens}) rather than as a client; {@code bootstrap-publish} is
  *       still commissioned as a client, unchanged;
- *   <li>{@code ci-runner} gets {@code qits:ci-runner} — a CI runner's own identity, distinct from
- *       any one run's;
- *   <li>{@code ci-runner-registration} gets {@code qits:ci-runner-registration} — the credential a
- *       runner registers itself with, and nothing more;
  *   <li>{@code desk-runner} gets {@code qits:desk-runner} — a front-desk runner's
- *       own identity, distinct from {@code ci-runner} and from {@code qits:agent};
+ *       own identity, distinct from {@code target-runner} and from {@code qits:agent};
  *   <li>{@code desk-runner-registration} gets {@code qits:desk-runner-registration}
  *       — the narrower credential a front-desk runner registers itself with, and nothing more;
  *   <li>{@code target-runner} gets {@code qits:target-runner} — a qits-system execution target's
@@ -86,11 +82,6 @@ public final class CommissionRoles {
 
   private static final List<String> CI_RUN = List.of("qits:ci-run");
 
-  private static final List<String> CI_RUNNER = List.of("qits:ci-runner");
-
-  private static final List<String> CI_RUNNER_REGISTRATION =
-      List.of("qits:ci-runner-registration");
-
   private static final List<String> DESK_RUNNER = List.of("qits:desk-runner");
 
   private static final List<String> DESK_RUNNER_REGISTRATION =
@@ -126,12 +117,8 @@ public final class CommissionRoles {
           // CI publisher because publishing is CI's door, deleted by the bootstrap at the end of
           // that phase. See the class javadoc.
           Map.entry("bootstrap-publish", CI_RUN),
-          // A runner's own identity, and the narrower one it registers itself with. Neither is a
-          // run, so neither holds qits:ci-run.
-          Map.entry("ci-runner", CI_RUNNER),
-          Map.entry("ci-runner-registration", CI_RUNNER_REGISTRATION),
           // A front-desk runner's own identity, and the narrower one it registers itself with.
-          // Neither is a ci runner, so neither holds qits:ci-runner.
+          // Neither is a target runner, so neither holds qits:target-runner.
           Map.entry("desk-runner", DESK_RUNNER),
           Map.entry("desk-runner-registration", DESK_RUNNER_REGISTRATION),
           // A qits-system execution target's own identity (epic qits-1481), and the narrower one it

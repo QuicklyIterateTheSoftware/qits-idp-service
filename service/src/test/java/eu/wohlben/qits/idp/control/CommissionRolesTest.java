@@ -34,13 +34,8 @@ public class CommissionRolesTest {
     // qits-artifacts is CI's door (user ruling 2026-09-13). It is short-lived: the bootstrap
     // deletes it when its publish phase ends.
     assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("bootstrap-publish"));
-    // A CI runner's own identity and its registration credential: each its own role, neither a
-    // run's — the token-auth epic (qits-448).
-    assertEquals(List.of("qits:ci-runner"), CommissionRoles.forKind("ci-runner"));
-    assertEquals(
-        List.of("qits:ci-runner-registration"), CommissionRoles.forKind("ci-runner-registration"));
     // A front-desk runner's own identity and its registration credential: each its own role,
-    // neither qits:agent nor qits:ci-runner.
+    // neither qits:agent nor qits:target-runner.
     assertEquals(
         List.of("qits:desk-runner"), CommissionRoles.forKind("desk-runner"));
     assertEquals(
@@ -50,9 +45,9 @@ public class CommissionRolesTest {
     assertNotEquals(
         List.of("qits:agent"), CommissionRoles.forKind("desk-runner-registration"));
     assertNotEquals(
-        List.of("qits:ci-runner"), CommissionRoles.forKind("desk-runner"));
+        List.of("qits:target-runner"), CommissionRoles.forKind("desk-runner"));
     assertNotEquals(
-        List.of("qits:ci-runner"),
+        List.of("qits:target-runner"),
         CommissionRoles.forKind("desk-runner-registration"));
     // A qits-system execution target's own identity and its registration credential (epic
     // qits-1481): each its own role, neither qits:agent nor any other runner's.
@@ -83,8 +78,6 @@ public class CommissionRolesTest {
             "desk-session",
             "ci-run",
             "bootstrap-publish",
-            "ci-runner",
-            "ci-runner-registration",
             "desk-runner",
             "desk-runner-registration",
             "target-runner",

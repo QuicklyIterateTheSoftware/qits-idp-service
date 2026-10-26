@@ -159,11 +159,6 @@
                  classpath. The pinned jar IS the source of the pact; nothing is copied into this
                  tree. -->
             <groupId>${project.groupId}</groupId>
-            <artifactId>qits-ci-runner-daemon-pacts-qits-idp-service</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
             <artifactId>qits-artifacts-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
         </dependency>

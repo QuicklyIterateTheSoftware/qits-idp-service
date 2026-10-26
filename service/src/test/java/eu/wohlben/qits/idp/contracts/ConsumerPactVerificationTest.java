@@ -31,8 +31,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Twenty-two consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
- * both CLIs (qits-bootstrap-cli, qits-platform-access-cli), the ci-runner, projects and workspace
+ * <p><b>Twenty-one consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * both CLIs (qits-bootstrap-cli, qits-platform-access-cli), the projects and workspace
  * daemons, and the artifacts, ci, configuration, containers, deployments, edge, events, githost,
  * maintenance, mirror, observability, orchestrator, projects, system and workspaces services —
  * plus, through qits-runner-toolkit (qits-1163), the projects-desk-runner and
@@ -288,6 +288,11 @@ class ConsumerPactVerificationTest {
 
   // --- the commissioners, one state per body each ---------------------------------------------
 
+  // Kept though CommissionRoles no longer gives ci-runner or ci-runner-registration a role
+  // (qits-1548, qits-ci-runner-daemon retired): qits-ci-service's own pinned pact
+  // (CiRunnerController.register, CiRunnerController.create) still exercises both states, and
+  // commissionClient/commissionToken's response carries no role either way. Drop these only once
+  // that pact stops naming them.
   @State(ProviderStates.A_CI_RUNNER_BEING_COMMISSIONED)
   Map<String, String> aCiRunnerBeingCommissioned() {
     return states.params(ProviderStates.A_CI_RUNNER_BEING_COMMISSIONED);
