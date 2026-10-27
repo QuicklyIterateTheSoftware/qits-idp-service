@@ -244,12 +244,6 @@ class GoldenMasterRecordingTest {
   static final String WORKSPACE_RUNNER_REGISTRATION_COMMISSION_BODY =
       "{\"contextKind\":\"workspaces-runner-registration\",\"contextId\":\"{runnerId}\"}";
 
-  static final String DESK_RUNNER_COMMISSION_BODY =
-      "{\"contextKind\":\"desk-runner\",\"contextId\":\"{runnerId}\"}";
-
-  static final String DESK_RUNNER_REGISTRATION_COMMISSION_BODY =
-      "{\"contextKind\":\"desk-runner-registration\",\"contextId\":\"{runnerId}\"}";
-
   static final String REFINEMENT_COMMISSION_BODY =
       "{\"contextKind\":\"refinement\",\"contextId\":\"{refinementId}\","
           + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":[]}";
@@ -574,12 +568,6 @@ class GoldenMasterRecordingTest {
               ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
               false,
               WORKSPACE_RUNNER_REGISTRATION_COMMISSION_BODY),
-          commissions(
-              ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED, true, DESK_RUNNER_COMMISSION_BODY),
-          commissions(
-              ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
-              false,
-              DESK_RUNNER_REGISTRATION_COMMISSION_BODY),
           commissions(
               ProviderStates.A_REFINEMENTS_CLIENT_BEING_COMMISSIONED,
               true,

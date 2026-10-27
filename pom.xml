@@ -74,11 +74,10 @@
              qits-maintenance bumps it when the consumer releases a changed pact (its PomParser
              reads pins regardless of scope).
 
-             qits-projects-desk-runner-daemon and
-             qits-system-runner-daemon (qits-1163) pin a THREE-part pact name,
-             `pacts/<daemon>_qits-runner-javalib_qits-idp-service.json`: each daemon mints its
-             commissioned-client token through qits-runner-toolkit, a shared library, rather than
-             hand-rolling the request, so its name sits in the middle segment.
+             qits-system-runner-daemon (qits-1163) pins a THREE-part pact name,
+             `pacts/qits-system-runner-daemon_qits-runner-javalib_qits-idp-service.json`: the daemon
+             mints its commissioned-client token through qits-runner-toolkit, a shared library,
+             rather than hand-rolling the request, so its name sits in the middle segment.
              ClasspathPactLoader matches by the `_qits-idp-service.json` suffix alone, so the extra
              segment loads exactly like qits-ci-service's two-part one. -->
         <qits.artifacts-service-pacts-qits-idp-service.version>2026.1019.62657</qits.artifacts-service-pacts-qits-idp-service.version>
@@ -96,7 +95,6 @@
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1019.110932</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1027.110304</qits.platform-access-cli-pacts-qits-idp-service.version>
         <qits.projects-daemon-pacts-qits-idp-service.version>2026.1010.154418</qits.projects-daemon-pacts-qits-idp-service.version>
-        <qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>2026.1027.91319</qits.projects-desk-runner-daemon-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1027.63255</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1023.84005</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
@@ -249,14 +247,6 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-projects-daemon-pacts-qits-idp-service</artifactId>
                 <version>${qits.projects-daemon-pacts-qits-idp-service.version}</version>
-            </dependency>
-            <dependency>
-                <!-- Test scope at every declaration site: a consumer's pact, verified by
-                     ConsumerPactVerificationTest. Through qits-runner-toolkit (qits-1163): a
-                     three-part `pacts/qits-projects-desk-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
-                <groupId>${project.groupId}</groupId>
-                <artifactId>qits-projects-desk-runner-daemon-pacts-qits-idp-service</artifactId>
-                <version>${qits.projects-desk-runner-daemon-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by

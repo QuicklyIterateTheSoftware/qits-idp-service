@@ -125,11 +125,9 @@ for.
 `desk-delivery` (`qits:agent`, `qits:desk` and `qits:desk-admin` — the project's own delivery loop,
 qits-1440; `qits:desk-admin` is admitted wherever `qits:admin-agent` is named, except the
 git-receive-pack door, epic qits-1621), `ci-run`
-and `bootstrap-publish` (`qits:ci-run`), `desk-runner`
-(`qits:desk-runner`), `desk-runner-registration`
-(`qits:desk-runner-registration`), `target-runner` (`qits:target-runner`, epic qits-1481, a
+and `bootstrap-publish` (`qits:ci-run`), `target-runner` (`qits:target-runner`, epic qits-1481, a
 qits-system execution target's own identity) and `target-runner-registration`
-(`qits:target-runner-registration`) are the twelve the jar ships — past `Map.of`'s
+(`qits:target-runner-registration`) are the ten the jar ships — past `Map.of`'s
 ten-argument limit, so the map is `Map.ofEntries` — tested as shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):

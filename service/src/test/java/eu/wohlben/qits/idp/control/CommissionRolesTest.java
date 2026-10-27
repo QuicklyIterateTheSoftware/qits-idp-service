@@ -38,23 +38,8 @@ public class CommissionRolesTest {
     // qits-artifacts is CI's door (user ruling 2026-09-13). It is short-lived: the bootstrap
     // deletes it when its publish phase ends.
     assertEquals(List.of("qits:ci-run"), CommissionRoles.forKind("bootstrap-publish"));
-    // A front-desk runner's own identity and its registration credential: each its own role,
-    // neither qits:agent nor qits:target-runner.
-    assertEquals(
-        List.of("qits:desk-runner"), CommissionRoles.forKind("desk-runner"));
-    assertEquals(
-        List.of("qits:desk-runner-registration"),
-        CommissionRoles.forKind("desk-runner-registration"));
-    assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("desk-runner"));
-    assertNotEquals(
-        List.of("qits:agent"), CommissionRoles.forKind("desk-runner-registration"));
-    assertNotEquals(
-        List.of("qits:target-runner"), CommissionRoles.forKind("desk-runner"));
-    assertNotEquals(
-        List.of("qits:target-runner"),
-        CommissionRoles.forKind("desk-runner-registration"));
     // A qits-system execution target's own identity and its registration credential (epic
-    // qits-1481): each its own role, neither qits:agent nor any other runner's.
+    // qits-1481): each its own role, distinct from qits:agent.
     assertEquals(
         List.of("qits:target-runner"), CommissionRoles.forKind("target-runner"));
     assertEquals(
@@ -63,11 +48,6 @@ public class CommissionRolesTest {
     assertNotEquals(List.of("qits:agent"), CommissionRoles.forKind("target-runner"));
     assertNotEquals(
         List.of("qits:agent"), CommissionRoles.forKind("target-runner-registration"));
-    assertNotEquals(
-        List.of("qits:desk-runner"), CommissionRoles.forKind("target-runner"));
-    assertNotEquals(
-        List.of("qits:desk-runner"),
-        CommissionRoles.forKind("target-runner-registration"));
   }
 
   @Test
@@ -82,8 +62,6 @@ public class CommissionRolesTest {
             "desk-session",
             "ci-run",
             "bootstrap-publish",
-            "desk-runner",
-            "desk-runner-registration",
             "target-runner",
             "target-runner-registration")) {
       assertFalse(CommissionRoles.forKind(kind).contains("qits:admin-agent"), kind);
@@ -107,8 +85,6 @@ public class CommissionRolesTest {
             "desk-session",
             "ci-run",
             "bootstrap-publish",
-            "desk-runner",
-            "desk-runner-registration",
             "target-runner",
             "target-runner-registration")) {
       assertFalse(CommissionRoles.forKind(kind).contains("qits:desk-admin"), kind);

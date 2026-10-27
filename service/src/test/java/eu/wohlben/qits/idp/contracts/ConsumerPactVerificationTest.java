@@ -31,12 +31,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Twenty-one consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * <p><b>Twenty consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
  * both CLIs (qits-bootstrap-cli, qits-platform-access-cli), the projects and workspace
  * daemons, and the artifacts, ci, configuration, containers, deployments, edge, events, githost,
  * maintenance, mirror, observability, orchestrator, projects, system and workspaces services —
- * plus, through qits-runner-toolkit (qits-1163), the projects-desk-runner and
- * system-runner daemons, whose jars carry a three-part {@code pacts/<daemon>_qits-runner-javalib_qits-idp-service.json}:
+ * plus, through qits-runner-toolkit (qits-1163), the system-runner daemon, whose jar carries a
+ * three-part {@code pacts/qits-system-runner-daemon_qits-runner-javalib_qits-idp-service.json}:
  * {@link ClasspathPactLoader} matches on the {@code _qits-idp-service.json} suffix alone, so the
  * extra segment loads the same as everyone else's. {@link ClasspathPactLoader#REQUIRED} is
  * therefore true, so a classpath that lost them fails rather than verifying nothing. An
@@ -366,16 +366,6 @@ class ConsumerPactVerificationTest {
   @State(ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED)
   Map<String, String> aWorkspaceRunnersRegistrationTokenBeingCommissioned() {
     return states.params(ProviderStates.A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED);
-  }
-
-  @State(ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED)
-  Map<String, String> aDeskRunnerBeingCommissioned() {
-    return states.params(ProviderStates.A_DESK_RUNNER_BEING_COMMISSIONED);
-  }
-
-  @State(ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED)
-  Map<String, String> aDeskRunnersRegistrationTokenBeingCommissioned() {
-    return states.params(ProviderStates.A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED);
   }
 
   @State(ProviderStates.A_REFINEMENTS_CLIENT_BEING_COMMISSIONED)

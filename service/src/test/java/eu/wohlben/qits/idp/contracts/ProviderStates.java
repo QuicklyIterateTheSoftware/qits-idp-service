@@ -149,9 +149,6 @@ public class ProviderStates {
       "a workspace runner being commissioned";
   public static final String A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED =
       "a workspace runner's registration token being commissioned";
-  public static final String A_DESK_RUNNER_BEING_COMMISSIONED = "a desk runner being commissioned";
-  public static final String A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED =
-      "a desk runner's registration token being commissioned";
   public static final String A_REFINEMENTS_CLIENT_BEING_COMMISSIONED =
       "a refinement's client being commissioned";
   public static final String A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED =
@@ -340,10 +337,6 @@ public class ProviderStates {
     states.put(A_WORKSPACE_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
     states.put(
         A_WORKSPACE_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
-        () -> commissioning("runnerId", uuid()));
-    states.put(A_DESK_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
-    states.put(
-        A_DESK_RUNNERS_REGISTRATION_TOKEN_BEING_COMMISSIONED,
         () -> commissioning("runnerId", uuid()));
     states.put(
         A_REFINEMENTS_CLIENT_BEING_COMMISSIONED,
