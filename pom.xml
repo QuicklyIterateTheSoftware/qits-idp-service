@@ -94,11 +94,9 @@
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1019.110932</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1027.110304</qits.platform-access-cli-pacts-qits-idp-service.version>
-        <qits.projects-daemon-pacts-qits-idp-service.version>2026.1010.154418</qits.projects-daemon-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1027.154457</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1023.84005</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
-        <qits.workspace-daemon-pacts-qits-idp-service.version>2026.1010.154553</qits.workspace-daemon-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1027.104754</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
@@ -243,13 +241,6 @@
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by
-                     ConsumerPactVerificationTest. -->
-                <groupId>${project.groupId}</groupId>
-                <artifactId>qits-projects-daemon-pacts-qits-idp-service</artifactId>
-                <version>${qits.projects-daemon-pacts-qits-idp-service.version}</version>
-            </dependency>
-            <dependency>
-                <!-- Test scope at every declaration site: a consumer's pact, verified by
                      ConsumerPactVerificationTest. Through qits-runner-toolkit (qits-1163): a
                      three-part `pacts/qits-system-runner-daemon_qits-runner-javalib_qits-idp-service.json`. -->
                 <groupId>${project.groupId}</groupId>
@@ -262,13 +253,6 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-system-service-pacts-qits-idp-service</artifactId>
                 <version>${qits.system-service-pacts-qits-idp-service.version}</version>
-            </dependency>
-            <dependency>
-                <!-- Test scope at every declaration site: a consumer's pact, verified by
-                     ConsumerPactVerificationTest. -->
-                <groupId>${project.groupId}</groupId>
-                <artifactId>qits-workspace-daemon-pacts-qits-idp-service</artifactId>
-                <version>${qits.workspace-daemon-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site: a consumer's pact, verified by
