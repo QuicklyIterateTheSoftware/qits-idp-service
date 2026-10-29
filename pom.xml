@@ -66,7 +66,7 @@
              NetworkCapture.source at all — the shipped RestAssured tap is the whole diagram, every
              arrow points IN, and the one dependency this process does have arrives as a DECLARED
              jdbc edge in the two commissioning stories. -->
-        <qits.userflows.version>2026.1002.72731</qits.userflows.version>
+        <qits.userflows.version>2026.1028.231715</qits.userflows.version>
         <!-- THE CONSUMER PACTS this provider verifies (epic qits-546, ticket qits-1149): one jar
              per consumer, each carrying `pacts/<consumer>_qits-idp-service.json`, and
              ConsumerPactVerificationTest loads every such resource off the test classpath. Test
