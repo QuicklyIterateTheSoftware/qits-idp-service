@@ -31,9 +31,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * pins that jar as a test dependency, and qits-maintenance bumps the pin when the consumer releases
  * a changed pact. {@link ClasspathPactLoader} finds them all.
  *
- * <p><b>Eighteen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
+ * <p><b>Seventeen consumers pin a pact</b> (qits-1149; the jars are in {@code service/pom.xml}):
  * both CLIs (qits-bootstrap-cli, qits-platform-access-cli), the system runner daemon, and the
- * artifacts, ci, configuration, containers, deployments, edge, events, githost, maintenance, mirror,
+ * artifacts, ci, containers, deployments, edge, events, githost, maintenance, mirror,
  * observability, orchestrator, projects, system and workspaces services —
  * plus, through qits-runner-toolkit (qits-1163), the system-runner daemon, whose jar carries a
  * three-part {@code pacts/qits-system-runner-daemon_qits-runner-javalib_qits-idp-service.json}:

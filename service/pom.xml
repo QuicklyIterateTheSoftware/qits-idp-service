@@ -169,11 +169,6 @@
         </dependency>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>qits-configuration-service-pacts-qits-idp-service</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
             <artifactId>qits-containers-service-pacts-qits-idp-service</artifactId>
             <scope>test</scope>
         </dependency>

@@ -47,7 +47,10 @@ public class IdpToken extends PanacheEntityBase {
   @Column(name = "token_hash", nullable = false, length = 255, unique = true)
   public String tokenHash;
 
-  /** The service client that commissioned this token, and whose audiences its JWTs carry. */
+  /**
+   * The service client that commissioned this token. Its JWTs carry the one audience, {@code
+   * qits-platform}.
+   */
   @Column(name = "owner", nullable = false, length = 128)
   public String owner;
 

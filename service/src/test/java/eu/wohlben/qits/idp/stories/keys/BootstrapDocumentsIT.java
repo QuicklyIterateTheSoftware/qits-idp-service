@@ -273,7 +273,7 @@ public class BootstrapDocumentsIT {
         StoryTarget.form()
             .body(
                 StoryTarget.clientCredentials(
-                    StoryTarget.CI, StoryTarget.CI_SECRET, StoryTarget.DEPLOYMENTS_AUDIENCE))
+                    StoryTarget.CI, StoryTarget.CI_SECRET, StoryTarget.PLATFORM_AUDIENCE))
             .when()
             .post(StoryTarget.TOKEN)
             .then()
