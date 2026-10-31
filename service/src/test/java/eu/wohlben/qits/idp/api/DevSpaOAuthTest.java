@@ -166,10 +166,11 @@ public class DevSpaOAuthTest {
             .queryParam("redirect_uri", CALLBACK)
             .queryParam("code_challenge", challenge(VERIFIER))
             .queryParam("code_challenge_method", "S256")
-            .queryParam("audience", "prod-qits-githost")
+            .queryParam("audience", "qits-platform")
             .when()
             .get("/idp/authorize");
-    // Accepted and ignored (qits-163): a code, not an error.
+    // Accepted (qits-163), the one audience: a code, not an error. IdpTokenTest proves a foreign
+    // audience is accepted the same way and ignored.
     approved.then().statusCode(303);
     assertEquals(null, param(approved.getHeader("Location"), "error"));
     assertNotNull(param(approved.getHeader("Location"), "code"));

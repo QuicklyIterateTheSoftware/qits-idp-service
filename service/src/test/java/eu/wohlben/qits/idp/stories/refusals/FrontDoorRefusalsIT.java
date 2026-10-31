@@ -116,7 +116,7 @@ public class FrontDoorRefusalsIT {
     StoryTarget.form()
         .body(
             StoryTarget.clientCredentials(
-                "prod-qits-not-a-service", "any-secret-at-all", StoryTarget.DEPLOYMENTS_AUDIENCE))
+                "prod-qits-not-a-service", "any-secret-at-all", StoryTarget.PLATFORM_AUDIENCE))
         .when()
         .post(StoryTarget.TOKEN)
         .then()
@@ -135,7 +135,7 @@ public class FrontDoorRefusalsIT {
     StoryTarget.form()
         .body(
             StoryTarget.clientCredentials(
-                StoryTarget.ARTIFACTS, "any-secret-at-all", StoryTarget.DEPLOYMENTS_AUDIENCE))
+                StoryTarget.ARTIFACTS, "any-secret-at-all", StoryTarget.PLATFORM_AUDIENCE))
         .when()
         .post(StoryTarget.TOKEN)
         .then()
@@ -153,7 +153,7 @@ public class FrontDoorRefusalsIT {
     // (c) nothing presented at all.
     NetworkCapture.actor(EMPTY_HANDED);
     StoryTarget.form()
-        .body("grant_type=client_credentials&audience=" + StoryTarget.DEPLOYMENTS_AUDIENCE)
+        .body("grant_type=client_credentials&audience=" + StoryTarget.PLATFORM_AUDIENCE)
         .when()
         .post(StoryTarget.TOKEN)
         .then()
@@ -175,7 +175,7 @@ public class FrontDoorRefusalsIT {
         .header("Authorization", StoryTarget.basic(StoryTarget.CI, StoryTarget.CI_SECRET))
         .body(
             StoryTarget.clientCredentials(
-                StoryTarget.CI, StoryTarget.CI_SECRET, StoryTarget.DEPLOYMENTS_AUDIENCE))
+                StoryTarget.CI, StoryTarget.CI_SECRET, StoryTarget.PLATFORM_AUDIENCE))
         .when()
         .post(StoryTarget.TOKEN)
         .then()

@@ -56,7 +56,7 @@ public class CommissionedClientsTest {
     Map<String, String> pair = commission(OWNER, OWNER_SECRET, "mint-kind", "run/4711");
 
     String token =
-        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-deployments")
+        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform")
             .statusCode(200)
             .body("token_type", equalTo("Bearer"))
             .extract()
@@ -66,9 +66,9 @@ public class CommissionedClientsTest {
     assertEquals(pair.get("clientId"), claims.getSubject(), "the commissioned id is the sub");
     assertEquals(PublishedJwks.ISSUER, claims.getIssuer());
     assertNotNull(PublishedJwks.kidOf(token), "signed by the same key as everything else");
-
-    // The one audience, whatever was asked for — with and without an audience parameter.
     assertEquals(List.of("qits-platform"), PublishedJwks.audienceOf(claims));
+
+    // The audience parameter is optional too — IdpTokenTest covers a foreign one being ignored.
     String all =
         token(pair.get("clientId"), pair.get("secret"), "").statusCode(200).extract()
             .path("access_token");
@@ -77,16 +77,6 @@ public class CommissionedClientsTest {
     assertNull(
         allClaims.getClaimValueAsString("project"),
         "a commission does not inherit its owner's project=* (D3)");
-
-    // An audience the owner was never allowed is ignored too, never invalid_target.
-    String other =
-        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform-artifacts")
-            .statusCode(200)
-            .extract()
-            .path("access_token");
-    assertEquals(
-        List.of("qits-platform"),
-        PublishedJwks.audienceOf(PublishedJwks.verify(other, "qits-platform")));
   }
 
   @Test
@@ -104,7 +94,7 @@ public class CommissionedClientsTest {
                 .statusCode(201));
 
     String token =
-        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-deployments")
+        token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform")
             .statusCode(200)
             .extract()
             .path("access_token");
@@ -369,7 +359,7 @@ public class CommissionedClientsTest {
             token(
                     added.path("clientId"),
                     added.path("secret"),
-                    "&audience=qits-deployments")
+                    "&audience=qits-platform")
                 .statusCode(200)
                 .extract()
                 .path("access_token"),
@@ -421,7 +411,7 @@ public class CommissionedClientsTest {
 
     assertNull(
         PublishedJwks.verify(
-                token(pair.get("clientId"), pair.get("secret"), "&audience=qits-deployments")
+                token(pair.get("clientId"), pair.get("secret"), "&audience=qits-platform")
                     .statusCode(200)
                     .extract()
                     .path("access_token"),

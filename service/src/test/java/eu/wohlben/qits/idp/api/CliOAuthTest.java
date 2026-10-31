@@ -48,7 +48,7 @@ public class CliOAuthTest {
 
   private static final String CLIENT = "qits-cli";
   private static final String WORKSTATION_CLIENT = "qits-git-workstation";
-  private static final String WORKSTATION_AUDIENCE = "prod-qits-githost";
+  private static final String WORKSTATION_AUDIENCE = "qits-platform";
   private static final String WORKSTATION_REDIRECT = "http://127.0.0.1:38472/callback";
 
   /** The page a browser loads, built from the canonical origin. */
@@ -253,8 +253,8 @@ public class CliOAuthTest {
     assertEquals("invalid_request", param(errored, "error"));
     assertEquals("kept", param(errored, "state"));
 
-    // An audience parameter is not such an error any more: it is accepted and ignored (qits-163).
-    // The approval goes through, and the token it buys has the one audience.
+    // An audience parameter is accepted (qits-163): the approval goes through, and the token it
+    // buys has the one audience, qits-platform — IdpTokenTest proves a foreign one is ignored.
     String approved =
         given()
             .redirects()
@@ -265,7 +265,7 @@ public class CliOAuthTest {
             .queryParam("redirect_uri", PAGE)
             .queryParam("code_challenge", challenge(VERIFIER))
             .queryParam("code_challenge_method", "S256")
-            .queryParam("audience", "prod-qits-githost")
+            .queryParam("audience", "qits-platform")
             .queryParam("state", "kept")
             .when()
             .get("/idp/authorize")

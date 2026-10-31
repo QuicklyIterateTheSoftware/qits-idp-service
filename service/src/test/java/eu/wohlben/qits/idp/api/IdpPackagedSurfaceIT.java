@@ -259,7 +259,7 @@ public class IdpPackagedSurfaceIT {
             .body(
                 "grant_type=client_credentials&client_id=prod-qits-workspaces&client_secret="
                     + SECRET
-                    + "&audience=qits-platform-artifacts")
+                    + "&audience=qits-platform")
             .when()
             .post("/idp/token")
             .then()
@@ -270,7 +270,6 @@ public class IdpPackagedSurfaceIT {
     assertNotNull(PublishedJwks.kidOf(token), "the kid header must survive the packaging");
     JwtClaims claims = PublishedJwks.verify(token, "qits-platform");
     assertEquals("prod-qits-workspaces", claims.getSubject());
-    // The requested audience is ignored; the one audience is what every token carries.
     assertEquals(java.util.List.of("qits-platform"), PublishedJwks.audienceOf(claims));
 
     // That the round trip happened at all is the proof the shipped expression resolved: the jar
@@ -316,7 +315,7 @@ public class IdpPackagedSurfaceIT {
     given()
         .contentType(ContentType.URLENC)
         .header("Authorization", basic(clientId, secret))
-        .body("grant_type=client_credentials&audience=qits-platform-artifacts")
+        .body("grant_type=client_credentials&audience=qits-platform")
         .when()
         .post("/idp/token")
         .then()

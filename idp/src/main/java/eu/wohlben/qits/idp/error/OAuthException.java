@@ -61,11 +61,6 @@ public class OAuthException extends RuntimeException {
     return new OAuthException("invalid_grant", 400, description);
   }
 
-  /** RFC 8707: the requested {@code audience} is not one this client may ask for. */
-  public static OAuthException invalidTarget(String description) {
-    return new OAuthException("invalid_target", 400, description);
-  }
-
   /**
    * The caller authenticated and still may not do this — a commissioned client asking to
    * commission another. 403, because it is authorization that failed, and the code is RFC 6749's
