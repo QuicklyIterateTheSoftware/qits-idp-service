@@ -92,7 +92,7 @@
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1102.54443</qits.orchestrator-service-pacts-qits-idp-service.version>
-        <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1027.110304</qits.platform-access-cli-pacts-qits-idp-service.version>
+        <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1102.84942</qits.platform-access-cli-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1027.154457</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1031.230638</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
