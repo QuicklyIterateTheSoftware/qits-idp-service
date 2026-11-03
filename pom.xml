@@ -90,7 +90,7 @@
         <qits.ci-service-pacts-qits-idp-service.version>2026.1102.40410</qits.ci-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1103.143113</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1103.124004</qits.deployments-service-pacts-qits-idp-service.version>
-        <qits.edge-service-pacts-qits-idp-service.version>2026.1022.102746</qits.edge-service-pacts-qits-idp-service.version>
+        <qits.edge-service-pacts-qits-idp-service.version>2026.1103.181625</qits.edge-service-pacts-qits-idp-service.version>
         <qits.events-service-pacts-qits-idp-service.version>2026.1010.151218</qits.events-service-pacts-qits-idp-service.version>
         <qits.githost-service-pacts-qits-idp-service.version>2026.1103.125031</qits.githost-service-pacts-qits-idp-service.version>
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
