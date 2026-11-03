@@ -25,9 +25,9 @@ import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
 /**
- * Principal-bound Git refs, contracts C1 and C2 of {@code principal-bound-git-refs-plan.md}: the
- * {@code git_refs} and {@code context_kind} claims per principal, {@code gitRefs} on a commission,
- * the owner-only {@code PUT …/git-refs}, and roles per context kind.
+ * Principal-bound Git refs, contracts C1 and C2 of epic qits-543, dossier page "Plan (as of 2026-09-13)":
+ * the {@code git_refs} and {@code context_kind} claims per principal, {@code gitRefs} on a
+ * commission, the owner-only {@code PUT …/git-refs}, and roles per context kind.
  *
  * <p>The person tokens (CLI, workstation) are pinned in {@link CliOAuthTest} and {@link
  * WorkstationOAuthTest}; the rules for one list in {@code GitRefsTest}.

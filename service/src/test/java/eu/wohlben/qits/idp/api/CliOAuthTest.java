@@ -101,8 +101,8 @@ public class CliOAuthTest {
         "only a client credential names a client");
     // The workstation's old claim stays off: this token is not the workstation's.
     assertEquals(null, claims.getClaimValueAsString("git_ref_pattern"));
-    // But a person pushes only external/*, whatever their roles (principal-bound-git-refs-plan.md,
-    // C1) — qits:admin above does not widen it.
+    // But a person pushes only external/*, whatever their roles
+    // (epic qits-543, dossier page "Plan (as of 2026-09-13)", C1) — qits:admin above does not widen it.
     assertEquals(List.of("refs/heads/external/*"), claims.getStringListClaimValue("git_refs"));
 
     Response refreshed = token(CLIENT, "refresh_token", null, null, null, firstRefresh);

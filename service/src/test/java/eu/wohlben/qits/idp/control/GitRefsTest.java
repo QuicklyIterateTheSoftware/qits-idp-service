@@ -13,9 +13,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The rules a commission's Git refs are held to (principal-bound-git-refs-plan.md, C2), one per
- * test, and the column they are stored in. {@code CommissionedGitRefsTest} checks the same rules as
- * status codes and minted tokens.
+ * The rules a commission's Git refs are held to (epic qits-543, dossier page "Plan (as of 2026-09-13)", C2),
+ * one per test, and the column they are stored in. {@code CommissionedGitRefsTest} checks the
+ * same rules as status codes and minted tokens.
  */
 public class GitRefsTest {
 

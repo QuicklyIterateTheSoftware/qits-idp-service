@@ -138,7 +138,7 @@ ref pattern for every update; no workstation token has `qits:system`.
 ### Git refs
 
 What a token may push is stated by the idp in `git_refs` and enforced by the githost. The contract
-is C1/C2 of `principal-bound-git-refs-plan.md` in the qits superproject.
+is C1/C2 of epic qits-543, dossier page "Plan (as of 2026-09-13)".
 
 `git_refs` is a JSON array. Each entry is an exact ref (`refs/heads/ticket/t-1`) or a prefix
 pattern ending in `*`, which covers every ref that starts with what precedes the `*`

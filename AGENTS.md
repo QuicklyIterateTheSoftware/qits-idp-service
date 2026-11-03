@@ -395,9 +395,9 @@ Two things about the shipped V1:
   somehow wrong it is worth stopping for.
 
   **V7 adds `git_refs`**, with its reader (`ClientRegistry`, `TokenService`) and its rule (`GitRefs`)
-  in the same change — contract C2 of `principal-bound-git-refs-plan.md`. One ref per line, `text`.
-  **Null and the empty string differ:** null is "no list stated" (no `git_refs` claim, every older
-  row), the empty string is the empty list ("push nothing"). Keep that difference in any reader.
+  in the same change — contract C2 of epic qits-543, dossier page "Plan (as of 2026-09-13)". One
+  ref per line, `text`. **Null and the empty string differ:** null is "no list stated" (no
+  `git_refs` claim, every older row), the empty string is the empty list ("push nothing"). Keep that difference in any reader.
 
 **V9 is `idp_token`**, the commissioned tokens (qits-448): a new table rather than a kind column on
 `idp_client`, because a token is looked up by the hash of what a caller presents and has a
@@ -439,8 +439,8 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   inheritance it always was. `CommissionedClaimsTest` is the same rule as plain unit tests, including
   what a hand-edited column must do — drop what it cannot read, never throw, because that parse runs
   on the token path for every commissioned credential.
-- `CommissionedGitRefsTest` is contracts C1 and C2 of `principal-bound-git-refs-plan.md`: which
-  token carries `git_refs` and `context_kind` (service client: neither), a commission with and
+- `CommissionedGitRefsTest` is contracts C1 and C2 of epic qits-543, dossier page "Plan (as of 2026-09-13)":
+  which token carries `git_refs` and `context_kind` (service client: neither), a commission with and
   without `gitRefs`, the empty list reaching the token as `[]`, each validation rule as a 400 with no
   row, the owner-only `PUT …/git-refs` (foreign or unknown is 404, the credential itself 403) and the
   next token after it, roles per kind (`agent-test` and `reserved-test` in the suite's config, and

@@ -39,7 +39,7 @@ public class BasicCaller {
   /**
    * The agent role. Every read route here accepts it beside the roles it accepted before: agents
    * keep every read they have and lose only write access (user ruling 2026-09-12,
-   * principal-bound-git-refs-plan.md). Write routes do not accept it.
+   * epic qits-543, dossier page "Plan (as of 2026-09-13)"). Write routes do not accept it.
    */
   public static final String AGENT = "qits:agent";
 

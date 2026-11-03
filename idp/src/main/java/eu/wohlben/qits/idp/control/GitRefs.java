@@ -9,7 +9,7 @@ import java.util.Set;
  * The Git refs a credential may push: the {@code git_refs} claim, and the rules a commission's list
  * must follow.
  *
- * <p>The contract is C1 and C2 of {@code principal-bound-git-refs-plan.md} in the qits superproject.
+ * <p>The contract is C1 and C2 of epic qits-543, dossier page "Plan (as of 2026-09-13)".
  * Each entry is an exact ref ({@code refs/heads/ticket/t-1}) or a prefix pattern that ends in {@code
  * *}: it covers every ref that starts with what precedes the {@code *}. So {@code
  * refs/heads/external/*} covers everything under {@code external/}, and {@code

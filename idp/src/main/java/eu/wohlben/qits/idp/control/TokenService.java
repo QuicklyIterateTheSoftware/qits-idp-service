@@ -164,9 +164,9 @@ public class TokenService {
             .expiresAt(now.plusSeconds(ttlSeconds));
     // The granted claims, verbatim. The idp does not interpret these values.
     client.claims().forEach(token::claim);
-    // A commissioned client's kind and Git refs (principal-bound-git-refs-plan.md, C1). This is not
-    // a branch on the kind of client: the fields are null for a service client, so it gets neither,
-    // and a commission that stated no list gets no git_refs.
+    // A commissioned client's kind and Git refs (epic qits-543, dossier page "Plan (as of 2026-09-13)", C1).
+    // This is not a branch on the kind of client: the fields are null for a service client, so it
+    // gets neither, and a commission that stated no list gets no git_refs.
     if (client.contextKind() != null) {
       token.claim(ClaimNames.CONTEXT_KIND, client.contextKind());
     }
@@ -201,7 +201,8 @@ public class TokenService {
             .groups(Set.of("qits:git:external"))
             .claim("credential_type", "workstation")
             // Both spellings of the same rule: git_ref_pattern for githosts that read only it,
-            // git_refs for the ones that read the list (principal-bound-git-refs-plan.md, C1).
+            // git_refs for the ones that read the list
+            // (epic qits-543, dossier page "Plan (as of 2026-09-13)", C1).
             .claim("git_ref_pattern", "refs/heads/external/*")
             .claim(ClaimNames.GIT_REFS, GitRefs.PERSON)
             .issuedAt(now)

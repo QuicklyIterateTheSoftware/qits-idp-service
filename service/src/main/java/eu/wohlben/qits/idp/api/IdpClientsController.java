@@ -208,9 +208,9 @@ public class IdpClientsController {
   }
 
   /**
-   * Replace the Git refs of one commission (principal-bound-git-refs-plan.md, C2). This is the
-   * narrowing: when a sub-workspace takes over a branch, the epic's credential loses that ref here.
-   * The next token carries the new list.
+   * Replace the Git refs of one commission (epic qits-543, dossier page "Plan (as of 2026-09-13)", C2).
+   * This is the narrowing: when a sub-workspace takes over a branch, the epic's credential loses
+   * that ref here. The next token carries the new list.
    *
    * <p><b>Only the owner</b>, with the same Basic pair and role as {@code POST}; a commissioned
    * caller is 403, as there. Another owner's client, an unknown id and a service client id are all 404 —
