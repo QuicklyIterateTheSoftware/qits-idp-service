@@ -91,7 +91,7 @@
         <qits.containers-service-pacts-qits-idp-service.version>2026.1103.143113</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1103.124004</qits.deployments-service-pacts-qits-idp-service.version>
         <qits.edge-service-pacts-qits-idp-service.version>2026.1103.181625</qits.edge-service-pacts-qits-idp-service.version>
-        <qits.events-service-pacts-qits-idp-service.version>2026.1010.151218</qits.events-service-pacts-qits-idp-service.version>
+        <qits.events-service-pacts-qits-idp-service.version>2026.1103.222809</qits.events-service-pacts-qits-idp-service.version>
         <qits.githost-service-pacts-qits-idp-service.version>2026.1103.125031</qits.githost-service-pacts-qits-idp-service.version>
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
@@ -100,7 +100,7 @@
         <qits.platform-access-monorepo-pacts-qits-idp-service.version>2026.1103.101116</qits.platform-access-monorepo-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1102.92522</qits.projects-service-pacts-qits-idp-service.version>
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1103.104047</qits.system-runner-daemon-pacts-qits-idp-service.version>
-        <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
+        <qits.system-service-pacts-qits-idp-service.version>2026.1103.220115</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1102.24458</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
