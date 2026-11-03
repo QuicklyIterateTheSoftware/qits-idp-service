@@ -635,6 +635,12 @@ container starts; at bootstrap, before any deployer exists, the CLI does the sam
 default and no fallback URL — a process handed none stops at Flyway rather than opening a store
 nobody meant.
 
+It also declares `idp:client` (epic qits-428): this application's own service client, commissioned
+through its own API like every other application's, whose id and secret the `qits` oidc client
+uses to mint this service's bearer **from itself**, at `http://localhost:8080/idp` — never through
+the edge. qits-telemetry-core attaches that bearer to every OTLP export, because the edge in front
+of qits-observability refuses an anonymous POST.
+
 The table holds many keys with one active, so rotation is a data change: insert a new `ACTIVE` row,
 retire the old one, and both keep being published until the old one's tokens have expired.
 `SigningKeys.reload()` is what picks the change up.

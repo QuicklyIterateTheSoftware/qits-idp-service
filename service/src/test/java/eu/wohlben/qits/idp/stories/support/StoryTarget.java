@@ -26,9 +26,10 @@ import java.util.regex.Pattern;
  * <p>Which makes {@code assertNoEdgesFrom(SERVICE)} the claim these stories are for — and it is
  * worth being exact about what it does and does not prove. It proves the story's <b>diagram</b>
  * carries no outbound arrow. It cannot prove a socket was never opened, because there is no tap
- * that could have seen one; what makes the claim true is structural (no rest-client, no oidc-client,
- * no event bus on this module's classpath) plus the one dial-out that does exist — the OTLP
- * exporter — being switched off by {@link StoryProfile}. The two commissioning stories, which
+ * that could have seen one; what makes the claim true is structural (no rest-client and no event bus
+ * on this module's classpath; the one oidc-client, {@code qits}, asks this process itself, and only
+ * for the exporter) plus the one dial-out that does exist — the OTLP exporter — being switched off
+ * by {@link StoryProfile}, which leaves that client nothing to be asked by. The two commissioning stories, which
  * really do write and read rows, say the other half out loud: they <b>declare</b> the jdbc edge, so
  * the one dependency this service has is drawn, dashed, exactly once per story that incurs it.
  *

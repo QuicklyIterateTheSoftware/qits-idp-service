@@ -1,14 +1,18 @@
 package eu.wohlben.qits.idp.telemetry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import jakarta.inject.Inject;
+import java.util.Map;
 import org.eclipse.microprofile.config.Config;
 import org.junit.jupiter.api.Test;
 
 /**
- * A drift guard over the six keys that decide whether this service's application logs leave the
+ * A drift guard over the keys that decide whether this service's application logs leave the
  * process at all, and where they go.
  *
  * <p><b>The behavioural proof is not here and deliberately is not.</b> qits-events owns it:
@@ -27,11 +31,15 @@ import org.junit.jupiter.api.Test;
  * silently reverting to {@code ALL} or to a second, separately-configured exporter is the failure
  * mode, and only the value can see it.
  *
- * <p>The endpoint and protocol are pinned beside the log keys because the four above describe a pipe
- * with no destination on their own. The endpoint is asserted RESOLVED — the shipped file writes it
- * as {@code ${qits.observability.url}/observability/api/otel}, and what has to be right is the
- * address the SDK ends up with, which is also what proves the expression still expands. The SDK
- * appends {@code /v1/logs} to it; that suffix is the exporter's and is not configured here.
+ * <p>The exporters and their endpoint are pinned beside the log keys because the four above describe
+ * a pipe with no destination on their own. Since epic qits-428 the exporters are
+ * qits-telemetry-core's CDI beans ({@code cdi} for all three signals) and the endpoint is that
+ * module's default, {@code qits.telemetry.endpoint}: the receiver at its edge host, asserted
+ * RESOLVED against the {@code QITS_DOMAIN} this class's profile states. The exporters append
+ * {@code /v1/<signal>}. The bearer they carry comes from the {@code qits} oidc client, which in this
+ * one service asks this very process ({@code http://localhost:8080/idp}); that address is pinned
+ * here too, because the edge address every other service uses would make the idp's telemetry
+ * depend on the edge.
  *
  * <p>Note the test asserts config values only, and does so on the running application's own
  * {@code Config}: the shipped {@code src/main/resources/application.properties} is merged into the
@@ -40,7 +48,18 @@ import org.junit.jupiter.api.Test;
  * which is exactly why the configuration needs a reader of its own.
  */
 @QuarkusTest
+@TestProfile(OtelLogConfigTest.WithADomain.class)
 class OtelLogConfigTest {
+
+  /** The domain the deployer injects into every container; the endpoint expands it. */
+  static final String DOMAIN = "example.test";
+
+  public static class WithADomain implements QuarkusTestProfile {
+    @Override
+    public Map<String, String> getConfigOverrides() {
+      return Map.of("QITS_DOMAIN", DOMAIN);
+    }
+  }
 
   @Inject Config config;
 
@@ -60,14 +79,39 @@ class OtelLogConfigTest {
   }
 
   @Test
-  void theExporterStillPointsAtTheReceiver() {
-    // http/protobuf, not the gRPC default — qits-observability's ingest is an HTTP resource.
-    assertEquals("http/protobuf", value("quarkus.otel.exporter.otlp.protocol"));
+  void everySignalGoesThroughTheCdiExporters() {
+    // qits-telemetry-core's beans are the exporters (epic qits-428): `cdi` is what makes the SDK
+    // take them. Quarkus' default for all three, pinned for the reason the logs keys are.
+    assertEquals("cdi", value("quarkus.otel.traces.exporter"));
+    assertEquals("cdi", value("quarkus.otel.logs.exporter"));
+    assertEquals("true", value("quarkus.otel.metrics.enabled"));
+    assertEquals("cdi", value("quarkus.otel.metrics.exporter"));
+  }
 
-    // Resolved, not the raw expression: this is the base the SDK appends /v1/logs to.
+  @Test
+  void theExportersPointAtTheReceiversEdgeHost() {
+    // The library's default, not overridden here: the receiver at its edge host, QITS_DOMAIN
+    // expanded. The exporters append /v1/<signal>.
     assertEquals(
-        "http://dev-qits-observability:8080/observability/api/otel",
-        value("quarkus.otel.exporter.otlp.endpoint"));
+        "https://observability.qits." + DOMAIN + "/observability/api/otel",
+        value("qits.telemetry.endpoint"));
+    // With the bearer of the `qits` oidc client, which the edge requires.
+    assertEquals("true", value("qits.telemetry.bearer.enabled"));
+    assertEquals("qits", value("qits.telemetry.bearer.client"));
+    // The wire-alias address is gone with Quarkus' own exporter, which was all that read it.
+    assertTrue(
+        config.getOptionalValue("qits.observability.url", String.class).isEmpty(),
+        "qits.observability.url reaches no exporter and must not come back");
+  }
+
+  @Test
+  void theQitsClientAsksThisVeryProcess() {
+    // The idp mints its own bearer over loopback, never through the edge: not
+    // QITS_RESOURCE_IDP_URL (the deployer injects the edge address there) and not a domain.
+    assertEquals("http://localhost:8080/idp", value("quarkus.oidc-client.qits.auth-server-url"));
+    assertEquals("token", value("quarkus.oidc-client.qits.token-path"));
+    assertEquals("false", value("quarkus.oidc-client.qits.discovery-enabled"));
+    assertEquals("client", value("quarkus.oidc-client.qits.grant.type"));
   }
 
   private String value(String key) {

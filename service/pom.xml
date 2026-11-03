@@ -52,11 +52,29 @@
             <artifactId>quarkus-arc</artifactId>
         </dependency>
         <dependency>
-            <!-- OTLP export to qits-observability. The extension is what instruments the process;
-                 the endpoint and protocol in application.properties are what make it arrive, since
-                 the defaults are gRPC to localhost:4317 and the receiver speaks HTTP/protobuf. -->
+            <!-- The instrumentation. The extension makes the spans, log records and metrics; the
+                 exporters that ship them are qits-telemetry-core's, below. -->
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <!-- OTLP export to qits-observability through the edge (epic qits-428): replaces all
+                 three of Quarkus' own OTLP exporters with CDI beans that attach the `qits` oidc
+                 client's bearer on every export. The receiver is the module's default,
+                 qits.telemetry.endpoint; quarkus.otel.exporter.otlp.* no longer reaches anything. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-telemetry-core</artifactId>
+        </dependency>
+        <dependency>
+            <!-- The named client `qits` (qits-428): this service's own qits:system bearer, minted by
+                 client credentials FROM THIS VERY PROCESS — its auth-server-url is
+                 http://localhost:8080/idp, a call to itself that never crosses the edge
+                 (quarkus.oidc-client.qits in application.properties). Its reader is
+                 qits-telemetry-core above, which brings the extension anyway; declared here because
+                 the client is this service's configuration, not the library's. No quarkus-oidc
+                 tenant comes with it: this service IS the issuer and validates its own tokens. -->
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc-client</artifactId>
         </dependency>
         <dependency>
             <!-- JSON out (the discovery document, the JWKS, the token response) and the

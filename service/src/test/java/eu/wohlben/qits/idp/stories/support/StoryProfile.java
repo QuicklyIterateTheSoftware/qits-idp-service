@@ -48,14 +48,16 @@ import java.util.Map;
  *
  * <h2>One thing is OFF, and it is the only thing this process would otherwise dial</h2>
  *
- * <p><b>The OTLP exporter.</b> The shipped configuration points this service's own SDK at {@code
- * http://dev-qits-observability:8080/observability/api/otel}, and that is the entire outbound surface of
- * a qits-platform-idp deployment besides its datasource. It is disabled here for three reasons, and
- * they are worth stating rather than assuming:
+ * <p><b>The OTLP exporter.</b> The shipped configuration points this service's own SDK, through
+ * qits-telemetry-core's exporters, at qits-observability's edge host, {@code
+ * https://observability.qits.<domain>/observability/api/otel}, with a bearer the {@code qits} oidc
+ * client mints from this very process over loopback (epic qits-428) — and that is the entire
+ * outbound surface of a qits-idp deployment besides its datasource. It is disabled here for three
+ * reasons, and they are worth stating rather than assuming:
  *
  * <ul>
- *   <li>the shipped endpoint names a host that resolves on {@code qits-net} and nowhere else, so a
- *       launched artifact would spend the run retrying an export into the void;
+ *   <li>the shipped endpoint names the platform's public edge, which a story run must never dial,
+ *       so a launched artifact would spend the run retrying an export into the void;
  *   <li>an exporter flushes on a schedule of its own, on its own thread, so its batches would draw
  *       arrows into whichever story happened to be open — a {@code networkHash} that never settles;
  *   <li>and there is nothing here to point it at anyway: pointing it at a recording stand-in would

@@ -296,6 +296,20 @@ instead (`https://idp.qits.<domain>/idp/...`); the request only picks between th
 configured issuer) so tokens minted before the cutover live out their hour; it goes in qits-730
 wave 3.
 
+**This service's own outbound bearer is minted from itself** (epic qits-428). Its telemetry goes
+to qits-observability at its edge host (qits-telemetry-core's exporters, the module's default
+`qits.telemetry.endpoint`), where the edge refuses an anonymous POST, so every export carries the
+named oidc client `quarkus.oidc-client.qits`'s token. Every other service points that client at the
+idp's edge host; this one points it at `http://localhost:8080/idp`, its own listener, so the call
+never crosses the edge. The issuer derivation above is what makes that sound: a token minted over
+loopback carries `https://idp.qits.<QITS_DOMAIN>` like any other. Its id and secret come from the
+`idp:client` resource in `.config/qits/deployments.yml`, which qits-deployments commissions through
+this service's own API like every application's; the edge `QITS_RESOURCE_IDP_URL` it also injects
+is deliberately not read. Without the pair (the bootstrap's first idp) the client cannot mint and
+exports go out bare with one WARN — nothing refuses a boot. `telemetry/SelfIssuedTokenTest` mints
+through the shipped client against the running test process; `telemetry/OtelLogConfigTest` pins
+the address.
+
 ## Untrusted input
 
 `client_id` arrives on an unauthenticated request. It is only ever a map key (`ServiceClients`) or
@@ -552,14 +566,15 @@ without this process initiating anything at all. The two commissioning stories r
 so they **declare** the jdbc edge (`Network.declare`) instead — dashed in the diagram and flagged
 `declared` in the sidecar, because a claim must never render like evidence. What the assertion does
 *not* prove is that no socket was opened: there is no outbound tap that could have seen one. What
-makes it true is structural — no rest-client, no oidc-client, no event bus on this classpath — plus
-the exporter being off.
+makes it true is structural — no rest-client and no event bus on this classpath; the one
+oidc-client, `qits`, asks this process itself and only for the exporter — plus the exporter being
+off.
 
 **Two stated coverage gaps, neither papered over:**
 
-- **This service's own OTLP export is not covered.** The shipped config points its SDK at
-  `http://qits-observability:8080/observability/api/otel`, which resolves on `qits-net` and nowhere
-  else; a launched artifact would retry into the void, and an exporter flushing on its own thread
+- **This service's own OTLP export is not covered.** The shipped config points qits-telemetry-core's
+  exporters at qits-observability's edge host, which a story run must never dial; a launched
+  artifact would retry into the void, and an exporter flushing on its own thread
   would draw arrows into whichever story happened to be open. It is disabled, and no story claims
   its absence either — an `assertNoEdgesTo` over an exporter the profile switched off would be a
   claim about the profile.

@@ -51,6 +51,11 @@
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
         <qits.http-core.version>2026.1103.132907</qits.http-core.version>
+        <!-- qits-telemetry-core (epic qits-428): the three OTLP/HTTP exporters as CDI beans whose
+             header supplier carries the `qits` oidc client's current bearer, so spans, logs and
+             metrics reach qits-observability at its edge host. Published by
+             qits-integrations-quarkus, like qits-http-core above. -->
+        <qits.telemetry-core.version>2026.1103.201640</qits.telemetry-core.version>
         <!-- The user-story framework (test scope): this module's story catalogue —
              api/TokenIssuanceBootstrapIT plus the classes under api/../stories/ — is written as
              @UserStory methods, so a run that boots the packaged artifact also regenerates
@@ -338,6 +343,13 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-http-core</artifactId>
                 <version>${qits.http-core.version}</version>
+            </dependency>
+            <dependency>
+                <!-- The OTLP exporters that carry this service's own bearer (epic qits-428).
+                     Compile scope in `service` only. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-telemetry-core</artifactId>
+                <version>${qits.telemetry-core.version}</version>
             </dependency>
             <dependency>
                 <!-- The user-story framework, test scope at the use site. Same platform repository
