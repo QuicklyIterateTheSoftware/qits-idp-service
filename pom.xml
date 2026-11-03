@@ -80,23 +80,23 @@
              rather than hand-rolling the request, so its name sits in the middle segment.
              ClasspathPactLoader matches by the `_qits-idp-service.json` suffix alone, so the extra
              segment loads exactly like qits-ci-service's two-part one. -->
-        <qits.artifacts-service-pacts-qits-idp-service.version>2026.1019.62657</qits.artifacts-service-pacts-qits-idp-service.version>
+        <qits.artifacts-service-pacts-qits-idp-service.version>2026.1102.70022</qits.artifacts-service-pacts-qits-idp-service.version>
         <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1019.121537</qits.bootstrap-cli-pacts-qits-idp-service.version>
         <qits.ci-service-pacts-qits-idp-service.version>2026.1102.40410</qits.ci-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1031.45509</qits.deployments-service-pacts-qits-idp-service.version>
         <qits.edge-service-pacts-qits-idp-service.version>2026.1022.102746</qits.edge-service-pacts-qits-idp-service.version>
         <qits.events-service-pacts-qits-idp-service.version>2026.1010.151218</qits.events-service-pacts-qits-idp-service.version>
-        <qits.githost-service-pacts-qits-idp-service.version>2026.1018.160706</qits.githost-service-pacts-qits-idp-service.version>
-        <qits.maintenance-service-pacts-qits-idp-service.version>2026.1018.165353</qits.maintenance-service-pacts-qits-idp-service.version>
+        <qits.githost-service-pacts-qits-idp-service.version>2026.1102.21907</qits.githost-service-pacts-qits-idp-service.version>
+        <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1102.54443</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-cli-pacts-qits-idp-service.version>2026.1102.84942</qits.platform-access-cli-pacts-qits-idp-service.version>
-        <qits.projects-service-pacts-qits-idp-service.version>2026.1027.154457</qits.projects-service-pacts-qits-idp-service.version>
-        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1031.230638</qits.system-runner-daemon-pacts-qits-idp-service.version>
+        <qits.projects-service-pacts-qits-idp-service.version>2026.1102.92522</qits.projects-service-pacts-qits-idp-service.version>
+        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1102.223951</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1023.213531</qits.system-service-pacts-qits-idp-service.version>
-        <qits.workspaces-service-pacts-qits-idp-service.version>2026.1028.163502</qits.workspaces-service-pacts-qits-idp-service.version>
+        <qits.workspaces-service-pacts-qits-idp-service.version>2026.1102.24458</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
