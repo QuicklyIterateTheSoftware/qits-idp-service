@@ -21,7 +21,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 
 | path | what it is |
 |---|---|
-| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `http://qits-idp:8080/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
+| `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `https://idp.qits.<domain>/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
 | `GET /idp/jwks` | the public signing keys, each with its `kid`. |
 | `GET /idp/authorize` | signed-in browser approval for the public clients' Authorization Code + PKCE (S256) flow: `qits-git-workstation`, `qits-cli`, `qits-spa` (every platform page that signs in with a bearer, callback `https://<host>/auth/callback` where `<host>` is the platform's domain or any name under it — the same anchor as the login page's `return_host` — default port, no query or fragment), and `qits-landing-dev` (the landing SPA under `ng serve`, callback `http://localhost:<port>/auth/callback`). |
 | `POST /idp/token` | `application/x-www-form-urlencoded`: `client_credentials`, workstation `authorization_code`, or rotating workstation `refresh_token`. |

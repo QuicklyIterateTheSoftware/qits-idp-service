@@ -351,6 +351,16 @@
                         <quarkus.http.test-port>0</quarkus.http.test-port>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                     </systemPropertyVariables>
+                    <!-- QITS_DOMAIN carries no default in the shipped qits.idp.endpoint-base
+                         (qits-1406: https://idp.qits.${QITS_DOMAIN}/idp), and the launched packaged
+                         artifact runs the prod profile and reads src/main/resources only. The
+                         deployer states it on every container; here the forked JVM states it and
+                         the launch inherits it. `localhost` is exactly what an unstated domain
+                         already derived (PlatformHostname.domainOrLocal), so the issuer, the
+                         browser origin and the WebAuthn relying party the ITs assert are unchanged. -->
+                    <environmentVariables>
+                        <QITS_DOMAIN>localhost</QITS_DOMAIN>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>

@@ -156,7 +156,7 @@ public class TokenIssuanceBootstrapIT {
       the issuer itself is running, packaged exactly as it deploys.
 
       A platform service reaches it the way OIDC says to. It knows one string — the idp's address,
-      `http://dev-qits-idp:8080/idp` — derives the discovery document from it, and follows
+      `https://idp.qits.<domain>/idp` — derives the discovery document from it, and follows
       the document to the token endpoint and to the JWKS. Then it presents the credential pair
       its deployment gave it.
 
@@ -191,8 +191,8 @@ public class TokenIssuanceBootstrapIT {
         .then()
         .statusCode(200)
         .body("issuer", equalTo(PublishedJwks.ISSUER))
-        .body("token_endpoint", equalTo(PublishedJwks.ENDPOINT_BASE + "/token"))
-        .body("jwks_uri", equalTo(PublishedJwks.ENDPOINT_BASE + "/jwks"))
+        .body("token_endpoint", equalTo(PublishedJwks.PACKAGED_ENDPOINT_BASE + "/token"))
+        .body("jwks_uri", equalTo(PublishedJwks.PACKAGED_ENDPOINT_BASE + "/jwks"))
         .body("grant_types_supported", hasItem("client_credentials"))
         .body("id_token_signing_alg_values_supported", hasItem("RS256"));
     story

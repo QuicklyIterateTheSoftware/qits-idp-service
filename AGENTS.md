@@ -288,8 +288,9 @@ from `PlatformHostname`, the hostname grammar `PlatformDomain` reuses. It is the
 document's `issuer` and every token's `iss`, and it is an IDENTIFIER: nothing dials it. Never add
 a config key or a properties default for it — a configurable issuer is how an address once got read
 as an issuer and every machine token was refused. The ADDRESS is `qits.idp.endpoint-base`
-(`Issuer.endpointBase()`), and `token_endpoint`, `jwks_uri` and `authorization_endpoint` hang off
-that — for an in-network caller. A caller whose `Host` or `X-Forwarded-Host` is the public
+(`Issuer.endpointBase()`, shipped as the edge host `https://idp.qits.<QITS_DOMAIN>/idp` with no
+default for the domain — qits-1406; `%dev`/`%test` keep `http://dev-qits-idp:8080/idp`), and
+`token_endpoint`, `jwks_uri` and `authorization_endpoint` hang off that — for an in-network caller. A caller whose `Host` or `X-Forwarded-Host` is the public
 authority (`BrowserSso.canonicalAuthority()`) is told the same endpoints on the public origin
 instead (`https://idp.qits.<domain>/idp/...`); the request only picks between those two values. `BearerCaller` also accepts `Issuer.LEGACY` (`http://qits-platform-idp:8080/idp`, the old
 configured issuer) so tokens minted before the cutover live out their hour; it goes in qits-730
@@ -563,7 +564,8 @@ the exporter being off.
   its absence either — an `assertNoEdgesTo` over an exporter the profile switched off would be a
   claim about the profile.
 - **A consumer cannot follow the advertised absolute URLs.** `qits.idp.endpoint-base` names
-  `http://dev-qits-idp:8080/idp`, and a `@TestProfile` cannot point it at the launched
+  `https://idp.qits.localhost/idp` (failsafe states `QITS_DOMAIN=localhost`, which derives the same
+  issuer as no domain at all), and a `@TestProfile` cannot point it at the launched
   process: the port is ephemeral and the overrides are computed before the process exists.
   `BootstrapDocumentsIT` therefore reads the document's *derivation* and addresses the paths on the
   real port. That the document derives its endpoints from the one endpoint base is proven; that a
