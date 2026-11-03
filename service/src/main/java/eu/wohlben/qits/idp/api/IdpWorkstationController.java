@@ -30,11 +30,12 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 /**
  * The browser leg of the public-client OAuth flows, and the signed-in user's revocation surface.
  *
- * <p>Three public clients arrive here. The Git workstation names a loopback listener and catches its
+ * <p>Four public clients arrive here. The Git workstation names a loopback listener and catches its
  * own redirect. The landing SPA under {@code ng serve} names its own {@code /auth/callback} page on
- * the developer's machine. {@code qits-cli} has no listener at the moment the person finishes signing in, so
+ * the developer's machine, and a platform page ({@code qits-spa}) names its own {@code
+ * /auth/callback} on a platform host. {@code qits-cli} has no listener at the moment the person finishes signing in, so
  * it names this idp's OWN page — {@code <origin>/idp/connect/cli} — which shows the code for the
- * person to paste into the waiting command. All three spend the code at {@code /token} with the PKCE
+ * person to paste into the waiting command. All four spend the code at {@code /token} with the PKCE
  * verifier the waiting process holds, which is what makes a pasted code worth nothing on its own.
  *
  * <p><b>{@code /authorize} with no session bounces to the sign-in page</b> rather than answering
@@ -58,7 +59,7 @@ public class IdpWorkstationController {
   /** The SPA route that shows a pasted-code, relative to the idp's own path prefix. */
   private static final String CLI_PAGE_PATH = "/connect/cli";
 
-  /** The one path the dev SPA's callback may have. */
+  /** The one path the dev SPA's and the platform SPA's callback may have. */
   private static final String DEV_SPA_CALLBACK_PATH = "/auth/callback";
 
   /** The SPA route that signs a person in, relative to the idp's own path prefix. */
@@ -104,9 +105,10 @@ public class IdpWorkstationController {
             .byId(requestedClientId)
             .orElseThrow(() -> OAuthException.invalidRequest("invalid workstation authorization request"));
     URI callback = redirectTarget(client, redirectUri);
-    // The dev SPA's callback is a page a person reads, like the CLI's own page, so a refusal
-    // after the target is settled travels there too.
-    boolean reportable = (client.cli() && !isLoopback(callback)) || client.devSpa();
+    // An SPA's callback is a page a person reads, like the CLI's own page, so a refusal after the
+    // target is settled travels there too.
+    boolean reportable =
+        (client.cli() && !isLoopback(callback)) || client.devSpa() || client.spa();
     try {
       if (!RESPONSE_TYPE_CODE.equals(responseType) || !S256.equals(challengeMethod)) {
         throw OAuthException.invalidRequest("invalid workstation authorization request");
@@ -261,6 +263,9 @@ public class IdpWorkstationController {
     if (client.devSpa()) {
       return devSpaRedirect(raw);
     }
+    if (client.spa()) {
+      return spaRedirect(raw);
+    }
     if (client.cli() && cliPages().contains(raw)) {
       return URI.create(raw);
     }
@@ -290,6 +295,38 @@ public class IdpWorkstationController {
           || !DEV_SPA_CALLBACK_PATH.equals(uri.getRawPath())) {
         throw OAuthException.invalidRequest(
             "redirect_uri must be http://localhost:<port>" + DEV_SPA_CALLBACK_PATH);
+      }
+      return uri;
+    } catch (URISyntaxException badUri) {
+      throw OAuthException.invalidRequest("redirect_uri must be a URI");
+    }
+  }
+
+  /**
+   * A platform page's one callback: {@code https://<host>/auth/callback}, where {@code <host>} is
+   * the platform's domain or a name under it.
+   *
+   * <p><b>The host check is {@link BrowserSso#allows}</b> — the very anchor the login page's {@code
+   * return_host} is held to — so there is one rule for "a name this platform serves" and no list to
+   * keep in step with it. The rest is as narrow as the dev SPA's: https only, the default port (no
+   * port in the URI at all, so one host has one spelling), the exact path, and no userinfo, query or
+   * fragment. A host the anchor names only with a port — the local {@code localhost:8080} platform —
+   * therefore admits nothing here; {@code qits-landing-dev} is the client for that.
+   */
+  private URI spaRedirect(String raw) {
+    try {
+      URI uri = new URI(raw);
+      String host = uri.getHost() == null ? null : BrowserSso.authority(uri.getHost());
+      if (!"https".equals(uri.getScheme())
+          || host == null
+          || uri.getPort() != -1
+          || uri.getRawUserInfo() != null
+          || uri.getRawQuery() != null
+          || uri.getRawFragment() != null
+          || !DEV_SPA_CALLBACK_PATH.equals(uri.getRawPath())
+          || !browserSso.allows(host)) {
+        throw OAuthException.invalidRequest(
+            "redirect_uri must be https://<platform host>" + DEV_SPA_CALLBACK_PATH);
       }
       return uri;
     } catch (URISyntaxException badUri) {

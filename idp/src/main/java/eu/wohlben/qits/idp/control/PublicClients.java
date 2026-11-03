@@ -6,10 +6,11 @@ import java.util.Optional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
- * The public OAuth clients this idp knows: the Git workstation, the command-line tool, and the
- * landing SPA under {@code ng serve} on a developer's machine.
+ * The public OAuth clients this idp knows: the Git workstation, the command-line tool, every
+ * platform page that signs in with a bearer token, and the landing SPA under {@code ng serve} on a
+ * developer's machine.
  *
- * <p>Both are PKCE-only — no secret, no {@code Authorization} header, no way to become a machine
+ * <p>All are PKCE-only — no secret, no {@code Authorization} header, no way to become a machine
  * identity — and both spend an authorization code for a rotating refresh family. What separates
  * them is what the code is worth ({@link Kind}) and how long a person has to spend it: a loopback
  * listener catches a redirect in milliseconds, while a person reading a code off a page and
@@ -19,8 +20,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * <p>The third, {@code qits-landing-dev}, exists because a page served from {@code
  * http://localhost:4200} is a different site from the platform, so the platform's {@code
  * SameSite=Lax} session cookie never reaches its API calls. It signs in the way the CLI does and
- * gets the same token; only its redirect rule and its code TTL differ. Production pages keep the
- * cookie and never use it.
+ * gets the same token; only its redirect rule and its code TTL differ.
+ *
+ * <p>The fourth, {@code qits-spa}, is the same token for a page the platform itself serves: its
+ * callback is {@code https://<host>/auth/callback} on the platform's apex or any name under it —
+ * the anchor the login page checks {@code return_host} against, not a list of its own. It is what
+ * a deployed page uses when it wants a bearer rather than the session cookie.
  *
  * <p><b>The ids are configuration and the lookup is exact.</b> A {@code client_id} that is none
  * of the configured values is unknown — there is no fall-through to "the public client",
@@ -42,7 +47,12 @@ public class PublicClients {
      * The landing SPA under {@code ng serve}: the same token as {@link #CLI}, caught by the page at
      * {@code http://localhost:<port>/auth/callback}.
      */
-    DEV_SPA
+    DEV_SPA,
+    /**
+     * A page the platform serves: the same token as {@link #CLI}, caught by the page at {@code
+     * https://<platform host>/auth/callback}.
+     */
+    SPA
   }
 
   /**
@@ -60,6 +70,10 @@ public class PublicClients {
 
     public boolean devSpa() {
       return kind == Kind.DEV_SPA;
+    }
+
+    public boolean spa() {
+      return kind == Kind.SPA;
     }
 
     /** Whether a spent grant mints the person's own token rather than the narrow Git one. */
@@ -86,6 +100,12 @@ public class PublicClients {
   @ConfigProperty(name = "qits.idp.dev-spa.authorization-code-ttl")
   Duration devSpaAuthorizationCodeTtl;
 
+  @ConfigProperty(name = "qits.idp.spa.client-id")
+  String spaClientId;
+
+  @ConfigProperty(name = "qits.idp.spa.authorization-code-ttl")
+  Duration spaAuthorizationCodeTtl;
+
   public PublicClient workstation() {
     return new PublicClient(
         workstationClientId, Kind.WORKSTATION, workstationAuthorizationCodeTtl);
@@ -97,6 +117,10 @@ public class PublicClients {
 
   public PublicClient devSpa() {
     return new PublicClient(devSpaClientId, Kind.DEV_SPA, devSpaAuthorizationCodeTtl);
+  }
+
+  public PublicClient spa() {
+    return new PublicClient(spaClientId, Kind.SPA, spaAuthorizationCodeTtl);
   }
 
   /** The client this {@code client_id} names, or empty when it names none. */
@@ -112,6 +136,9 @@ public class PublicClients {
     }
     if (devSpaClientId.equals(clientId)) {
       return Optional.of(devSpa());
+    }
+    if (spaClientId.equals(clientId)) {
+      return Optional.of(spa());
     }
     return Optional.empty();
   }

@@ -100,7 +100,7 @@ public class IdpTokenController {
    * agree and reading either would give the same answer.
    */
   private IssuedToken mint(PublicClient client, WorkstationCredentials.RefreshGrant grant) {
-    // The dev SPA gets the CLI's token on purpose: it is the same person, signed in the same way.
+    // Both SPAs get the CLI's token on purpose: it is the same person, signed in the same way.
     return client.personToken()
         ? tokenService.cli(grant.userId())
         : tokenService.workstation(grant.userId());
