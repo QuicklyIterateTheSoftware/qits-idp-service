@@ -50,7 +50,7 @@
         <!-- CallerServerFilter/CallerClientFilter: jandex-indexed filters that record inbound
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
-        <qits.http-core.version>2026.1013.64811</qits.http-core.version>
+        <qits.http-core.version>2026.1103.132907</qits.http-core.version>
         <!-- The user-story framework (test scope): this module's story catalogue —
              api/TokenIssuanceBootstrapIT plus the classes under api/../stories/ — is written as
              @UserStory methods, so a run that boots the packaged artifact also regenerates
@@ -83,11 +83,11 @@
         <qits.artifacts-service-pacts-qits-idp-service.version>2026.1102.70022</qits.artifacts-service-pacts-qits-idp-service.version>
         <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1019.121537</qits.bootstrap-cli-pacts-qits-idp-service.version>
         <qits.ci-service-pacts-qits-idp-service.version>2026.1102.40410</qits.ci-service-pacts-qits-idp-service.version>
-        <qits.containers-service-pacts-qits-idp-service.version>2026.1010.151131</qits.containers-service-pacts-qits-idp-service.version>
-        <qits.deployments-service-pacts-qits-idp-service.version>2026.1031.45509</qits.deployments-service-pacts-qits-idp-service.version>
+        <qits.containers-service-pacts-qits-idp-service.version>2026.1103.143113</qits.containers-service-pacts-qits-idp-service.version>
+        <qits.deployments-service-pacts-qits-idp-service.version>2026.1103.124004</qits.deployments-service-pacts-qits-idp-service.version>
         <qits.edge-service-pacts-qits-idp-service.version>2026.1022.102746</qits.edge-service-pacts-qits-idp-service.version>
         <qits.events-service-pacts-qits-idp-service.version>2026.1010.151218</qits.events-service-pacts-qits-idp-service.version>
-        <qits.githost-service-pacts-qits-idp-service.version>2026.1102.21907</qits.githost-service-pacts-qits-idp-service.version>
+        <qits.githost-service-pacts-qits-idp-service.version>2026.1103.125031</qits.githost-service-pacts-qits-idp-service.version>
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
