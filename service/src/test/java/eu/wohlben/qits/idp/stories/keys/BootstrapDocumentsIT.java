@@ -78,14 +78,14 @@ import org.junit.jupiter.api.BeforeAll;
  *
  * <h2>One seam is out of reach, and it is stated rather than worked around</h2>
  *
- * <p>The advertised URLs are absolute and name {@code http://dev-qits-idp:8080/idp}, a host
- * that resolves on {@code qits-net} and nowhere else. So this story <b>reads the document's
+ * <p>The advertised URLs are absolute and name the idp's edge host, {@code
+ * https://idp.qits.localhost/idp} here, which is not the launched process. So this story <b>reads the document's
  * derivation and then addresses the paths on the launched process's own port</b> rather than
  * following the absolute URL the way a real consumer does. Pointing {@code qits.idp.endpoint-base}
  * at the launched process is not available to a {@code @TestProfile}: the port is ephemeral and the
  * overrides are computed before the process exists. What is proven here is therefore that the
  * document derives its endpoints from the endpoint base and that those <i>paths</i> serve; that a
- * consumer can resolve the <i>host</i> is a deployment fact, and {@code qits-net} is where it is
+ * consumer can resolve the <i>host</i> is a deployment fact, and the platform's edge is where it is
  * true.
  *
  * <p><b>That unreachable seam is where the defect lived, and it is worth naming as a cost.</b> A
@@ -121,7 +121,7 @@ public class BootstrapDocumentsIT {
   @UserStoryDescription(
       """
       A service is deployed and knows one string about identity: the idp's address,
-      `http://dev-qits-idp:8080/idp`. Everything else it learns by asking.
+      `https://idp.qits.localhost/idp`. Everything else it learns by asking.
 
       It derives the discovery document from that string by OIDC's own rule and reads its
       endpoints off it. Every one of them hangs off the same ADDRESS inside this service too —
@@ -130,7 +130,7 @@ public class BootstrapDocumentsIT {
 
       The `issuer` it advertises is a different string, and that is deliberate rather than a
       mistake: the idp is IDENTIFIED by `https://idp.qits.<domain>`, derived from the platform's
-      domain (`https://idp.qits.localhost` here, where none is stated) and configured nowhere.
+      domain (`https://idp.qits.localhost` here) and configured nowhere.
       The issuer is compared and the address is dialled, so they are two values. What must not
       drift is `iss` itself, and it has exactly one source.
 

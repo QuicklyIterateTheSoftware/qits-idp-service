@@ -199,12 +199,12 @@ public final class StoryTarget {
    * The shipped {@code qits.idp.endpoint-base}: what the discovery document's endpoints hang off,
    * and the address a consumer actually dials.
    *
-   * <p>{@code QITS_ENVIRONMENT} is unset under the suite, so the shipped default resolves its own
-   * {@code dev} arm — which is the point of asserting it here rather than a fixture: the launched
-   * process reads the jar's default, so a change to that default fails this suite rather than a
-   * deployment.
+   * <p>The shipped default is the idp's edge host, {@code https://idp.qits.<domain>/idp}
+   * (qits-1406), and failsafe states {@code QITS_DOMAIN=localhost} for the launched process — which
+   * is the point of asserting it here rather than a fixture: the launched process reads the jar's
+   * default, so a change to that default fails this suite rather than a deployment.
    */
-  public static final String ENDPOINT_BASE = "http://dev-qits-idp:8080/idp";
+  public static final String ENDPOINT_BASE = "https://idp.qits.localhost/idp";
 
   /** The token's shipped lifetime, in seconds — an hour since the commission model landed. */
   public static final int TOKEN_TTL_SECONDS = 3600;

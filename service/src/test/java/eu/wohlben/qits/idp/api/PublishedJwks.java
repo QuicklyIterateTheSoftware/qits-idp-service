@@ -30,11 +30,20 @@ public final class PublishedJwks {
   public static final String ISSUER = "https://idp.qits.localhost";
 
   /**
-   * The address the shipped {@code qits.idp.endpoint-base} default names — every advertised
-   * endpoint hangs off this, not off {@link #ISSUER}. {@code QITS_ENVIRONMENT} is unset under the
-   * suite, so the default resolves its own {@code dev} arm.
+   * The address {@code %test.qits.idp.endpoint-base} names under {@code @QuarkusTest} — every
+   * advertised endpoint hangs off this, not off {@link #ISSUER}. {@code QITS_ENVIRONMENT} is unset
+   * under the suite, so the value resolves its own {@code dev} arm. The golden masters and the pacts
+   * the consumers hold were recorded against it.
    */
   public static final String ENDPOINT_BASE = "http://dev-qits-idp:8080/idp";
+
+  /**
+   * The address the SHIPPED {@code qits.idp.endpoint-base} default names, which is what the packaged
+   * artifact the ITs launch serves: the idp's edge host {@code https://idp.qits.<domain>/idp}
+   * (qits-1406), with failsafe stating {@code QITS_DOMAIN=localhost}. It differs from {@link
+   * #ISSUER} by the {@code /idp} path: one is dialled, the other only compared.
+   */
+  public static final String PACKAGED_ENDPOINT_BASE = "https://idp.qits.localhost/idp";
 
   private PublishedJwks() {}
 

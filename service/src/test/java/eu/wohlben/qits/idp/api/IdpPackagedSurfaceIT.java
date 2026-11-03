@@ -107,7 +107,7 @@ public class IdpPackagedSurfaceIT {
 
   @Test
   public void theDiscoveryDocumentIsWhereAnOidcConsumerLooksForIt() {
-    // auth-server-url http://dev-qits-idp:8080/idp + OIDC's own derivation = this path.
+    // auth-server-url https://idp.qits.<domain>/idp + OIDC's own derivation = this path.
     // It is a build-time route prefix, so the artifact is the only place it can be proven.
     //
     // THE TWO STRINGS ARE DIFFERENT AND BOTH ARE SPELLED OUT HERE, because this is the packaged
@@ -121,7 +121,7 @@ public class IdpPackagedSurfaceIT {
         .then()
         .statusCode(200)
         .body("issuer", equalTo("https://idp.qits.localhost"))
-        .body("jwks_uri", equalTo("http://dev-qits-idp:8080/idp/jwks"));
+        .body("jwks_uri", equalTo("https://idp.qits.localhost/idp/jwks"));
 
     // qits-platform-edge routes by declared route and keeps the path, so there is no unprefixed
     // form to fall back to.
