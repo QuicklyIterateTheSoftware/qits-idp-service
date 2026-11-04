@@ -99,7 +99,7 @@
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1102.54443</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-monorepo-pacts-qits-idp-service.version>2026.1103.101116</qits.platform-access-monorepo-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1102.92522</qits.projects-service-pacts-qits-idp-service.version>
-        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1104.83251</qits.system-runner-daemon-pacts-qits-idp-service.version>
+        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1104.151414</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1103.220115</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1102.24458</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
