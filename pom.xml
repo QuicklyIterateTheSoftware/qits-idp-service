@@ -85,7 +85,7 @@
              rather than hand-rolling the request, so its name sits in the middle segment.
              ClasspathPactLoader matches by the `_qits-idp-service.json` suffix alone, so the extra
              segment loads exactly like qits-ci-service's two-part one. -->
-        <qits.artifacts-service-pacts-qits-idp-service.version>2026.1102.70022</qits.artifacts-service-pacts-qits-idp-service.version>
+        <qits.artifacts-service-pacts-qits-idp-service.version>2026.1103.235223</qits.artifacts-service-pacts-qits-idp-service.version>
         <qits.bootstrap-cli-pacts-qits-idp-service.version>2026.1019.121537</qits.bootstrap-cli-pacts-qits-idp-service.version>
         <qits.ci-service-pacts-qits-idp-service.version>2026.1102.40410</qits.ci-service-pacts-qits-idp-service.version>
         <qits.containers-service-pacts-qits-idp-service.version>2026.1103.143113</qits.containers-service-pacts-qits-idp-service.version>
