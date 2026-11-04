@@ -94,7 +94,7 @@
         <qits.events-service-pacts-qits-idp-service.version>2026.1103.222809</qits.events-service-pacts-qits-idp-service.version>
         <qits.githost-service-pacts-qits-idp-service.version>2026.1103.125031</qits.githost-service-pacts-qits-idp-service.version>
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
-        <qits.mirror-service-pacts-qits-idp-service.version>2026.1010.151000</qits.mirror-service-pacts-qits-idp-service.version>
+        <qits.mirror-service-pacts-qits-idp-service.version>2026.1103.231918</qits.mirror-service-pacts-qits-idp-service.version>
         <qits.observability-service-pacts-qits-idp-service.version>2026.1010.143256</qits.observability-service-pacts-qits-idp-service.version>
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1102.54443</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-monorepo-pacts-qits-idp-service.version>2026.1103.101116</qits.platform-access-monorepo-pacts-qits-idp-service.version>
