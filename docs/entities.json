@@ -57,6 +57,125 @@
       ]
     },
     {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpDevice",
+      "table" : "idp_device",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "site" : "IdpAuthController.resume(RoutingContext, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$RememberedDevice",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Device",
+          "site" : "IdpRememberedDevicesController.list(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Remembered",
+          "site" : "IdpAuthController.login(RoutingContext, LoginRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Device",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Devices.list(UUID)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Remembered",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Devices.remember(Account, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Devices.resume(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Remembered",
+          "site" : "Remembered.session()"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "introspectSession",
+          "method" : "POST",
+          "path" : "/api/sessions/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listRememberedDevices",
+          "method" : "GET",
+          "path" : "/api/remembered-devices",
+          "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$RememberedDevice",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "login",
+          "method" : "POST",
+          "path" : "/api/auth/login",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
+          "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpDeviceSecret",
+      "table" : "idp_device_secret",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "site" : "IdpAuthController.resume(RoutingContext, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Devices.resume(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "site" : "Resumed.session()"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
+          "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
       "entity" : "eu.wohlben.qits.idp.entity.IdpDynamicClient",
       "table" : "idp_client",
       "marking" : "domain",
@@ -149,6 +268,12 @@
       "knownGap" : null,
       "dtos" : [
         {
+          "type" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "IdpAuthController.resume(RoutingContext, String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.api.IdpRegisterTokensController$MintResponse",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.RegisterTokens$Minted",
@@ -227,6 +352,13 @@
           "path" : "/api/auth/register",
           "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
           "kind" : "returns"
+        },
+        {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
+          "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "body"
         },
         {
           "operationId" : "revokeDevice",
@@ -366,10 +498,22 @@
           "site" : "AdminCaller.require(String, String, String)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "IdpAuthController.resume(RoutingContext, String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "site" : "IdpAuthController.registrant(RegisterRequest, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpRememberedDevicesController.caller(String, String)"
         },
         {
           "type" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
@@ -393,7 +537,13 @@
           "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "kind" : "assembler",
           "via" : null,
-          "site" : "Sessions.openRow(Account)"
+          "site" : "Sessions.openRow(Account, UUID)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Sessions.openRow(Account, UUID)"
         }
       ],
       "operations" : [
@@ -454,10 +604,24 @@
           "kind" : "returns"
         },
         {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
+          "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "body"
+        },
+        {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "revokeRememberedDevice",
+          "method" : "DELETE",
+          "path" : "/api/remembered-devices/{id}",
+          "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
           "kind" : "body"
         },
         {
@@ -625,10 +789,22 @@
           "site" : "AdminCaller.person(JwtClaims)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "site" : "IdpAuthController.resume(RoutingContext, String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "site" : "IdpAuthController.registrant(RegisterRequest, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpRememberedDevicesController.caller(String, String)"
         },
         {
           "type" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
@@ -655,10 +831,22 @@
           "site" : "IdpAuthController.issued(RoutingContext, Opened)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Devices.resume(String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "kind" : "assembler",
           "via" : null,
           "site" : "Sessions.resolve(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Registrations.withToken(String, String, NewAuthenticator, String)"
         },
         {
           "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
@@ -751,10 +939,24 @@
           "kind" : "returns"
         },
         {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
+          "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
+          "kind" : "body"
+        },
+        {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "revokeRememberedDevice",
+          "method" : "DELETE",
+          "path" : "/api/remembered-devices/{id}",
+          "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
           "kind" : "body"
         },
         {
@@ -796,7 +998,13 @@
           "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.Users$Account",
-          "site" : "Sessions.openRow(Account)"
+          "site" : "Sessions.openRow(Account, UUID)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "Registrations.withToken(String, String, NewAuthenticator, String)"
         },
         {
           "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
@@ -864,6 +1072,13 @@
           "operationId" : "logout",
           "method" : "POST",
           "path" : "/api/auth/logout",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "resume",
+          "method" : "POST",
+          "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "kind" : "body"
         },
