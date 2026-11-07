@@ -766,7 +766,8 @@ public class ProviderStates {
   /**
    * A person who logged in asking to be remembered (qits-1944): {@code sessionToken} is the session
    * that login opened through the device, {@code deviceSecret} the device's current {@code
-   * qits-device} value, {@code deviceId} the device.
+   * qits-device} value, {@code deviceId} the device, and {@code authorization} the same person's
+   * CLI bearer, the other caller the remembered-devices doors accept ({@code qits remembered-devices}).
    */
   private Setup aRememberedDevice() {
     UUID id = person();
@@ -774,8 +775,11 @@ public class ProviderStates {
         devices.remember(
             new Users.Account(id, "contract-" + id, List.of("qits:admin")), "contract-browser/1.0");
     String session = remembered.session().token();
+    String bearer = tokenService.cli(id).accessToken();
     return new Setup(
         params(
+            "authorization",
+            "Bearer " + bearer,
             "sessionToken",
             session,
             "deviceSecret",
@@ -784,7 +788,7 @@ public class ProviderStates {
             remembered.deviceId().toString(),
             "userId",
             id.toString()),
-        List.of(session, remembered.secret()),
+        List.of(session, remembered.secret(), bearer),
         List.of(remembered.deviceId().toString()));
   }
 
