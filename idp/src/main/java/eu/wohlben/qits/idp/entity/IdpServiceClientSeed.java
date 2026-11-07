@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.entity;
 
+import eu.wohlben.qits.db.exposure.Technical;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,6 +18,10 @@ import java.time.Instant;
  * <p>{@link #id} is always {@code 1} — the table's check constraint refuses any other value, so
  * there can only ever be the one row.
  */
+@Technical(
+    reason =
+        "One-row marker that the first service client was seeded from the environment, so the"
+            + " seed never reruns; boot bookkeeping, not data anyone reads")
 @Entity
 @Table(name = "idp_seed")
 public class IdpServiceClientSeed extends PanacheEntityBase {

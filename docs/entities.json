@@ -1,0 +1,954 @@
+{
+  "formatVersion" : 1,
+  "application" : "qits-idp",
+  "entities" : [
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpAdoption",
+      "table" : "idp_adoption",
+      "marking" : "technical",
+      "reason" : "One-row marker that qits-163's adoption of the environment service clients has run, so it never reruns; boot bookkeeping, not data anyone reads",
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [ ],
+      "operations" : [ ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpAuthorizationCode",
+      "table" : "idp_authorization_code",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
+          "site" : "IdpTokenController.mint(PublicClient, RefreshGrant)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.WorkstationCredentials$AuthorizationCode",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "WorkstationCredentials.authorize(PublicClient, UUID, String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "WorkstationCredentials.exchangeCode(PublicClient, String, String, String)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "authorize",
+          "method" : "GET",
+          "path" : "/authorize",
+          "dto" : "eu.wohlben.qits.idp.control.WorkstationCredentials$AuthorizationCode",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpDynamicClient",
+      "table" : "idp_client",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.DynamicClients$Commissioned",
+          "site" : "IdpClientsController.commission(String, CommissionRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.DynamicClients$StoredClient",
+          "site" : "IdpClientsController.view(StoredClient)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.DynamicClients$Commissioned",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "DynamicClients.commission(String, String, String, Map, List)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.DynamicClients$StoredClient",
+          "kind" : "mapper",
+          "via" : null,
+          "site" : "DynamicClients.toStored(IdpDynamicClient)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.DynamicClients$StoredClient",
+          "site" : "ClientRegistry.asClient(StoredClient)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "commissionClient",
+          "method" : "POST",
+          "path" : "/api/clients",
+          "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionResponse",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "decommissionClient",
+          "method" : "DELETE",
+          "path" : "/api/clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteServiceClient",
+          "method" : "DELETE",
+          "path" : "/api/service-clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteToken",
+          "method" : "DELETE",
+          "path" : "/api/tokens/{tokenId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "listClients",
+          "method" : "GET",
+          "path" : "/api/clients",
+          "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "replaceClientGitRefs",
+          "method" : "PUT",
+          "path" : "/api/clients/{clientId}/git-refs",
+          "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionView",
+          "kind" : "returns"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpRegisterToken",
+      "table" : "idp_register_token",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpRegisterTokensController$MintResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.RegisterTokens$Minted",
+          "site" : "IdpRegisterTokensController.mint(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "IdpAuthController.register(RoutingContext, String, RegisterRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "IdpAuthController.issued(RoutingContext, Opened)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.RegisterTokens$Minted",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "RegisterTokens.mint(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "Opened.session()"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Registrations.withToken(String, String, NewAuthenticator, String)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "getRegisterOptions",
+          "method" : "POST",
+          "path" : "/api/auth/register-options",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "introspectSession",
+          "method" : "POST",
+          "path" : "/api/sessions/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "login",
+          "method" : "POST",
+          "path" : "/api/auth/login",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "logout",
+          "method" : "POST",
+          "path" : "/api/auth/logout",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "mintRegisterToken",
+          "method" : "POST",
+          "path" : "/api/register-tokens",
+          "dto" : "eu.wohlben.qits.idp.api.IdpRegisterTokensController$MintResponse",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "register",
+          "method" : "POST",
+          "path" : "/api/auth/register",
+          "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "revokeDevice",
+          "method" : "DELETE",
+          "path" : "/api/devices/{familyId}",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "setPassword",
+          "method" : "POST",
+          "path" : "/api/auth/password",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpServiceClient",
+      "table" : "idp_service_client",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$CreatedResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.ServiceClients$Issued",
+          "site" : "IdpServiceClientsController.create(String, CreateRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$RotatedResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.ServiceClients$Issued",
+          "site" : "IdpServiceClientsController.rotate(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$ServiceClientView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.ServiceClients$StoredServiceClient",
+          "site" : "IdpServiceClientsController.view(StoredServiceClient)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.ServiceClients$StoredServiceClient",
+          "site" : "ClientRegistry.asServiceClient(StoredServiceClient)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.ServiceClients$Issued",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "ServiceClients.create(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.ServiceClients$StoredServiceClient",
+          "kind" : "mapper",
+          "via" : null,
+          "site" : "ServiceClients.toStored(IdpServiceClient)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "createServiceClient",
+          "method" : "POST",
+          "path" : "/api/service-clients",
+          "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$CreatedResponse",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "decommissionClient",
+          "method" : "DELETE",
+          "path" : "/api/clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteServiceClient",
+          "method" : "DELETE",
+          "path" : "/api/service-clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteToken",
+          "method" : "DELETE",
+          "path" : "/api/tokens/{tokenId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getServiceClient",
+          "method" : "GET",
+          "path" : "/api/service-clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$ServiceClientView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listServiceClients",
+          "method" : "GET",
+          "path" : "/api/service-clients",
+          "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$ServiceClientView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "rotateServiceClientSecret",
+          "method" : "POST",
+          "path" : "/api/service-clients/{clientId}/secret",
+          "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$RotatedResponse",
+          "kind" : "returns"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpServiceClientSeed",
+      "table" : "idp_seed",
+      "marking" : "technical",
+      "reason" : "One-row marker that the first service client was seeded from the environment, so the seed never reruns; boot bookkeeping, not data anyone reads",
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [ ],
+      "operations" : [ ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpSession",
+      "table" : "idp_session",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "AdminCaller.require(String, String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.registrant(RegisterRequest, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpWorkstationController.devices(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.register(RoutingContext, String, RegisterRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.issued(RoutingContext, Opened)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Sessions.openRow(Account)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "deleteUser",
+          "method" : "DELETE",
+          "path" : "/api/users/{username}",
+          "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getRegisterOptions",
+          "method" : "POST",
+          "path" : "/api/auth/register-options",
+          "dto" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "introspectSession",
+          "method" : "POST",
+          "path" : "/api/sessions/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listDevices",
+          "method" : "GET",
+          "path" : "/api/devices",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listWorkstations",
+          "method" : "GET",
+          "path" : "/api/workstations",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "login",
+          "method" : "POST",
+          "path" : "/api/auth/login",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "logout",
+          "method" : "POST",
+          "path" : "/api/auth/logout",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "register",
+          "method" : "POST",
+          "path" : "/api/auth/register",
+          "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "revokeDevice",
+          "method" : "DELETE",
+          "path" : "/api/devices/{familyId}",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "setPassword",
+          "method" : "POST",
+          "path" : "/api/auth/password",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpSigningKey",
+      "table" : "idp_signing_key",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.control.SigningKeys$SigningKey",
+          "kind" : "mapper",
+          "via" : null,
+          "site" : "SigningKeys.toKey(IdpSigningKey)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.SigningKeys$SigningKey",
+          "site" : "TokenService.cli(UUID)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpToken",
+      "table" : "idp_token",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpTokensController$CommissionResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$Commissioned",
+          "site" : "IdpTokensController.commission(String, CommissionRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpTokensController$IntrospectionResponse",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
+          "site" : "IdpTokensController.introspect(String, IntrospectRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpTokensController$TokenView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
+          "site" : "IdpTokensController.view(StoredToken)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.CommissionedTokens$Commissioned",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "CommissionedTokens.commission(String, String, String, Map, List)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
+          "kind" : "mapper",
+          "via" : null,
+          "site" : "CommissionedTokens.toStored(IdpToken)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
+          "site" : "TokenService.forCommissionedToken(StoredToken)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
+          "site" : "TokenService.forCommissionedToken(StoredToken)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "commissionToken",
+          "method" : "POST",
+          "path" : "/api/tokens",
+          "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$CommissionResponse",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "decommissionClient",
+          "method" : "DELETE",
+          "path" : "/api/clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteServiceClient",
+          "method" : "DELETE",
+          "path" : "/api/service-clients/{clientId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "deleteToken",
+          "method" : "DELETE",
+          "path" : "/api/tokens/{tokenId}",
+          "dto" : "eu.wohlben.qits.idp.control.IdpClient",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "introspectToken",
+          "method" : "POST",
+          "path" : "/api/tokens/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$IntrospectionResponse",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "listTokens",
+          "method" : "GET",
+          "path" : "/api/tokens",
+          "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$TokenView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "replaceTokenGitRefs",
+          "method" : "PUT",
+          "path" : "/api/tokens/{tokenId}/git-refs",
+          "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$TokenView",
+          "kind" : "returns"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpUser",
+      "table" : "idp_user",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "AdminCaller.person(JwtClaims)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.registrant(RegisterRequest, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Summary",
+          "site" : "IdpUsersController.list(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpWorkstationController.devices(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.register(RoutingContext, String, RegisterRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "site" : "IdpAuthController.issued(RoutingContext, Opened)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Sessions.resolve(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "TokenService.cli(UUID)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Users$Account",
+          "kind" : "mapper",
+          "via" : null,
+          "site" : "Users.accountOf(IdpUser)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Users$Summary",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Users.list()"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "deleteUser",
+          "method" : "DELETE",
+          "path" : "/api/users/{username}",
+          "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getRegisterOptions",
+          "method" : "POST",
+          "path" : "/api/auth/register-options",
+          "dto" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "introspectSession",
+          "method" : "POST",
+          "path" : "/api/sessions/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "listDevices",
+          "method" : "GET",
+          "path" : "/api/devices",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listUsers",
+          "method" : "GET",
+          "path" : "/api/users",
+          "dto" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listWorkstations",
+          "method" : "GET",
+          "path" : "/api/workstations",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "login",
+          "method" : "POST",
+          "path" : "/api/auth/login",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "logout",
+          "method" : "POST",
+          "path" : "/api/auth/logout",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "register",
+          "method" : "POST",
+          "path" : "/api/auth/register",
+          "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "revokeDevice",
+          "method" : "DELETE",
+          "path" : "/api/devices/{familyId}",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "setPassword",
+          "method" : "POST",
+          "path" : "/api/auth/password",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpUserRole",
+      "table" : "idp_user_role",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "AdminCaller.person(JwtClaims)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Summary",
+          "site" : "IdpUsersController.list(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "IdpAuthController.login(RoutingContext, LoginRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "Sessions.openRow(Account)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "TokenService.cli(UUID)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Users$Account",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Users.accountOf(IdpUser)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Users$Summary",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Users.list()"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "deleteUser",
+          "method" : "DELETE",
+          "path" : "/api/users/{username}",
+          "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "getRegisterOptions",
+          "method" : "POST",
+          "path" : "/api/auth/register-options",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "introspectSession",
+          "method" : "POST",
+          "path" : "/api/sessions/introspect",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "listUsers",
+          "method" : "GET",
+          "path" : "/api/users",
+          "dto" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "login",
+          "method" : "POST",
+          "path" : "/api/auth/login",
+          "dto" : "eu.wohlben.qits.idp.api.SessionView",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "logout",
+          "method" : "POST",
+          "path" : "/api/auth/logout",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "revokeDevice",
+          "method" : "DELETE",
+          "path" : "/api/devices/{familyId}",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "setPassword",
+          "method" : "POST",
+          "path" : "/api/auth/password",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body"
+        }
+      ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpWebAuthnCredential",
+      "table" : "idp_webauthn_credential",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : "qits-1953",
+      "dtos" : [ ],
+      "operations" : [ ]
+    },
+    {
+      "entity" : "eu.wohlben.qits.idp.entity.IdpWorkstationRefreshToken",
+      "table" : "idp_workstation_refresh_token",
+      "marking" : "domain",
+      "reason" : null,
+      "projectionOf" : null,
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.WorkstationCredentials$Workstation",
+          "site" : "IdpWorkstationController.devices(String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
+          "site" : "IdpTokenController.mint(PublicClient, RefreshGrant)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "WorkstationCredentials.newRefresh(String, UUID, UUID, Instant)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.WorkstationCredentials$Workstation",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "WorkstationCredentials.list(UUID)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "issueToken",
+          "method" : "POST",
+          "path" : "/token",
+          "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
+          "kind" : "body"
+        },
+        {
+          "operationId" : "listDevices",
+          "method" : "GET",
+          "path" : "/api/devices",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        },
+        {
+          "operationId" : "listWorkstations",
+          "method" : "GET",
+          "path" : "/api/workstations",
+          "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns"
+        }
+      ]
+    }
+  ]
+}
