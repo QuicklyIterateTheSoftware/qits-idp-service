@@ -223,7 +223,9 @@ public class ProviderStates {
   /**
    * What a state hands back.
    *
-   * @param params its parameters, keys sorted
+   * @param params its parameters, keys sorted. A UUID's frozen number in a param — the whole value
+   *     or embedded in it — is sticky to the committed {@code golden-masters/index.json} ({@link
+   *     Freezer#seed(Map, Map)}): adding or removing a param never renumbers the others
    * @param uniqueTokens random values the state put into names, frozen by {@link Freezer}
    * @param created the values that mark an entry this state created, for the list filter
    */
