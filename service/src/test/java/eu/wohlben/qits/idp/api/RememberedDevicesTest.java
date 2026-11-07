@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import eu.wohlben.qits.idp.control.ClientSecret;
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.entity.IdpDevice;
 import eu.wohlben.qits.idp.entity.IdpDeviceSecret;
@@ -54,6 +55,8 @@ public class RememberedDevicesTest {
   private static final String SYSTEM_SECRET = "test-broad-secret";
 
   @Inject TokenService tokenService;
+
+  @Inject CommissionedTokens commissionedTokens;
 
   // --- remembering -------------------------------------------------------------------------------
 
@@ -439,7 +442,11 @@ public class RememberedDevicesTest {
         clientCredentials(basic(agent.getString("clientId"), agent.getString("secret")));
     String workstation = tokenService.workstation(account.userId()).accessToken();
 
-    List<String> refused = new ArrayList<>(List.of(service, agentToken, workstation));
+    String commissioned =
+        commissionedTokens
+            .commission(SYSTEM, "workspace", "remembered-" + UUID.randomUUID(), Map.of(), List.of())
+            .value();
+    List<String> refused = new ArrayList<>(List.of(service, agentToken, workstation, commissioned));
     for (String bearer : refused) {
       given()
           .header("Authorization", "Bearer " + bearer)
