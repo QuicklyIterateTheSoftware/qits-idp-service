@@ -1,7 +1,9 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.Devices;
 import eu.wohlben.qits.idp.control.Sessions;
+import eu.wohlben.qits.idp.control.TokenValue;
 import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.error.AuthException;
 import eu.wohlben.qits.idp.error.OAuthException;
@@ -45,7 +47,8 @@ import org.jose4j.jwt.MalformedClaimException;
  * </ol>
  *
  * <p><b>Every other bearer is 403, on both doors</b> — a service client's, a commissioned
- * credential's ({@code qits:agent} among them), a Git workstation's. One rule for the read and the
+ * credential's ({@code qits:agent} among them), a live commissioned token ({@code qits_tok_…}, an
+ * agent's {@code QITS_TOKEN}, which reaches this host unexchanged), a Git workstation's. One rule for the read and the
  * write keeps it simple to state: this page is a person's, and no machine has a use for anyone's
  * browsers. A {@code DELETE} through a bearer is the third bearer write {@link BearerCaller} names,
  * and it only takes access away from the bearer's own person. No credential at all is 401 with no
@@ -83,6 +86,8 @@ public class IdpRememberedDevicesController {
   @Inject Users users;
 
   @Inject BearerCaller bearerCaller;
+
+  @Inject CommissionedTokens commissionedTokens;
 
   /** The caller's live remembered devices, most recently used first. */
   @GET
@@ -136,6 +141,12 @@ public class IdpRememberedDevicesController {
       // An explicit header is the caller's intent, as in AdminCaller; a browser sends none.
       if (!BearerCaller.isBearer(authorization)) {
         throw OAuthException.accessDenied("only a person's CLI bearer or a session may list devices");
+      }
+      String raw = authorization.trim().substring("bearer".length()).trim();
+      // An agent's QITS_TOKEN is a commissioned token, not a JWT: the edge hands it to this host
+      // as it is. A live one authenticated, so it is the same 403 as every other machine bearer.
+      if (TokenValue.isToken(raw) && commissionedTokens.introspect(raw).isPresent()) {
+        throw OAuthException.accessDenied("a commissioned token may not reach remembered devices");
       }
       return new Caller(person(bearerCaller.verify(authorization)), null);
     }
