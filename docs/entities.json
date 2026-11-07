@@ -53,13 +53,6 @@
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
           "kind" : "body"
-        },
-        {
-          "operationId" : "issueToken",
-          "method" : "POST",
-          "path" : "/token",
-          "dto" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
-          "kind" : "body"
         }
       ]
     },
@@ -419,13 +412,6 @@
           "kind" : "body"
         },
         {
-          "operationId" : "getRegisterOptions",
-          "method" : "POST",
-          "path" : "/api/auth/register-options",
-          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
-        },
-        {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
@@ -709,13 +695,6 @@
           "kind" : "body"
         },
         {
-          "operationId" : "getRegisterOptions",
-          "method" : "POST",
-          "path" : "/api/auth/register-options",
-          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
-        },
-        {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
@@ -953,13 +932,6 @@
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
-        },
-        {
-          "operationId" : "issueToken",
-          "method" : "POST",
-          "path" : "/token",
-          "dto" : "eu.wohlben.qits.idp.control.WorkstationCredentials$RefreshGrant",
           "kind" : "body"
         },
         {
