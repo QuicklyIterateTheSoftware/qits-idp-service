@@ -6,6 +6,7 @@ import eu.wohlben.qits.idp.entity.IdpUserRole;
 import eu.wohlben.qits.idp.entity.IdpWebAuthnCredential;
 import eu.wohlben.qits.idp.error.AuthException;
 import eu.wohlben.qits.idp.persistence.IdpAuthorizationCodeRepository;
+import eu.wohlben.qits.idp.persistence.IdpDeviceRepository;
 import eu.wohlben.qits.idp.persistence.IdpRegisterTokenRepository;
 import eu.wohlben.qits.idp.persistence.IdpSessionRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
@@ -105,6 +106,8 @@ public class Users {
 
   @Inject IdpRegisterTokenRepository registerTokens;
 
+  @Inject IdpDeviceRepository devices;
+
   /** The account with this login name, or empty. */
   public Optional<Account> byUsername(String username) {
     return DbRetry.inNewTx(
@@ -149,9 +152,10 @@ public class Users {
 
   /**
    * Remove an account and everything keyed to it (qits-1260): its roles, its passkeys, its password
-   * (a column of the row itself), its sessions, its authorization codes and its workstation/CLI
-   * refresh tokens. One transaction, so a half-deleted account — a session that still introspects
-   * for a user who is gone, or a user with no way in and no way out — is unreachable.
+   * (a column of the row itself), its sessions, its remembered devices and their secrets
+   * (qits-1944), its authorization codes and its workstation/CLI refresh tokens. One transaction,
+   * so a half-deleted account — a session that still introspects for a user who is gone, or a user
+   * with no way in and no way out — is unreachable.
    *
    * <p><b>This owns its transaction and touches the other user tables through their repositories
    * directly</b>, not through {@link Sessions}' or {@link RegisterTokens}' {@code …Row} methods: it
@@ -164,7 +168,9 @@ public class Users {
    * foreign key leaves no other way to let the user row go short of a migration. Register tokens
    * the account itself <i>minted</i> are untouched: an outstanding invite is for somebody else.
    *
-   * <p>None of the foreign keys cascade (V3, V4), which is why the order below is children first.
+   * <p>None of the foreign keys to the account cascade (V3, V4, V12), which is why the order below
+   * is children first: the sessions before the devices they may name, and a device's secrets go with
+   * the device ({@code idp_device_secret.device_id} is V12's one cascade).
    * Deleted sessions stop introspecting on the next call; the edge's own cache is the only lag.
    *
    * @return false when no account has this name
@@ -180,6 +186,7 @@ public class Users {
           UUID id = user.id;
           registerTokens.update("createdUserId = null where createdUserId = ?1", id);
           sessions.delete("userId", id);
+          devices.delete("userId", id);
           authorizationCodes.delete("userId", id);
           refreshTokens.delete("userId", id);
           credentials.delete("userId", id);

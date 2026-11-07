@@ -45,11 +45,22 @@ public class IdpSession extends PanacheEntityBase {
   @Column(name = "created_at", nullable = false)
   public Instant createdAt;
 
-  /** The absolute deadline. There is no sliding renewal yet; that is an open question, not a bug. */
+  /**
+   * The absolute deadline. A session itself never slides; a remembered device ({@code Devices},
+   * qits-1944) opens a fresh one instead.
+   */
   @Column(name = "expires_at", nullable = false)
   public Instant expiresAt;
 
   /** Set by logout. Null while the session is the user's to use. */
   @Column(name = "revoked_at")
   public Instant revokedAt;
+
+  /**
+   * The remembered device this session was opened through (qits-1944, V12), or null for an
+   * ordinary login that did not ask to be remembered. Revoking the device revokes the sessions that
+   * name it.
+   */
+  @Column(name = "device_id")
+  public UUID deviceId;
 }

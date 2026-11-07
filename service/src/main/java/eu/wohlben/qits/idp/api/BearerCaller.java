@@ -35,7 +35,7 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
  * {@code aud} includes {@link TokenService#PLATFORM_AUDIENCE} — which every token minted here
  * carries — and {@code exp} and {@code sub} are required.
  *
- * <p><b>Reads only, with two exceptions.</b> No write route accepts a bearer: an agent keeps every
+ * <p><b>Reads only, with three exceptions.</b> No write route accepts a bearer: an agent keeps every
  * read and gains no write (user ruling 2026-09-12), and a write here moves a credential. The first
  * exception is {@code POST /idp/api/gc/service-clients} ({@code IdpGcController}, qits-878), and
  * only for a {@code qits:system} bearer whose {@code sub} is itself a service client: that door can
@@ -45,8 +45,16 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
  * /idp/api/users/{username}} (user ruling 2026-10-15, qits-1260) — and only for a <b>person's</b>
  * bearer holding {@code qits:admin}, whose {@code sub} is an account that still holds it ({@link
  * AdminCaller}). That bearer is the CLI token of somebody who could do the same from their browser
- * session; a machine bearer ({@code qits:system}, {@code qits:agent}) is refused there. Do not widen
- * either exception to any other write, or to any other caller.
+ * session; a machine bearer ({@code qits:system}, {@code qits:agent}) is refused there.
+ *
+ * <p>The third is {@code DELETE /idp/api/remembered-devices/{id}} (qits-1944, {@code
+ * IdpRememberedDevicesController}), and only for a <b>person's CLI bearer</b> — {@code
+ * credential_type=cli}, whose {@code sub} is an existing account — revoking one of <i>that
+ * account's own</i> remembered devices. Like the gc door it can only take access away, and only
+ * from the bearer's own person. Every other bearer is refused there, the listing beside it
+ * included.
+ *
+ * <p>Do not widen any of the three exceptions to any other write, or to any other caller.
  */
 @ApplicationScoped
 public class BearerCaller {
@@ -91,6 +99,17 @@ public class BearerCaller {
       }
     }
     throw OAuthException.accessDenied("the bearer lacks every role of " + List.of(roles));
+  }
+
+  /**
+   * Verify the bearer and answer its claims, holding no role check — for a door that decides by
+   * another claim ({@code IdpRememberedDevicesController} reads {@code credential_type} and {@code
+   * sub}).
+   *
+   * @throws OAuthException {@code invalid_token} (401) when the token does not verify
+   */
+  public JwtClaims verify(String authorization) {
+    return verified(authorization);
   }
 
   private JwtClaims verified(String authorization) {

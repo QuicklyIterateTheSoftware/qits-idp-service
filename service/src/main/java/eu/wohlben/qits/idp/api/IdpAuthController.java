@@ -1,5 +1,6 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.Devices;
 import eu.wohlben.qits.idp.control.RandomSecret;
 import eu.wohlben.qits.idp.control.RegisterTokens;
 import eu.wohlben.qits.idp.control.Registrations;
@@ -26,12 +27,13 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.Map;
+import java.util.Optional;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 
 /**
- * The user surface: {@code /idp/api/auth} — register, log in, log out, set a password.
+ * The user surface: {@code /idp/api/auth} — register, log in, resume, log out, set a password.
  *
  * <h2>What this class is, and what the extension is</h2>
  *
@@ -41,6 +43,14 @@ import org.jboss.resteasy.reactive.RestResponse;
  * service's. The extension's own built-in endpoints are off and its own {@code quarkus-credential}
  * cookie is never written, because {@code rememberUser()} is never called. What the browser gets is
  * {@link SessionCookie}, opaque, introspected at the edge.
+ *
+ * <h2>Remember me is this service's too</h2>
+ *
+ * <p>Not the extension's {@code rememberUser()}: a login that sends {@code remember: true} gets a
+ * second cookie, {@link DeviceCookie}, scoped to this path, and {@code POST /resume} spends it for a
+ * fresh session once the old one has died (qits-1944). The device secret rotates on every resume
+ * and a replayed one revokes the device; the whole of that is {@link Devices}. Logout forgets the
+ * device behind the session it ends.
  *
  * <h2>The two ways in, and the guard on each</h2>
  *
@@ -104,8 +114,17 @@ public class IdpAuthController {
    * @param password the password, for the fallback path.
    * @param assertion the browser's {@code PublicKeyCredential} from
    *     {@code navigator.credentials.get()}, verbatim.
+   * @param remember true to remember this browser ({@link Devices}, qits-1944): the answer then sets
+   *     {@link DeviceCookie} beside the session cookie. Null, absent and false all mean no.
    */
-  public record LoginRequest(String username, String password, Map<String, Object> assertion) {}
+  public record LoginRequest(
+      String username, String password, Map<String, Object> assertion, Boolean remember) {
+
+    /** The shape before {@code remember} existed: a login that does not ask to be remembered. */
+    public LoginRequest(String username, String password, Map<String, Object> assertion) {
+      this(username, password, assertion, null);
+    }
+  }
 
   /** What {@code /password} sends. */
   public record PasswordRequest(String password) {}
@@ -119,6 +138,8 @@ public class IdpAuthController {
   @Inject Registrations registrations;
 
   @Inject Sessions sessions;
+
+  @Inject Devices devices;
 
   @Inject BrowserSso browserSso;
 
@@ -250,7 +271,14 @@ public class IdpAuthController {
         webAuthn.getLoginChallenge(username, ctx).await().indefinitely());
   }
 
-  /** Log in with an assertion or with a password. Success sets the cookie; failure is one 401. */
+  /**
+   * Log in with an assertion or with a password. Success sets the cookie; failure is one 401.
+   *
+   * <p>With {@code remember: true} the login also remembers this browser: one {@link Devices}
+   * transaction makes the device and opens the session through it, and the answer carries two
+   * {@code Set-Cookie} lines, {@link SessionCookie} and {@link DeviceCookie}. The device's label is
+   * the request's {@code User-Agent}.
+   */
   @POST
   @Path("/login")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -263,7 +291,65 @@ public class IdpAuthController {
         request.assertion() != null && !request.assertion().isEmpty()
             ? byAssertion(ctx, request)
             : byPassword(request);
+    if (Boolean.TRUE.equals(request.remember())) {
+      Devices.Remembered remembered =
+          devices.remember(account, ctx.request().getHeader(HttpHeaders.USER_AGENT));
+      LOG.infof("%s asked to be remembered on a new device", account.username());
+      return withSession(
+          ctx,
+          remembered.session(),
+          SessionView.of(remembered.session().session()),
+          DeviceCookie.set(
+              remembered.secret(),
+              Devices.remaining(remembered.absoluteExpiresAt()),
+              SessionCookie.isSecure(ctx)));
+    }
     return issued(ctx, sessions.open(account));
+  }
+
+  /**
+   * Spend the {@link DeviceCookie} for a fresh session (qits-1944).
+   *
+   * <p><b>Anonymous, like login</b> — the device secret is the credential, and there is no body and
+   * so no {@code @Consumes}. A success is 204 with the new {@link SessionCookie} and, when the
+   * secret rotated, the new {@link DeviceCookie}; a resume that presented a just-spent secret
+   * within the grace (two tabs at once) gets the session and no device line, so the browser keeps
+   * the cookie the other tab was answered. Every refusal — no cookie, an unknown, expired or
+   * revoked device, a replay — is the login's one 401, and it clears the device cookie, because a
+   * browser holding one that will never resume should stop presenting it. Which refusal it was is
+   * {@link Devices}' log line, never the answer.
+   */
+  @POST
+  @Path("/resume")
+  @Operation(operationId = "resume")
+  public Response resume(
+      @Context RoutingContext ctx, @CookieParam(DeviceCookie.NAME) String deviceSecret) {
+    boolean secure = SessionCookie.isSecure(ctx);
+    Optional<Devices.Resumed> resumed = devices.resume(deviceSecret);
+    if (resumed.isEmpty()) {
+      // The login's own refusal, byte for byte, plus the clearing line. Thrown, it would lose the
+      // header; built through the mapper, it cannot drift from the shape every 401 here has.
+      return Response.fromResponse(
+              new AuthExceptionMapper()
+                  .toResponse(
+                      AuthException.invalidCredentials(
+                          "the remembered device is unknown, expired or revoked")))
+          .header(HttpHeaders.SET_COOKIE, DeviceCookie.clear(secure))
+          .build();
+    }
+    Devices.Resumed answer = resumed.get();
+    Response.ResponseBuilder ok =
+        Response.noContent()
+            .header(
+                HttpHeaders.SET_COOKIE,
+                SessionCookie.set(
+                    answer.session().token(), sessions.ttl(), secure, browserSso.cookieDomain()));
+    if (answer.secret() != null) {
+      ok.header(
+          HttpHeaders.SET_COOKIE,
+          DeviceCookie.set(answer.secret(), Devices.remaining(answer.absoluteExpiresAt()), secure));
+    }
+    return ok.header(HttpHeaders.CACHE_CONTROL, "no-store").header("Pragma", "no-cache").build();
   }
 
   /**
@@ -272,19 +358,31 @@ public class IdpAuthController {
    * <p>A live session is required. This endpoint mutates session state and is not part of the
    * anonymous login/register bootstrap surface. There is no {@code @Consumes}: this call has no
    * body, and a POST with no {@code Content-Type} would not match a JSON one.
+   *
+   * <p><b>Logging out forgets the browser too</b> (qits-1944): the device the session was opened
+   * through, and the one the {@link DeviceCookie} names when the browser sent it, are revoked with
+   * every session they opened, and the device cookie is cleared beside the session cookie. Only the
+   * signed-in account's own devices; a cookie naming somebody else's is ignored.
    */
   @POST
   @Path("/logout")
   @Operation(operationId = "logout")
   public Response logout(
-      @Context RoutingContext ctx, @CookieParam(SessionCookie.NAME) String sessionToken) {
-    requireSession(sessionToken);
+      @Context RoutingContext ctx,
+      @CookieParam(SessionCookie.NAME) String sessionToken,
+      @CookieParam(DeviceCookie.NAME) String deviceSecret) {
+    Sessions.Live session = requireSession(sessionToken);
     sessions.revoke(sessionToken);
-    LOG.info("a session was ended by its holder");
+    boolean forgot = devices.revoke(session.userId(), session.deviceId());
+    forgot |= devices.revokeBySecret(session.userId(), deviceSecret);
+    LOG.info(
+        forgot
+            ? "a session was ended by its holder, and its device forgotten"
+            : "a session was ended by its holder");
+    boolean secure = SessionCookie.isSecure(ctx);
     return Response.noContent()
-        .header(
-            HttpHeaders.SET_COOKIE,
-            SessionCookie.clear(SessionCookie.isSecure(ctx), browserSso.cookieDomain()))
+        .header(HttpHeaders.SET_COOKIE, SessionCookie.clear(secure, browserSso.cookieDomain()))
+        .header(HttpHeaders.SET_COOKIE, DeviceCookie.clear(secure))
         .build();
   }
 
@@ -400,17 +498,27 @@ public class IdpAuthController {
     return withSession(ctx, opened, SessionView.of(opened.session()));
   }
 
-  /** {@link #issued}, for any body: the register answer carries one more field than a login's. */
-  private <T> RestResponse<T> withSession(RoutingContext ctx, Sessions.Opened opened, T body) {
-    return RestResponse.ResponseBuilder.create(Response.Status.OK, body)
-        .header(
-            HttpHeaders.SET_COOKIE,
-            SessionCookie.set(
-                opened.token(), sessions.ttl(), SessionCookie.isSecure(ctx), browserSso.cookieDomain()))
-        // The body describes a credential and the header IS one. Same rule as the token response.
-        .header(HttpHeaders.CACHE_CONTROL, "no-store")
-        .header("Pragma", "no-cache")
-        .build();
+  /**
+   * {@link #issued}, for any body: the register answer carries one more field than a login's.
+   *
+   * @param more further {@code Set-Cookie} lines — a remembering login's {@link DeviceCookie}
+   */
+  private <T> RestResponse<T> withSession(
+      RoutingContext ctx, Sessions.Opened opened, T body, String... more) {
+    RestResponse.ResponseBuilder<T> answer =
+        RestResponse.ResponseBuilder.create(Response.Status.OK, body)
+            .header(
+                HttpHeaders.SET_COOKIE,
+                SessionCookie.set(
+                    opened.token(),
+                    sessions.ttl(),
+                    SessionCookie.isSecure(ctx),
+                    browserSso.cookieDomain()));
+    for (String line : more) {
+      answer.header(HttpHeaders.SET_COOKIE, line);
+    }
+    // The body describes a credential and the header IS one. Same rule as the token response.
+    return answer.header(HttpHeaders.CACHE_CONTROL, "no-store").header("Pragma", "no-cache").build();
   }
 
   /**

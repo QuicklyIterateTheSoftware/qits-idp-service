@@ -9,10 +9,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.wohlben.qits.idp.control.ClientSecret;
 import eu.wohlben.qits.idp.control.Sessions;
 import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.entity.IdpAuthorizationCode;
+import eu.wohlben.qits.idp.entity.IdpDevice;
+import eu.wohlben.qits.idp.entity.IdpDeviceSecret;
 import eu.wohlben.qits.idp.entity.IdpRegisterToken;
 import eu.wohlben.qits.idp.entity.IdpSession;
 import eu.wohlben.qits.idp.entity.IdpUser;
@@ -273,6 +276,18 @@ public class UserAdministrationTest {
     String refresh = cliSignIn(victim.session());
     addPasskey(victim.session());
     assertEquals(1L, inTx(() -> IdpWebAuthnCredential.count("userId", victimId)));
+    // And a remembered device (qits-1944), with a spent secret and a current one.
+    String deviceSecret = rememberedLogin(victim.username(), victim.password());
+    UUID deviceId =
+        inTx(() -> IdpDeviceSecret.<IdpDeviceSecret>findById(ClientSecret.hash(deviceSecret)))
+            .deviceId;
+    given()
+        .cookie(DeviceCookie.NAME, deviceSecret)
+        .when()
+        .post("/idp/api/auth/resume")
+        .then()
+        .statusCode(204);
+    assertEquals(2L, inTx(() -> IdpDeviceSecret.count("deviceId", deviceId)));
     introspect(victim.session()).then().statusCode(200);
     introspect(loginSession).then().statusCode(200);
 
@@ -306,6 +321,8 @@ public class UserAdministrationTest {
     assertEquals(0L, inTx(() -> IdpWebAuthnCredential.count("userId", victimId)));
     assertEquals(0L, inTx(() -> IdpAuthorizationCode.count("userId", victimId)));
     assertEquals(0L, inTx(() -> IdpWorkstationRefreshToken.count("userId", victimId)));
+    assertEquals(0L, inTx(() -> IdpDevice.count("userId", victimId)));
+    assertEquals(0L, inTx(() -> IdpDeviceSecret.count("deviceId", deviceId)));
     // The token it was made from stays spent; only the link to the account is gone.
     IdpRegisterToken spent =
         inTx(() -> registerTokens.findById(UUID.fromString(victim.registerTokenId())));
@@ -551,6 +568,28 @@ public class UserAdministrationTest {
         .statusCode(200)
         .extract()
         .path("refresh_token");
+  }
+
+  /** A password login that asks to be remembered; the {@code qits-device} value it was answered. */
+  private static String rememberedLogin(String username, String password) {
+    Response response =
+        given()
+            .contentType(ContentType.JSON)
+            .body(
+                new JsonObject()
+                    .put("username", username)
+                    .put("password", password)
+                    .put("remember", true)
+                    .encode())
+            .when()
+            .post("/idp/api/auth/login");
+    response.then().statusCode(200);
+    String line =
+        response.getHeaders().getValues("Set-Cookie").stream()
+            .filter(value -> value.startsWith(DeviceCookie.NAME + "="))
+            .findFirst()
+            .orElseThrow();
+    return line.substring((DeviceCookie.NAME + "=").length(), line.indexOf(';'));
   }
 
   private static Response passwordLogin(String username, String password) {

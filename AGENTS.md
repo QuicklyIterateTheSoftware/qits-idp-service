@@ -359,6 +359,12 @@ V8's header still talks about environment clients; it is applied, so it stays as
 secret a pre-existing row kept, and the marker for that second pass. Neither is read or written
 since qits-880's release 2; both stay mapped so the entities still match the schema.
 
+**V12 is remembered devices** (qits-1944, `Devices`): `idp_device` (idle `expires_at`, fixed
+`absolute_expires_at`), `idp_device_secret` (every secret a device was given, by fingerprint; the
+current one has `superseded_at` null, the spent ones are kept so a replay is recognisable) and
+`idp_session.device_id`. The account foreign key does not cascade, like every user table's —
+`Users.delete` deletes sessions, then devices; a device's secrets go with it (V12's one cascade).
+
 **One column set in V3 is not a design and must not be treated as one.** `idp_webauthn_credential`
 is exactly `WebAuthnCredentialRecord.RequiredPersistedData` from quarkus-security-webauthn, read off
 the extension's source — that record is what `fromRequiredPersistedData` rebuilds a verifiable
@@ -494,6 +500,12 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   credentials is 401 with no challenge; a delete takes the sessions, roles, passkey, password,
   authorization code and refresh token with it; self-delete is 409. The person's bearer comes from
   `TokenService.cli`, the CLI's own mint.
+- `RememberedDevicesTest` is "remember me" end to end (qits-1944): both cookies on a remembering
+  login, resume rotating the secret, a spent secret within the grace (two tabs — and two resumes
+  at once, which the device row lock serializes) versus past it (the device and its sessions
+  revoked), both deadlines, the listing's `current`, revoke, logout, and the bearer rule (a
+  person's `credential_type=cli` token only). It moves the clock by backdating columns rather than
+  costing an application start.
 - `SessionLifetimeTest` costs its own application start to pin `qits.idp.session-ttl`, the way
   `TokenLifetimeTest` does for the token's. It is also the only place expiry is proven: the shipped
   twelve hours cannot be waited out, and expiry is the third of the three states — unknown, revoked,

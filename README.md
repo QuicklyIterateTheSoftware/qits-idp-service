@@ -40,13 +40,16 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `POST /idp/api/auth/register-options` | WebAuthn creation options. Guarded by a register token or a session. |
 | `POST /idp/api/auth/register` | an attestation → an account and a session; with a token and no attestation, the idp generates the password and answers it once as `password`. A body that sends a `password` is 400. |
 | `POST /idp/api/auth/login-options` | WebAuthn request options. Anonymous. |
-| `POST /idp/api/auth/login` | an assertion or `{username, password}` → a session. |
-| `POST /idp/api/auth/logout` | revoke the session and clear the cookie. |
+| `POST /idp/api/auth/login` | an assertion or `{username, password}` → a session; with `remember: true` also a `qits-device` cookie (qits-1944). |
+| `POST /idp/api/auth/resume` | spend the `qits-device` cookie for a fresh session; rotates it. Anonymous; 401 clears the cookie. |
+| `POST /idp/api/auth/logout` | revoke the session, forget its remembered device, and clear both cookies. |
 | `POST /idp/api/auth/password` | set or replace the signed-in account's password. |
 | `POST /idp/api/sessions/introspect` | what the edge asks a cookie about. Basic, a service client. |
 | `POST /idp/api/register-tokens` | mint a one-time register token. An admin caller (below). |
 | `GET /idp/api/users` | every account, `[{username, createdAt, roles}]`, sorted by username. An admin caller. |
 | `DELETE /idp/api/users/{username}` | 204, the account and everything keyed to it; 404 unknown; 409 for the caller's own account. An admin caller. |
+| `GET /idp/api/remembered-devices` | the signed-in person's remembered browsers. A session, or the person's CLI bearer; every other bearer 403. |
+| `DELETE /idp/api/remembered-devices/{id}` | forget one and end the sessions it opened; 404 foreign or unknown. |
 | `GET /idp/api/workstations` | the signed-in user's revocable Git workstation credentials. |
 | `DELETE /idp/api/workstations/{familyId}` | revoke one signed-in user's workstation refresh-token family. |
 | `GET /idp/q/health/ready` | readiness, where the deployment convention expects it. |

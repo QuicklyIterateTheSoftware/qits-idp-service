@@ -30,8 +30,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * update, and the only thing bought back is a lag of seconds. That trade is the plan's decision.
  *
  * <p><b>Expiry is absolute.</b> A session dies {@code qits.idp.session-ttl} after it was opened,
- * whatever the user did in between. Sliding renewal and "remember me" are named open questions, not
- * missing features — and neither is a blocker, because logging in again is one ceremony.
+ * whatever the user did in between, and it never slides. "Remember me" is {@link Devices}
+ * (qits-1944): a remembered browser holds a second, rotating credential that opens a <i>new</i>
+ * session here when the old one has died, and every session it opens names it ({@code device_id}),
+ * so revoking the device ends them.
  */
 @ApplicationScoped
 public class Sessions {
@@ -47,9 +49,19 @@ public class Sessions {
   @ConfigProperty(name = "qits.idp.session-ttl")
   Duration sessionTtl;
 
-  /** A live session, as the cookie's holder and the edge's introspection both see it. */
+  /**
+   * A live session, as the cookie's holder and the edge's introspection both see it.
+   *
+   * @param deviceId the remembered device it was opened through, or null (qits-1944). Never part
+   *     of what introspection answers.
+   */
   public record Live(
-      UUID sessionId, UUID userId, String username, List<String> roles, Instant expiresAt) {}
+      UUID sessionId,
+      UUID userId,
+      String username,
+      List<String> roles,
+      Instant expiresAt,
+      UUID deviceId) {}
 
   /** A freshly opened session, with the cookie value that exists only in this answer. */
   public record Opened(String token, Live session) {}
@@ -90,7 +102,12 @@ public class Sessions {
           }
           return Optional.of(
               new Live(
-                  row.id, user.id, user.username, accounts.accountOf(user).roles(), row.expiresAt));
+                  row.id,
+                  user.id,
+                  user.username,
+                  accounts.accountOf(user).roles(),
+                  row.expiresAt,
+                  row.deviceId));
         });
   }
 
@@ -121,8 +138,24 @@ public class Sessions {
 
   // --- inside the caller's transaction, for Registrations ------------------------------------
 
+  /**
+   * Revoke every session a device opened, in the caller's transaction — {@link Devices} revokes a
+   * device and its sessions in one boundary (qits-1944).
+   */
+  void revokeForDeviceRow(UUID deviceId, Instant at) {
+    sessions.revokeForDevice(deviceId, at);
+  }
+
   /** {@link #open}, in the caller's transaction — a registration opens its session inside one. */
   Opened openRow(Users.Account account) {
+    return openRow(account, null);
+  }
+
+  /**
+   * {@link #openRow(Users.Account)}, naming the remembered device the session is opened through, or
+   * null for none (qits-1944). {@link Devices} calls it inside its own transaction.
+   */
+  Opened openRow(Users.Account account, UUID deviceId) {
     String token = RandomSecret.credential();
     IdpSession row = new IdpSession();
     row.id = UUID.randomUUID();
@@ -135,9 +168,12 @@ public class Sessions {
     // 2026-08-14; it is cosmetic until something compares the two, and then it is a bug report.
     row.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     row.expiresAt = row.createdAt.plus(sessionTtl);
+    row.deviceId = deviceId;
     sessions.persist(row);
     return new Opened(
-        token, new Live(row.id, account.id(), account.username(), account.roles(), row.expiresAt));
+        token,
+        new Live(
+            row.id, account.id(), account.username(), account.roles(), row.expiresAt, deviceId));
   }
 
   /** How long a cookie may be kept — the same number as the row's deadline, by construction. */
