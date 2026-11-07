@@ -2,6 +2,7 @@ package eu.wohlben.qits.idp.contracts;
 
 import eu.wohlben.qits.idp.control.ClientSecret;
 import eu.wohlben.qits.idp.control.CommissionedTokens;
+import eu.wohlben.qits.idp.control.Devices;
 import eu.wohlben.qits.idp.control.DynamicClients;
 import eu.wohlben.qits.idp.control.PublicClients;
 import eu.wohlben.qits.idp.control.PublicClients.PublicClient;
@@ -85,6 +86,7 @@ public class ProviderStates {
   public static final String A_COMMISSIONED_TOKEN_THAT_WAS_DELETED =
       "a commissioned token that was deleted";
   public static final String A_SIGNED_IN_PERSON = "a signed-in person";
+  public static final String A_REMEMBERED_DEVICE = "a remembered device";
   public static final String A_DATABASE_SERVICE_CLIENT = "a database service client";
   public static final String NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID =
       "no service client with the given id";
@@ -235,6 +237,7 @@ public class ProviderStates {
   @Inject CommissionedTokens commissionedTokens;
   @Inject ServiceClients serviceClients;
   @Inject Sessions sessions;
+  @Inject Devices devices;
   @Inject SigningKeys signingKeys;
   @Inject IdpUserRepository users;
   @Inject IdpServiceClientRepository serviceClientRows;
@@ -261,6 +264,7 @@ public class ProviderStates {
     states.put(A_COMMISSIONED_TOKEN, this::aCommissionedToken);
     states.put(A_COMMISSIONED_TOKEN_THAT_WAS_DELETED, this::aCommissionedTokenThatWasDeleted);
     states.put(A_SIGNED_IN_PERSON, this::aSignedInPerson);
+    states.put(A_REMEMBERED_DEVICE, this::aRememberedDevice);
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
     states.put(A_SERVICE_CLIENT_NOTHING_CLAIMS, this::aServiceClientNothingClaims);
@@ -757,6 +761,31 @@ public class ProviderStates {
         with(with(caller(), "sessionToken", opened.token()), "userId", id.toString()),
         List.of(opened.token()),
         List.of(id.toString()));
+  }
+
+  /**
+   * A person who logged in asking to be remembered (qits-1944): {@code sessionToken} is the session
+   * that login opened through the device, {@code deviceSecret} the device's current {@code
+   * qits-device} value, {@code deviceId} the device.
+   */
+  private Setup aRememberedDevice() {
+    UUID id = person();
+    Devices.Remembered remembered =
+        devices.remember(
+            new Users.Account(id, "contract-" + id, List.of("qits:admin")), "contract-browser/1.0");
+    String session = remembered.session().token();
+    return new Setup(
+        params(
+            "sessionToken",
+            session,
+            "deviceSecret",
+            remembered.secret(),
+            "deviceId",
+            remembered.deviceId().toString(),
+            "userId",
+            id.toString()),
+        List.of(session, remembered.secret()),
+        List.of(remembered.deviceId().toString()));
   }
 
   private Setup aDatabaseServiceClient() {

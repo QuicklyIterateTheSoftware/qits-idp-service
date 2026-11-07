@@ -179,6 +179,11 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_SIGNED_IN_PERSON);
   }
 
+  @State(ProviderStates.A_REMEMBERED_DEVICE)
+  Map<String, String> aRememberedDevice() {
+    return states.params(ProviderStates.A_REMEMBERED_DEVICE);
+  }
+
   @State(ProviderStates.A_DATABASE_SERVICE_CLIENT)
   Map<String, String> aDatabaseServiceClient() {
     return states.params(ProviderStates.A_DATABASE_SERVICE_CLIENT);

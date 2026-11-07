@@ -699,6 +699,74 @@
       ]
     },
     {
+      "name": "a remembered device",
+      "slug": "a-remembered-device",
+      "params": {
+        "deviceId": "00000000-0000-4000-8000-000000000001",
+        "deviceSecret": "0000000000000000000000000000000000000000001",
+        "sessionToken": "0000000000000000000000000000000000000000002",
+        "userId": "00000000-0000-4000-8000-000000000002"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "listRememberedDevices",
+          "method": "GET",
+          "path": "/idp/api/remembered-devices",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 200,
+          "file": "a-remembered-device/listRememberedDevices.json",
+          "frozen": {
+            "ids": [
+              "$[*].id"
+            ],
+            "instants": [
+              "$[*].createdAt",
+              "$[*].lastUsedAt",
+              "$[*].expiresAt",
+              "$[*].absoluteExpiresAt"
+            ],
+            "strings": [],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "resume",
+          "method": "POST",
+          "path": "/idp/api/auth/resume",
+          "headers": {
+            "Cookie": "qits-device={deviceSecret}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "revokeRememberedDevice",
+          "method": "DELETE",
+          "path": "/idp/api/remembered-devices/{deviceId}",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a service client calling its peers",
       "slug": "a-service-client-calling-its-peers",
       "params": {
