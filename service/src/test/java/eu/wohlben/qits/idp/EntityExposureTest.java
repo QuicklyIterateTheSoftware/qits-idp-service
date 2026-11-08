@@ -20,7 +20,7 @@ import java.util.Set;
 @AnalyzeClasses(packages = "eu.wohlben.qits.idp", importOptions = ImportOption.DoNotIncludeTests.class)
 class EntityExposureTest {
 
-  static final Set<String> KNOWN_GAPS = Set.of("IdpWebAuthnCredential qits-1953");
+  static final Set<String> KNOWN_GAPS = Set.of();
 
   @ArchTest
   static final ArchRule EXPOSED = EntityExposureRules.everyDomainEntityIsExposed(KNOWN_GAPS);

@@ -1104,9 +1104,30 @@
       "marking" : "domain",
       "reason" : null,
       "projectionOf" : null,
-      "knownGap" : "qits-1953",
-      "dtos" : [ ],
-      "operations" : [ ]
+      "knownGap" : null,
+      "dtos" : [
+        {
+          "type" : "eu.wohlben.qits.idp.api.IdpPasskeysController$Passkey",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Passkey",
+          "site" : "IdpPasskeysController.list(String, String)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Users$Passkey",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Users.passkeysOf(UUID)"
+        }
+      ],
+      "operations" : [
+        {
+          "operationId" : "listPasskeys",
+          "method" : "GET",
+          "path" : "/api/passkeys",
+          "dto" : "eu.wohlben.qits.idp.api.IdpPasskeysController$Passkey",
+          "kind" : "returns"
+        }
+      ]
     },
     {
       "entity" : "eu.wohlben.qits.idp.entity.IdpWorkstationRefreshToken",

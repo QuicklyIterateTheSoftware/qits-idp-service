@@ -506,6 +506,11 @@ least of all on a service it issues tokens for. Everything it knows arrives as c
   revoked), both deadlines, the listing's `current`, revoke, logout, and the bearer rule (a
   person's `credential_type=cli` token only). It moves the clock by backdating columns rather than
   costing an application start.
+- `PasskeysTest` is the account page's passkeys (qits-1953), with real authenticators from
+  `WebAuthnTestHardware`: the listing is the caller's own and carries no key material, a removed
+  passkey no longer logs in, a foreign or unknown id is 404, the last passkey of a password-less
+  account is 409 and stays, a password lets it go, and only a session reaches either door (none
+  401, any `Authorization` header 403).
 - `SessionLifetimeTest` costs its own application start to pin `qits.idp.session-ttl`, the way
   `TokenLifetimeTest` does for the token's. It is also the only place expiry is proven: the shipped
   twelve hours cannot be waited out, and expiry is the third of the three states — unknown, revoked,
