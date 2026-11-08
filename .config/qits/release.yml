@@ -7,6 +7,9 @@ artifacts:
 contracts:
   application: qits-idp
   golden-masters: { from: golden-masters/, packages: [maven, npm] }
+  # The entity exposure map EntityExposureTest keeps current (qits-1945), bundled as entities.json
+  # in @contracts/qits-idp by contract-docs.
+  entities: docs/entities.json
 # THE SITE IS SPELLED, AND IT NAMES THE COMPONENT. `true` derives it from the REPOSITORY name,
 # which would put the retired tier modifier in a storage id and then MOVE that id the day the
 # repository is renamed — a bundle's history stranded under a name nothing publishes to any
