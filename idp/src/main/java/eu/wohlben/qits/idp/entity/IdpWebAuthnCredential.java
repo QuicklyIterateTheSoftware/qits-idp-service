@@ -24,7 +24,9 @@ import java.util.UUID;
  * on every successful login, which is why this column is updated rather than written once.
  *
  * <p>Many rows per user is the intended shape: a second authenticator is added from a logged-in
- * session, and removing one is a delete here.
+ * session, and removing one is a delete here — its owner's, through {@code DELETE
+ * /idp/api/passkeys/{credentialId}} ({@code Users.removePasskey}, qits-1953), which refuses the
+ * last one of an account that has no password.
  */
 @Entity
 @Table(name = "idp_webauthn_credential")

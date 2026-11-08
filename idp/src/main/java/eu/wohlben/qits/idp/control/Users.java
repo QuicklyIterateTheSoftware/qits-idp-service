@@ -15,6 +15,7 @@ import eu.wohlben.qits.idp.persistence.IdpWebAuthnCredentialRepository;
 import eu.wohlben.qits.idp.persistence.IdpWorkstationRefreshTokenRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -91,6 +92,26 @@ public class Users {
       byte[] publicKey,
       long publicKeyAlgorithm,
       long counter) {}
+
+  /**
+   * One passkey as its owner's account page shows it (qits-1953): which one, what model, since
+   * when. Never the public key, its algorithm or the counter — there is no field here that could
+   * carry them, and none of the three means anything to the person choosing which one to remove.
+   */
+  public record Passkey(String credentialId, UUID aaguid, Instant createdAt) {}
+
+  /** What {@link #removePasskey} did. */
+  public enum PasskeyRemoval {
+    /** The passkey is gone; it logs nobody in any more. */
+    REMOVED,
+    /** No such passkey on this account: an unknown id and another account's id alike. */
+    NOT_FOUND,
+    /**
+     * Refused: it is the account's only passkey and the account has no password, so removing it
+     * would leave an account nobody can sign in to.
+     */
+    LAST_AUTHENTICATOR
+  }
 
   @Inject IdpUserRepository users;
 
@@ -222,6 +243,55 @@ public class Users {
           }
           IdpUser user = users.findById(row.userId);
           return user == null ? Optional.empty() : Optional.of(toCredential(row, user.username));
+        });
+  }
+
+  /**
+   * This account's passkeys, oldest first — {@link IdpWebAuthnCredentialRepository#listForUser}'s
+   * order. Empty for an unknown account.
+   */
+  public List<Passkey> passkeysOf(UUID userId) {
+    return DbRetry.inNewTx(
+        "list a user's passkeys",
+        () ->
+            credentials.listForUser(userId).stream()
+                .map(row -> new Passkey(row.credentialId, row.aaguid, row.createdAt))
+                .toList());
+  }
+
+  /**
+   * Remove one of this account's passkeys (qits-1953), unless it is the last way in.
+   *
+   * <p><b>The guard is "another passkey, or a password"</b>: with neither, the account would have
+   * no factor left and nobody — the owner least of all — could sign in to it again. A password
+   * counts because it is a factor of its own; an account that has one may drop its last passkey.
+   *
+   * <p><b>The user row is locked before anything is counted</b> ({@code SELECT … FOR UPDATE}), so
+   * two removals at once — two tabs, each deleting one of the account's two passkeys — serialize
+   * on it: the second counts after the first committed and is refused, where without the lock both
+   * would have counted two and left none. Adding a passkey does not take the lock, and need not:
+   * a concurrent add only ever makes the guard more permissive than the count it read.
+   *
+   * <p>Another account's credential id is {@link PasskeyRemoval#NOT_FOUND}, exactly like an
+   * unknown one, so this is no oracle for whose passkey an id is.
+   */
+  public PasskeyRemoval removePasskey(UUID userId, String credentialId) {
+    return DbRetry.inNewTx(
+        "remove a user's passkey",
+        () -> {
+          IdpUser user = users.findById(userId, LockModeType.PESSIMISTIC_WRITE);
+          if (user == null || credentialId == null) {
+            return PasskeyRemoval.NOT_FOUND;
+          }
+          IdpWebAuthnCredential row = credentials.findById(credentialId);
+          if (row == null || !userId.equals(row.userId)) {
+            return PasskeyRemoval.NOT_FOUND;
+          }
+          if (user.passwordHash == null && credentials.count("userId", userId) <= 1) {
+            return PasskeyRemoval.LAST_AUTHENTICATOR;
+          }
+          credentials.delete(row);
+          return PasskeyRemoval.REMOVED;
         });
   }
 

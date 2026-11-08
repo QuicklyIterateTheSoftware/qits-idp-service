@@ -50,6 +50,8 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `DELETE /idp/api/users/{username}` | 204, the account and everything keyed to it; 404 unknown; 409 for the caller's own account. An admin caller. |
 | `GET /idp/api/remembered-devices` | the signed-in person's remembered browsers. A session, or the person's CLI bearer; every other bearer 403. |
 | `DELETE /idp/api/remembered-devices/{id}` | forget one and end the sessions it opened; 404 foreign or unknown. |
+| `GET /idp/api/passkeys` | the signed-in person's passkeys, `[{credentialId, aaguid, createdAt}]`, oldest first; never key material. A session only; any `Authorization` header 403 (qits-1953). |
+| `DELETE /idp/api/passkeys/{credentialId}` | 204, remove one; 404 foreign or unknown; 409 for the account's only passkey while it has no password. |
 | `GET /idp/api/workstations` | the signed-in user's revocable Git workstation credentials. |
 | `DELETE /idp/api/workstations/{familyId}` | revoke one signed-in user's workstation refresh-token family. |
 | `GET /idp/q/health/ready` | readiness, where the deployment convention expects it. |

@@ -81,7 +81,8 @@ public class OAuthException extends RuntimeException {
 
   /**
    * The service-client management API's one extra case: a create where a database row already
-   * exists, or a delete of the caller's own row. 409, because the request is well formed and the
+   * exists, or a delete of the caller's own row — and, on the same terms, the removal of an
+   * account's last way to sign in (qits-1953). 409, because the request is well formed and the
    * caller is allowed here — the state of the row is what stands in the way.
    */
   public static OAuthException conflict(String description) {

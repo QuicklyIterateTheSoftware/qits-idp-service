@@ -699,6 +699,56 @@
       ]
     },
     {
+      "name": "a registered passkey",
+      "slug": "a-registered-passkey",
+      "params": {
+        "credentialId": "00000000-0000-4000-8000-000000000001",
+        "otherCredentialId": "00000000-0000-4000-8000-000000000002",
+        "sessionToken": "0000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000003"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "deletePasskey",
+          "method": "DELETE",
+          "path": "/idp/api/passkeys/{credentialId}",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listPasskeys",
+          "method": "GET",
+          "path": "/idp/api/passkeys",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 200,
+          "file": "a-registered-passkey/listPasskeys.json",
+          "frozen": {
+            "ids": [
+              "$[*].credentialId",
+              "$[*].aaguid"
+            ],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [],
+            "listFilteredTo": "$"
+          }
+        }
+      ]
+    },
+    {
       "name": "a remembered device",
       "slug": "a-remembered-device",
       "params": {

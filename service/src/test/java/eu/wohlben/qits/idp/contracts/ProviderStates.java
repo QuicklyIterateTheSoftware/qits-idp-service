@@ -27,6 +27,7 @@ import eu.wohlben.qits.idp.persistence.IdpDynamicClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpSigningKeyRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
+import eu.wohlben.qits.idp.persistence.IdpWebAuthnCredentialRepository;
 import eu.wohlben.qits.idp.persistence.IdpWorkstationRefreshTokenRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -87,6 +88,7 @@ public class ProviderStates {
       "a commissioned token that was deleted";
   public static final String A_SIGNED_IN_PERSON = "a signed-in person";
   public static final String A_REMEMBERED_DEVICE = "a remembered device";
+  public static final String A_REGISTERED_PASSKEY = "a registered passkey";
   public static final String A_DATABASE_SERVICE_CLIENT = "a database service client";
   public static final String NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID =
       "no service client with the given id";
@@ -250,6 +252,7 @@ public class ProviderStates {
   @Inject IdpAuthorizationCodeRepository codeRows;
   @Inject Users accounts;
   @Inject IdpWorkstationRefreshTokenRepository refreshTokenRows;
+  @Inject IdpWebAuthnCredentialRepository credentialRows;
 
   private final Map<String, Supplier<Setup>> states = new LinkedHashMap<>();
 
@@ -265,6 +268,7 @@ public class ProviderStates {
     states.put(A_COMMISSIONED_TOKEN_THAT_WAS_DELETED, this::aCommissionedTokenThatWasDeleted);
     states.put(A_SIGNED_IN_PERSON, this::aSignedInPerson);
     states.put(A_REMEMBERED_DEVICE, this::aRememberedDevice);
+    states.put(A_REGISTERED_PASSKEY, this::aRegisteredPasskey);
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
     states.put(A_SERVICE_CLIENT_NOTHING_CLAIMS, this::aServiceClientNothingClaims);
@@ -790,6 +794,46 @@ public class ProviderStates {
             id.toString()),
         List.of(session, remembered.secret(), bearer),
         List.of(remembered.deviceId().toString()));
+  }
+
+  /**
+   * A signed-in person holding two passkeys (qits-1953), so the account page may list both and
+   * remove {@code credentialId} — the newer one — without tripping the last-way-in guard. {@code
+   * otherCredentialId} is the older, listed first.
+   *
+   * <p>Inserted directly with fixed key bytes rather than through a ceremony: the doors under
+   * record never verify a signature, and the key never leaves the service anyway. Each credential
+   * id is a fresh UUID — a valid base64url string — so the freezer numbers it as an id, sticky to
+   * the committed index. The older one is backdated a minute, so the listing's order never falls
+   * back to the random ids.
+   */
+  private Setup aRegisteredPasskey() {
+    UUID id = person();
+    String older = UUID.randomUUID().toString();
+    String newer = UUID.randomUUID().toString();
+    for (String credentialId : List.of(older, newer)) {
+      accounts.addCredential(
+          id,
+          new Users.NewAuthenticator(
+              credentialId, new UUID(0, 0), new byte[] {1, 2, 3, 4}, -7, 0));
+    }
+    Instant backdated = Instant.now().minus(Duration.ofMinutes(1));
+    QuarkusTransaction.requiringNew()
+        .run(() -> credentialRows.findById(older).createdAt = backdated);
+    Sessions.Opened opened =
+        sessions.open(new Users.Account(id, "contract-" + id, List.of("qits:admin")));
+    return new Setup(
+        params(
+            "sessionToken",
+            opened.token(),
+            "credentialId",
+            newer,
+            "otherCredentialId",
+            older,
+            "userId",
+            id.toString()),
+        List.of(opened.token()),
+        List.of(older, newer));
   }
 
   private Setup aDatabaseServiceClient() {
