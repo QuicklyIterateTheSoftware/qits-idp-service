@@ -102,6 +102,7 @@
         <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1107.130821</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1103.220115</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1102.24458</qits.workspaces-service-pacts-qits-idp-service.version>
+        <qits.docs-service-pacts-qits-idp-service.version>2026.1103.164356</qits.docs-service-pacts-qits-idp-service.version>
         <qits.maven.repository.url>https://registry.qits.wohlben.eu/artifacts/maven/maven</qits.maven.repository.url>
         <maven.compiler.release>25</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -285,6 +286,13 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-workspaces-service-pacts-qits-idp-service</artifactId>
                 <version>${qits.workspaces-service-pacts-qits-idp-service.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Test scope at every declaration site: a consumer's pact, verified by
+                     ConsumerPactVerificationTest. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-docs-service-pacts-qits-idp-service</artifactId>
+                <version>${qits.docs-service-pacts-qits-idp-service.version}</version>
             </dependency>
             <dependency>
                 <!-- Test scope at every declaration site. -->
