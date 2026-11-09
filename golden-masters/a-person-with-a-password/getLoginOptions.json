@@ -1,0 +1,7 @@
+{
+  "challenge": "opaque",
+  "timeout": 300000,
+  "rpId": "localhost",
+  "allowCredentials": [],
+  "userVerification": "required"
+}

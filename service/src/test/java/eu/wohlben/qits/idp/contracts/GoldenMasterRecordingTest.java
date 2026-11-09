@@ -289,6 +289,24 @@ class GoldenMasterRecordingTest {
   /** What the CLI's {@code qits users register} sends: no password, the idp makes one. */
   static final String REGISTER_BODY = "{\"username\":\"{username}\",\"token\":\"{token}\"}";
 
+  /** The sign-in page's password path: the name and the password the person typed. */
+  static final String LOGIN_BODY = "{\"username\":\"{username}\",\"password\":\"{password}\"}";
+
+  /** The account page's password form. */
+  static final String PASSWORD_BODY = "{\"password\":\"" + ProviderStates.PASSWORD + "\"}";
+
+  /** What a browser that signed in, and was remembered, sends to sign out. */
+  private static final Map<String, String> SESSION_AND_DEVICE_COOKIES =
+      Map.of("Cookie", "qits-session={sessionToken}; qits-device={deviceSecret}");
+
+  /** A browser-session door with no body: the account page and the sign-in page alike. */
+  private static Interaction browser(
+      String state, String operationId, String method, String path, int status, String filter) {
+    return new Interaction(
+        state, operationId, method, path, status, filter, null, null, null, SESSION_COOKIE,
+        List.of(), List.of());
+  }
+
   /** A peer service's mint: Basic carries the pair, the form the grant and the audience. */
   static final String CLIENT_CREDENTIALS_FOR_THE_PLATFORM =
       "grant_type=client_credentials&audience={audience}";
@@ -820,7 +838,117 @@ class GoldenMasterRecordingTest {
               REGISTER_BODY,
               Map.of(),
               List.of(),
-              List.of()));
+              List.of()),
+          // --- the sign-in page (qits-1929): options, the password path, the way back --------
+          // A challenge, and the WebAuthn user handle, are random per call and nothing a state
+          // seeds: opaque. Set-Cookie is never recorded — it holds a server-minted value.
+          new Interaction(
+              ProviderStates.AN_UNSPENT_REGISTER_TOKEN,
+              "getRegisterOptions",
+              "POST",
+              "/idp/api/auth/register-options",
+              200,
+              null,
+              null,
+              JSON_TYPE,
+              REGISTER_BODY,
+              Map.of(),
+              List.of("$.challenge", "$.user.id"),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_PERSON_WITH_A_PASSWORD,
+              "getLoginOptions",
+              "POST",
+              "/idp/api/auth/login-options",
+              200,
+              null,
+              null,
+              JSON_TYPE,
+              "{\"username\":\"{username}\"}",
+              Map.of(),
+              List.of("$.challenge"),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_PERSON_WITH_A_PASSWORD,
+              "login",
+              "POST",
+              "/idp/api/auth/login",
+              200,
+              null,
+              null,
+              JSON_TYPE,
+              LOGIN_BODY,
+              Map.of(),
+              List.of(),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_BROWSER_RETURNING_TO_A_PLATFORM_HOST,
+              "getReturnLocation",
+              "GET",
+              "/idp/api/auth/return-location?return_host={returnHost}&return_path={returnPath}",
+              200,
+              null,
+              null,
+              null,
+              null,
+              Map.of(),
+              List.of(),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_REMEMBERED_DEVICE,
+              "logout",
+              "POST",
+              "/idp/api/auth/logout",
+              204,
+              null,
+              null,
+              null,
+              null,
+              SESSION_AND_DEVICE_COOKIES,
+              List.of(),
+              List.of()),
+          new Interaction(
+              ProviderStates.A_SIGNED_IN_PERSON,
+              "setPassword",
+              "POST",
+              "/idp/api/auth/password",
+              204,
+              null,
+              null,
+              JSON_TYPE,
+              PASSWORD_BODY,
+              SESSION_COOKIE,
+              List.of(),
+              List.of()),
+          // --- signed-in devices: the account page lists and revokes the CLI and git ---------
+          browser(
+              ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT,
+              "listDevices",
+              "GET",
+              "/idp/api/devices",
+              200,
+              "$"),
+          browser(
+              ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT,
+              "listWorkstations",
+              "GET",
+              "/idp/api/workstations",
+              200,
+              "$"),
+          browser(
+              ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT,
+              "revokeDevice",
+              "DELETE",
+              "/idp/api/devices/{familyId}",
+              204,
+              null),
+          browser(
+              ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT,
+              "revokeWorkstation",
+              "DELETE",
+              "/idp/api/workstations/{familyId}",
+              204,
+              null));
 
   private static final ObjectMapper JSON = new ObjectMapper();
   private static final Pattern TEMPLATE_PARAM = Pattern.compile("\\{([A-Za-z][A-Za-z0-9]*)}");

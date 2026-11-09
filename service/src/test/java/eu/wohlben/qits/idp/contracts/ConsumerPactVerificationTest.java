@@ -296,6 +296,21 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE);
   }
 
+  @State(ProviderStates.A_PERSON_WITH_A_PASSWORD)
+  Map<String, String> aPersonWithAPassword() {
+    return states.params(ProviderStates.A_PERSON_WITH_A_PASSWORD);
+  }
+
+  @State(ProviderStates.A_BROWSER_RETURNING_TO_A_PLATFORM_HOST)
+  Map<String, String> aBrowserReturningToAPlatformHost() {
+    return states.params(ProviderStates.A_BROWSER_RETURNING_TO_A_PLATFORM_HOST);
+  }
+
+  @State(ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT)
+  Map<String, String> aPersonSignedInToTheCliAndToGit() {
+    return states.params(ProviderStates.A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT);
+  }
+
   // --- the commissioners, one state per body each ---------------------------------------------
 
   // Kept though CommissionRoles no longer gives ci-runner or ci-runner-registration a role

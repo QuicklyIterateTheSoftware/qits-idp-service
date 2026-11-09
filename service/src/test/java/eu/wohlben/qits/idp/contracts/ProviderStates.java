@@ -119,6 +119,11 @@ public class ProviderStates {
   public static final String AN_UNSPENT_REGISTER_TOKEN = "an unspent register token";
   public static final String NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE =
       "no register token with the given value";
+  public static final String A_PERSON_WITH_A_PASSWORD = "a person with a password";
+  public static final String A_BROWSER_RETURNING_TO_A_PLATFORM_HOST =
+      "a browser returning to a platform host";
+  public static final String A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT =
+      "a person signed in to the CLI and to git";
 
   // --- one state per commissioner's body (qits-1149 round 3) -----------------------------------
   // A consumer binds a commission by replaying the recorded body exactly, so each caller whose body
@@ -214,6 +219,18 @@ public class ProviderStates {
   /** A refinement's row id, as qits-projects-service names its commission's context. */
   static final String REFINEMENT_ID = "41";
 
+  /** The password every password-holding state sets, and every password a recording sends. */
+  static final String PASSWORD = "contract-password";
+
+  /**
+   * A platform host the browser-SSO allow-list admits with no domain stated: the derived {@code
+   * *.localhost:8080} wildcard ({@code application.properties}).
+   */
+  static final String RETURN_HOST = "ci.dev.qits.localhost:8080";
+
+  /** The path a browser returns to; nothing in it needs URL-encoding in a query. */
+  static final String RETURN_PATH = "/ci/runs";
+
   /** The audience a refresh names; the idp accepts and ignores it (qits-163). */
   static final String AUDIENCE = "qits-platform";
 
@@ -299,6 +316,11 @@ public class ProviderStates {
     states.put(AN_UNSPENT_REGISTER_TOKEN, this::anUnspentRegisterToken);
     states.put(
         NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE, this::noRegisterTokenWithTheGivenValue);
+    states.put(A_PERSON_WITH_A_PASSWORD, this::aPersonWithAPassword);
+    states.put(
+        A_BROWSER_RETURNING_TO_A_PLATFORM_HOST, this::aBrowserReturningToAPlatformHost);
+    states.put(
+        A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT, this::aPersonSignedInToTheCliAndToGit);
     // The commissioners: each the caller and the context its body names.
     states.put(A_CI_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
     states.put(
@@ -722,6 +744,74 @@ public class ProviderStates {
         params("token", "contract-unknown-register-token", "username", "contract-" + suffix),
         List.of(suffix),
         List.of());
+  }
+
+  /**
+   * A person who set a password ({@value #PASSWORD}), so the sign-in page's password path
+   * answers: {@code username} and {@code password} are what the form sends.
+   */
+  private Setup aPersonWithAPassword() {
+    UUID id = person();
+    accounts.setPassword(id, PASSWORD);
+    return new Setup(
+        params("username", "contract-" + id, "password", PASSWORD, "userId", id.toString()),
+        List.of(),
+        List.of(id.toString()));
+  }
+
+  /**
+   * A browser back from signing in, asking where to go: {@code returnHost} is a host the
+   * allow-list admits ({@link #RETURN_HOST}) and {@code returnPath} the page it left. Nothing is
+   * seeded; the answer is the allow-list's alone.
+   */
+  private Setup aBrowserReturningToAPlatformHost() {
+    return new Setup(
+        params("returnHost", RETURN_HOST, "returnPath", RETURN_PATH), List.of(), List.of());
+  }
+
+  /**
+   * A signed-in person who also signed in to the CLI and to git: two refresh families, each a code
+   * exchanged, and {@code sessionToken} the browser's session for the account page that lists and
+   * revokes them. {@code familyId} is the git client's, the newer; {@code otherFamilyId} the
+   * CLI's, backdated a minute so the newest-first listing never falls back to the random ids.
+   */
+  private Setup aPersonSignedInToTheCliAndToGit() {
+    UUID id = person();
+    UUID older = signedIn(publicClients.cli(), id);
+    UUID newer = signedIn(publicClients.workstation(), id);
+    Instant backdated = Instant.now().minus(Duration.ofMinutes(1));
+    QuarkusTransaction.requiringNew()
+        .run(
+            () ->
+                refreshTokenRows
+                    .list("familyId", older)
+                    .forEach(row -> row.createdAt = backdated));
+    Sessions.Opened opened =
+        sessions.open(new Users.Account(id, "contract-" + id, List.of("qits:admin")));
+    return new Setup(
+        params(
+            "sessionToken",
+            opened.token(),
+            "familyId",
+            newer.toString(),
+            "otherFamilyId",
+            older.toString(),
+            "userId",
+            id.toString()),
+        List.of(opened.token()),
+        List.of(older.toString(), newer.toString()));
+  }
+
+  /** A code issued to {@code client} for the person and exchanged: the refresh family it began. */
+  private UUID signedIn(PublicClient client, UUID person) {
+    String code = workstations.authorize(client, person, REDIRECT_URI, CODE_CHALLENGE).value();
+    String refreshToken =
+        workstations.exchangeCode(client, code, REDIRECT_URI, CODE_VERIFIER).refreshToken();
+    String hash = ClientSecret.hash(refreshToken);
+    IdpWorkstationRefreshToken row =
+        QuarkusTransaction.requiringNew()
+            .call(() -> refreshTokenRows.find("tokenHash", hash).firstResult());
+    return row.familyId;
   }
 
   private Setup aCommissionedToken() {

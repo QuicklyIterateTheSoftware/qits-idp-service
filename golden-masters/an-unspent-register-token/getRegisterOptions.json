@@ -1,0 +1,31 @@
+{
+  "rp": {
+    "id": "localhost",
+    "name": "qits platform"
+  },
+  "user": {
+    "id": "opaque",
+    "name": "contract-00000002",
+    "displayName": "contract-00000002"
+  },
+  "challenge": "opaque",
+  "pubKeyCredParams": [
+    {
+      "type": "public-key",
+      "alg": -7
+    },
+    {
+      "type": "public-key",
+      "alg": -257
+    }
+  ],
+  "timeout": 300000,
+  "excludeCredentials": [],
+  "authenticatorSelection": {
+    "requireResidentKey": true,
+    "residentKey": "required",
+    "userVerification": "required"
+  },
+  "attestation": "none",
+  "extensions": {}
+}

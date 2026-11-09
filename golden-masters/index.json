@@ -3,6 +3,34 @@
   "provider": "qits-idp",
   "states": [
     {
+      "name": "a browser returning to a platform host",
+      "slug": "a-browser-returning-to-a-platform-host",
+      "params": {
+        "returnHost": "ci.dev.qits.localhost:8080",
+        "returnPath": "/ci/runs"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getReturnLocation",
+          "method": "GET",
+          "path": "/idp/api/auth/return-location",
+          "query": {
+            "return_host": "{returnHost}",
+            "return_path": "{returnPath}"
+          },
+          "status": 200,
+          "file": "a-browser-returning-to-a-platform-host/getReturnLocation.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a ci run's token being commissioned",
       "slug": "a-ci-run-s-token-being-commissioned",
       "params": {
@@ -618,6 +646,148 @@
       ]
     },
     {
+      "name": "a person signed in to the CLI and to git",
+      "slug": "a-person-signed-in-to-the-cli-and-to-git",
+      "params": {
+        "familyId": "00000000-0000-4000-8000-000000000001",
+        "otherFamilyId": "00000000-0000-4000-8000-000000000002",
+        "sessionToken": "0000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000003"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "listDevices",
+          "method": "GET",
+          "path": "/idp/api/devices",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 200,
+          "file": "a-person-signed-in-to-the-cli-and-to-git/listDevices.json",
+          "frozen": {
+            "ids": [
+              "$[*].id"
+            ],
+            "instants": [
+              "$[*].createdAt",
+              "$[*].expiresAt"
+            ],
+            "strings": [],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "listWorkstations",
+          "method": "GET",
+          "path": "/idp/api/workstations",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 200,
+          "file": "a-person-signed-in-to-the-cli-and-to-git/listWorkstations.json",
+          "frozen": {
+            "ids": [
+              "$[*].id"
+            ],
+            "instants": [
+              "$[*].createdAt",
+              "$[*].expiresAt"
+            ],
+            "strings": [],
+            "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "revokeDevice",
+          "method": "DELETE",
+          "path": "/idp/api/devices/{familyId}",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "revokeWorkstation",
+          "method": "DELETE",
+          "path": "/idp/api/workstations/{familyId}",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a person with a password",
+      "slug": "a-person-with-a-password",
+      "params": {
+        "password": "contract-password",
+        "userId": "00000000-0000-4000-8000-000000000001",
+        "username": "contract-00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "getLoginOptions",
+          "method": "POST",
+          "path": "/idp/api/auth/login-options",
+          "contentType": "application/json",
+          "body": {
+            "username": "{username}"
+          },
+          "status": 200,
+          "file": "a-person-with-a-password/getLoginOptions.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.challenge"
+            ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "login",
+          "method": "POST",
+          "path": "/idp/api/auth/login",
+          "contentType": "application/json",
+          "body": {
+            "username": "{username}",
+            "password": "{password}"
+          },
+          "status": 200,
+          "file": "a-person-with-a-password/login.json",
+          "frozen": {
+            "ids": [
+              "$.userId"
+            ],
+            "instants": [
+              "$.expiresAt"
+            ],
+            "strings": [
+              "$.username"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a published signing key",
       "slug": "a-published-signing-key",
       "params": {
@@ -781,6 +951,22 @@
             ],
             "strings": [],
             "listFilteredTo": "$"
+          }
+        },
+        {
+          "operationId": "logout",
+          "method": "POST",
+          "path": "/idp/api/auth/logout",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}; qits-device={deviceSecret}"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
           }
         },
         {
@@ -1208,6 +1394,26 @@
             "strings": [
               "$.username"
             ],
+            "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "setPassword",
+          "method": "POST",
+          "path": "/idp/api/auth/password",
+          "headers": {
+            "Cookie": "qits-session={sessionToken}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "password": "contract-password"
+          },
+          "status": 204,
+          "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
             "listFilteredTo": null
           }
         }
@@ -1884,6 +2090,29 @@
       },
       "dependsOn": [],
       "operations": [
+        {
+          "operationId": "getRegisterOptions",
+          "method": "POST",
+          "path": "/idp/api/auth/register-options",
+          "contentType": "application/json",
+          "body": {
+            "username": "{username}",
+            "token": "{token}"
+          },
+          "status": 200,
+          "file": "an-unspent-register-token/getRegisterOptions.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.user.name",
+              "$.user.displayName",
+              "$.challenge",
+              "$.user.id"
+            ],
+            "listFilteredTo": null
+          }
+        },
         {
           "operationId": "register",
           "method": "POST",
