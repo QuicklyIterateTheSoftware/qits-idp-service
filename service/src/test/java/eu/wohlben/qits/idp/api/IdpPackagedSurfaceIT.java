@@ -89,6 +89,10 @@ public class IdpPackagedSurfaceIT {
           "QITS_RESOURCE_DB_URL", databaseUrl(),
           "QITS_RESOURCE_DB_USERNAME", EmbeddedPg.USER,
           "QITS_RESOURCE_DB_PASSWORD", EmbeddedPg.PASSWORD,
+          // The event bus's outbox (qits-1977), a second triple the shipped jar reads verbatim.
+          "QITS_RESOURCE_EVENTSTREAM_URL", EmbeddedPg.url("idp_packaged_it_eventstream"),
+          "QITS_RESOURCE_EVENTSTREAM_USERNAME", EmbeddedPg.USER,
+          "QITS_RESOURCE_EVENTSTREAM_PASSWORD", EmbeddedPg.PASSWORD,
           "qits.idp.clients", "prod-qits-workspaces,prod-qits-ci",
           "qits.idp.client.prod-qits-workspaces.secret", SECRET);
     }

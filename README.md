@@ -499,6 +499,9 @@ A delete removes the account's roles, passkeys, password, sessions, authorizatio
 tokens in one transaction; the register token it was made from stays spent and loses only its
 link to the account. A token minted by a person records `minted_by = user:<user id>`.
 
+A delete also publishes `UserDeleted` (see [Events](#events)); the door's answers do not change,
+and neither the 404 nor the 409 self-delete publishes anything.
+
 ### Logging in, and the session
 
 `POST /idp/api/auth/login-options` then `.../login` with the assertion, or one `.../login` with
@@ -649,6 +652,36 @@ of qits-observability refuses an anonymous POST.
 The table holds many keys with one active, so rotation is a data change: insert a new `ACTIVE` row,
 retire the old one, and both keep being published until the old one's tokens have expired.
 `SigningKeys.reload()` is what picks the change up.
+
+## Events
+
+The idp publishes on the platform event bus through
+qits-eventstream (`eu.wohlben.qits:qits-eventstream`), and consumes nothing
+(qits-1977). The records are in `idp/src/main/java/eu/wohlben/qits/idp/events/`.
+
+| Event | Published when | Payload |
+| --- | --- | --- |
+| `UserDeleted` | `DELETE /idp/api/users/{username}` removed an account (`Users.delete`, inside its transaction, once the row is gone) | `userId` (UUID, the `sub` of every token the person was minted), `username` |
+
+Every event also carries the envelope's `eventId` and `occurredAt`. A publish never fails the
+delete: `QitsEventBus.publish` tries the PUT inline and otherwise leaves the event in the outbox for
+the sweeper, so a qits-events outage delays the announcement and nothing else.
+
+What it takes to run:
+
+- **the outbox**, a second database: `postgresql:eventstream:qits_idp_eventstream` in
+  `.config/qits/deployments.yml`, injected as `QITS_RESOURCE_EVENTSTREAM_URL`, `_USERNAME` and
+  `_PASSWORD`. The library ships no fallback, so a process without them refuses to boot at Flyway.
+- **a bearer for qits-events**: the library presents the `qits` oidc client's token, which is this
+  service's own `idp:client` pair minted at itself (`http://localhost:8080/idp`), the same one
+  telemetry uses. qits-events validates it against this idp's JWKS.
+- **a native registration**: `events/EventWireReflection` names every record the bus serializes.
+  A new event joins it in the commit that adds it, or the binary publishes it as `{}`.
+
+The bus is dark under `%dev` and `%test`; `UserDeletedPublishTest` turns it on against a closed
+port and reads the outbox rows. `EventstreamPactTest` writes
+`pacts/qits-idp-service_qits-eventstream-javalib_qits-events-service.json`, the publish the library
+makes on this service's behalf; regenerate it with `-Dgolden.update=true`.
 
 ## Building and running
 

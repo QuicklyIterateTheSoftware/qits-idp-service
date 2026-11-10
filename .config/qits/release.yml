@@ -13,6 +13,13 @@ contracts:
   # The ER diagrams `qits database diagram` keeps current (qits-2014), bundled under database/
   # with an index in @contracts/<application> by contract-docs.
   database: docs/database/
+  # THE PACT (qits-1977): what qits-eventstream asks qits-events on this service's behalf — only the
+  # outbox publish of UserDeleted, as it consumes no event — in
+  # `pacts/qits-idp-service_qits-eventstream-javalib_qits-events-service.json`, written by
+  # EventstreamPactTest from the library's kit. qits-ci packs it into
+  # eu.wohlben.qits:qits-idp-service-pacts-qits-events-service, published only when it changed.
+  pacts:
+    qits-events-service: { packages: [maven] }
 # THE SITE IS SPELLED, AND IT NAMES THE COMPONENT. `true` derives it from the REPOSITORY name,
 # which would put the retired tier modifier in a storage id and then MOVE that id the day the
 # repository is renamed — a bundle's history stranded under a name nothing publishes to any

@@ -83,6 +83,18 @@
             <artifactId>quarkus-elytron-security-common</artifactId>
         </dependency>
         <dependency>
+            <!-- The platform event bus (qits-1977): Users.delete announces UserDeleted through
+                 QitsEventBus. The jar brings its own `eventstream` datasource, persistence unit and
+                 Flyway lineage (the outbox), the scheduler that sweeps it, and the bearer it presents
+                 to qits-events, minted by the `qits` oidc client service/ configures. It also brings
+                 quarkus-websockets-next and an HTTP client, and that is the one exception to this
+                 module's no-web-stack rule: nothing here references either — only QitsEventBus and
+                 the QitsEvent interface — and idp publishes only, so with no listener the library
+                 never dials the stream. -->
+            <groupId>${project.groupId}</groupId>
+            <artifactId>qits-eventstream</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
             <scope>test</scope>

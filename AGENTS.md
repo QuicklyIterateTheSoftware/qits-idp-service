@@ -220,8 +220,10 @@ listed for adoption with no secret.
 `eu.wohlben.qits.idp.*`, split across maven modules with disjoint sub-packages so there is no split
 package:
 
-- `idp/` — `entity`, `persistence`, `control`, `error`. Framework-free in the sense that matters:
-  no JAX-RS, no web stack. `control` owns the keys (`SigningKeys`), the JWKS document (`Jwks`), the
+- `idp/` — `entity`, `persistence`, `control`, `error`, `events`. Framework-free in the sense that
+  matters: no JAX-RS, no web stack. The one jar that brings a web stack along is qits-eventstream
+  (qits-1977), and the rule holds for this module's own classes: `control` touches only
+  `QitsEventBus`, and `events` holds the published records and their native registration. `control` owns the keys (`SigningKeys`), the JWKS document (`Jwks`), the
   issuer string (`Issuer`), the grant (`TokenService`) and the client registry — which is three
   classes: `ServiceClients` (service clients, from `idp_service_client` rows), `DynamicClients`
   (commissioned, from `idp_client` rows) and `ClientRegistry`, which is the only thing that knows

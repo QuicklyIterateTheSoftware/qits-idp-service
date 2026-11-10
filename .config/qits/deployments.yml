@@ -83,4 +83,14 @@ health_path: /idp/q/health/ready
 # qits-telemetry-core attaches it to every OTLP export, because the edge in front of
 # qits-observability refuses an anonymous POST. The claim also keeps the client out of
 # UnclaimedServiceClientCollector's reach, which deletes any service client no deployment claims.
-resources: postgresql:db:qits_platform_idp, idp:client
+#
+# postgresql:eventstream:qits_idp_eventstream — THE EVENT BUS'S OUTBOX (qits-1977). Users.delete
+# announces UserDeleted through qits-eventstream, and that library is a Flyway lineage and a
+# datasource of its own: it reads the `eventstream` name in its shipped defaults, so the deployer
+# injects QITS_RESOURCE_EVENTSTREAM_URL / _USERNAME / _PASSWORD for it and the spelling is not a
+# choice made here. It cannot share qits_platform_idp — two lineages, and the signing key's store is
+# nobody else's. The database is NAMED for the same reason the store above is: a derived name would
+# hang off the application name and move with the next rename. It is a NEW database, so the first
+# deploy of this version provisions an empty one, which is exactly what an outbox starts as. The
+# bearer the library presents to qits-events is the idp:client pair below, minted at itself.
+resources: postgresql:db:qits_platform_idp, postgresql:eventstream:qits_idp_eventstream, idp:client

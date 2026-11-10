@@ -1,10 +1,12 @@
 package eu.wohlben.qits.idp.control;
 
 import eu.wohlben.qits.db.DbRetry;
+import eu.wohlben.qits.eventstream.QitsEventBus;
 import eu.wohlben.qits.idp.entity.IdpUser;
 import eu.wohlben.qits.idp.entity.IdpUserRole;
 import eu.wohlben.qits.idp.entity.IdpWebAuthnCredential;
 import eu.wohlben.qits.idp.error.AuthException;
+import eu.wohlben.qits.idp.events.UserDeleted;
 import eu.wohlben.qits.idp.persistence.IdpAuthorizationCodeRepository;
 import eu.wohlben.qits.idp.persistence.IdpDeviceRepository;
 import eu.wohlben.qits.idp.persistence.IdpRegisterTokenRepository;
@@ -129,6 +131,9 @@ public class Users {
 
   @Inject IdpDeviceRepository devices;
 
+  /** Where {@link #delete} announces {@link UserDeleted} (qits-1977). */
+  @Inject QitsEventBus bus;
+
   /** The account with this login name, or empty. */
   public Optional<Account> byUsername(String username) {
     return DbRetry.inNewTx(
@@ -194,6 +199,15 @@ public class Users {
    * the device ({@code idp_device_secret.device_id} is V12's one cascade).
    * Deleted sessions stop introspecting on the next call; the edge's own cache is the only lag.
    *
+   * <p><b>And it announces the deletion</b> (qits-1977): one {@link UserDeleted} carrying the
+   * account's id and name, published inside this transaction once the row is gone — so a consumer
+   * revoking what the person held (qits-network-access, their peers) hears of it without polling.
+   * {@link QitsEventBus#publish} never throws: an unreachable qits-events puts the event in the
+   * outbox, and the delete commits either way. The inline PUT therefore sits inside the
+   * transaction; a delete is a rare admin act, and the attempt is bounded by {@code
+   * qits.eventstream.publish-timeout} and its retry budget. An unknown name publishes nothing, and
+   * so does the refused self-delete, which never reaches this method.
+   *
    * @return false when no account has this name
    */
   public boolean delete(String username) {
@@ -213,6 +227,7 @@ public class Users {
           credentials.delete("userId", id);
           roles.delete("userId", id);
           users.delete("id", id);
+          bus.publish(new UserDeleted(id, user.username, Instant.now()));
           return true;
         });
   }

@@ -104,6 +104,12 @@ public class StoryProfile implements QuarkusTestProfile {
     overrides.put("QITS_RESOURCE_DB_URL", databaseUrl());
     overrides.put("QITS_RESOURCE_DB_USERNAME", EmbeddedPg.USER);
     overrides.put("QITS_RESOURCE_DB_PASSWORD", EmbeddedPg.PASSWORD);
+    // And the event bus's outbox (qits-1977), the second triple a deployment injects. The bus stays
+    // on as shipped: this service has no listener, so it never dials the stream, and no story
+    // deletes a user, so nothing is published either.
+    overrides.put("QITS_RESOURCE_EVENTSTREAM_URL", EmbeddedPg.url("idp_userflows_it_eventstream"));
+    overrides.put("QITS_RESOURCE_EVENTSTREAM_USERNAME", EmbeddedPg.USER);
+    overrides.put("QITS_RESOURCE_EVENTSTREAM_PASSWORD", EmbeddedPg.PASSWORD);
 
     // The adoption's input (qits-163): the list, and a secret for every id but ARTIFACTS — see the
     // class javadoc. Each id with a secret becomes a database row at the first start.

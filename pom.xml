@@ -72,6 +72,14 @@
              arrow points IN, and the one dependency this process does have arrives as a DECLARED
              jdbc edge in the two commissioning stories. -->
         <qits.userflows.version>2026.1106.205</qits.userflows.version>
+        <!-- qits-eventstream (qits-1977): the platform event bus, so a deleted account is announced
+             as UserDeleted. Compile scope in `idp`, where Users publishes it; the library brings its
+             own `eventstream` datasource (the outbox) and Flyway lineage, and mints its bearer for
+             qits-events through the `qits` oidc client application.properties already configures.
+             qits-eventstream-contracts, its pact kit, is always the same version and test scope in
+             `service` (EventstreamPactTest). Published out of qits-eventstream-javalib into the same
+             platform repository as the jars above; the pin follows qits-edge-service's. -->
+        <qits.eventstream.version>2026.1109.164031</qits.eventstream.version>
         <!-- THE CONSUMER PACTS this provider verifies (epic qits-546, ticket qits-1149): one jar
              per consumer, each carrying `pacts/<consumer>_qits-idp-service.json`, and
              ConsumerPactVerificationTest loads every such resource off the test classpath. Test
@@ -365,6 +373,18 @@
                 <groupId>${project.groupId}</groupId>
                 <artifactId>qits-userflows</artifactId>
                 <version>${qits.userflows.version}</version>
+            </dependency>
+            <dependency>
+                <!-- The event bus, compile scope in `idp` (qits-1977). -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-eventstream</artifactId>
+                <version>${qits.eventstream.version}</version>
+            </dependency>
+            <dependency>
+                <!-- Its pact kit, test scope in `service`, always the library's own version. -->
+                <groupId>${project.groupId}</groupId>
+                <artifactId>qits-eventstream-contracts</artifactId>
+                <version>${qits.eventstream.version}</version>
             </dependency>
             <dependency>
                 <!-- Managed here rather than versioned at the use site because Quinoa is in no BOM;
