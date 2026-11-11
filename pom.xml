@@ -79,7 +79,7 @@
              qits-eventstream-contracts, its pact kit, is always the same version and test scope in
              `service` (EventstreamPactTest). Published out of qits-eventstream-javalib into the same
              platform repository as the jars above; the pin follows qits-edge-service's. -->
-        <qits.eventstream.version>2026.1109.164031</qits.eventstream.version>
+        <qits.eventstream.version>2026.1110.232501</qits.eventstream.version>
         <!-- THE CONSUMER PACTS this provider verifies (epic qits-546, ticket qits-1149): one jar
              per consumer, each carrying `pacts/<consumer>_qits-idp-service.json`, and
              ConsumerPactVerificationTest loads every such resource off the test classpath. Test
