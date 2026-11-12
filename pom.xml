@@ -107,7 +107,7 @@
         <qits.orchestrator-service-pacts-qits-idp-service.version>2026.1102.54443</qits.orchestrator-service-pacts-qits-idp-service.version>
         <qits.platform-access-monorepo-pacts-qits-idp-service.version>2026.1108.30334</qits.platform-access-monorepo-pacts-qits-idp-service.version>
         <qits.projects-service-pacts-qits-idp-service.version>2026.1102.92522</qits.projects-service-pacts-qits-idp-service.version>
-        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1111.113948</qits.system-runner-daemon-pacts-qits-idp-service.version>
+        <qits.system-runner-daemon-pacts-qits-idp-service.version>2026.1111.230323</qits.system-runner-daemon-pacts-qits-idp-service.version>
         <qits.system-service-pacts-qits-idp-service.version>2026.1103.220115</qits.system-service-pacts-qits-idp-service.version>
         <qits.workspaces-service-pacts-qits-idp-service.version>2026.1102.24458</qits.workspaces-service-pacts-qits-idp-service.version>
         <qits.docs-service-pacts-qits-idp-service.version>2026.1103.164356</qits.docs-service-pacts-qits-idp-service.version>
