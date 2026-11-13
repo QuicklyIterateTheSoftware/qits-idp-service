@@ -27,6 +27,10 @@ public class CommissionRolesTest {
     // One principal per front-desk session, instead of sharing the desk container's
     // agent-container token (qits-1482).
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("desk-session"));
+    // One principal per named agent of a project (qits-2154): qits:agent and nothing else — the
+    // same role as desk-session, deliberately, since what separates a named agent from the desk is
+    // its context kind, not a different role. Tooling that tells the two apart does so by kind.
+    assertEquals(List.of("qits:agent"), CommissionRoles.forKind("named-agent"));
     // The project's own delivery loop (qits-1440): an agent, plus qits:desk — admitted on
     // dispatch, prompt delivery and approve, always bound to the token's project claim — and
     // (qits-1621) qits:desk-admin, admitted wherever qits:admin-agent is named.
@@ -60,6 +64,7 @@ public class CommissionRolesTest {
             "agent-container",
             "refinement",
             "desk-session",
+            "named-agent",
             "ci-run",
             "bootstrap-publish",
             "target-runner",
@@ -83,6 +88,7 @@ public class CommissionRolesTest {
             "agent-container",
             "refinement",
             "desk-session",
+            "named-agent",
             "ci-run",
             "bootstrap-publish",
             "target-runner",

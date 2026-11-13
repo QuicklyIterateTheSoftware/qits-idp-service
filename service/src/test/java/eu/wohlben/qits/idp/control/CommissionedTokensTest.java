@@ -146,6 +146,28 @@ public class CommissionedTokensTest {
   }
 
   @Test
+  public void severalNamedAgentTokensShareOneProjectContextId() {
+    // qits-2154: qits-projects-service commissions one named-agent token per named agent of a
+    // project, all with the same contextId (the project's own id) — desk and ui-builder today,
+    // more later. Neither column pair is unique: idp_token's only unique indexes are on
+    // token_hash and subject, so two live rows of the same kind and context id coexist, told apart
+    // by subject alone.
+    Commissioned desk =
+        tokens.commission(OWNER, "named-agent", "proj-1", Map.of("project", "proj-1"), null);
+    Commissioned uiBuilder =
+        tokens.commission(OWNER, "named-agent", "proj-1", Map.of("project", "proj-1"), null);
+
+    assertNotEquals(desk.token().id(), uiBuilder.token().id());
+    assertNotEquals(desk.token().subject(), uiBuilder.token().subject());
+    assertNotEquals(desk.value(), uiBuilder.value());
+
+    assertTrue(tokens.introspect(desk.value()).isPresent(), "both rows stay live");
+    assertTrue(tokens.introspect(uiBuilder.value()).isPresent());
+    assertEquals("proj-1", tokens.introspect(desk.value()).orElseThrow().contextId());
+    assertEquals("proj-1", tokens.introspect(uiBuilder.value()).orElseThrow().contextId());
+  }
+
+  @Test
   public void replaceGitRefsNarrowsAndEmptyMeansPushNothing() {
     Commissioned issued =
         tokens.commission(OWNER, "tok-replace", "ctx", null, List.of("refs/heads/a"));
