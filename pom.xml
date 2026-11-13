@@ -46,7 +46,7 @@
              build can point it at the address the builder container can actually reach — see
              docker/Dockerfile and .qits-maven-settings.xml. -->
         <qits.db-core.version>2026.1107.191249</qits.db-core.version>
-        <qits.arch-rules.version>2026.1108.20205</qits.arch-rules.version>
+        <qits.arch-rules.version>2026.1113.14706</qits.arch-rules.version>
         <!-- CallerServerFilter/CallerClientFilter: jandex-indexed filters that record inbound
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
@@ -99,7 +99,7 @@
         <qits.containers-service-pacts-qits-idp-service.version>2026.1103.143113</qits.containers-service-pacts-qits-idp-service.version>
         <qits.deployments-service-pacts-qits-idp-service.version>2026.1103.124004</qits.deployments-service-pacts-qits-idp-service.version>
         <qits.edge-service-pacts-qits-idp-service.version>2026.1103.181625</qits.edge-service-pacts-qits-idp-service.version>
-        <qits.events-service-pacts-qits-idp-service.version>2026.1103.222809</qits.events-service-pacts-qits-idp-service.version>
+        <qits.events-service-pacts-qits-idp-service.version>2026.1112.224922</qits.events-service-pacts-qits-idp-service.version>
         <qits.githost-service-pacts-qits-idp-service.version>2026.1103.125031</qits.githost-service-pacts-qits-idp-service.version>
         <qits.maintenance-service-pacts-qits-idp-service.version>2026.1102.15751</qits.maintenance-service-pacts-qits-idp-service.version>
         <qits.mirror-service-pacts-qits-idp-service.version>2026.1103.231918</qits.mirror-service-pacts-qits-idp-service.version>
