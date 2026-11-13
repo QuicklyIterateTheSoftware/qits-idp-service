@@ -1,5 +1,5 @@
 {
-  "formatVersion" : 1,
+  "formatVersion" : 2,
   "application" : "qits-idp",
   "entities" : [
     {
@@ -45,14 +45,16 @@
           "method" : "GET",
           "path" : "/authorize",
           "dto" : "eu.wohlben.qits.idp.control.WorkstationCredentials$AuthorizationCode",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "issueToken",
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -113,28 +115,32 @@
           "method" : "POST",
           "path" : "/api/sessions/introspect",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listRememberedDevices",
           "method" : "GET",
           "path" : "/api/remembered-devices",
           "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$RememberedDevice",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "login",
           "method" : "POST",
           "path" : "/api/auth/login",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "resume",
           "method" : "POST",
           "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -171,7 +177,8 @@
           "method" : "POST",
           "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -220,42 +227,48 @@
           "method" : "POST",
           "path" : "/api/clients",
           "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "decommissionClient",
           "method" : "DELETE",
           "path" : "/api/clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteServiceClient",
           "method" : "DELETE",
           "path" : "/api/service-clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteToken",
           "method" : "DELETE",
           "path" : "/api/tokens/{tokenId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listClients",
           "method" : "GET",
           "path" : "/api/clients",
           "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "replaceClientGitRefs",
           "method" : "PUT",
           "path" : "/api/clients/{clientId}/git-refs",
           "dto" : "eu.wohlben.qits.idp.api.IdpClientsController$CommissionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     },
@@ -292,6 +305,12 @@
           "site" : "IdpAuthController.issued(RoutingContext, Opened)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "Devices.resume(String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.control.RegisterTokens$Minted",
           "kind" : "assembler",
           "via" : null,
@@ -312,67 +331,84 @@
       ],
       "operations" : [
         {
+          "operationId" : "authorize",
+          "method" : "GET",
+          "path" : "/authorize",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body",
+          "cardinality" : "single"
+        },
+        {
           "operationId" : "getRegisterOptions",
           "method" : "POST",
           "path" : "/api/auth/register-options",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "login",
           "method" : "POST",
           "path" : "/api/auth/login",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "logout",
           "method" : "POST",
           "path" : "/api/auth/logout",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "mintRegisterToken",
           "method" : "POST",
           "path" : "/api/register-tokens",
           "dto" : "eu.wohlben.qits.idp.api.IdpRegisterTokensController$MintResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "register",
           "method" : "POST",
           "path" : "/api/auth/register",
           "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "resume",
           "method" : "POST",
           "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "setPassword",
           "method" : "POST",
           "path" : "/api/auth/password",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -427,49 +463,56 @@
           "method" : "POST",
           "path" : "/api/service-clients",
           "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$CreatedResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "decommissionClient",
           "method" : "DELETE",
           "path" : "/api/clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteServiceClient",
           "method" : "DELETE",
           "path" : "/api/service-clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteToken",
           "method" : "DELETE",
           "path" : "/api/tokens/{tokenId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getServiceClient",
           "method" : "GET",
           "path" : "/api/service-clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$ServiceClientView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listServiceClients",
           "method" : "GET",
           "path" : "/api/service-clients",
           "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$ServiceClientView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "rotateServiceClientSecret",
           "method" : "POST",
           "path" : "/api/service-clients/{clientId}/secret",
           "dto" : "eu.wohlben.qits.idp.api.IdpServiceClientsController$RotatedResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     },
@@ -534,6 +577,12 @@
           "site" : "IdpAuthController.issued(RoutingContext, Opened)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Sessions$Opened",
+          "site" : "Devices.resume(String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
           "kind" : "assembler",
           "via" : null,
@@ -548,88 +597,108 @@
       ],
       "operations" : [
         {
+          "operationId" : "authorize",
+          "method" : "GET",
+          "path" : "/authorize",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body",
+          "cardinality" : "single"
+        },
+        {
           "operationId" : "deleteUser",
           "method" : "DELETE",
           "path" : "/api/users/{username}",
           "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getRegisterOptions",
           "method" : "POST",
           "path" : "/api/auth/register-options",
           "dto" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listDevices",
           "method" : "GET",
           "path" : "/api/devices",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "listWorkstations",
           "method" : "GET",
           "path" : "/api/workstations",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "login",
           "method" : "POST",
           "path" : "/api/auth/login",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "logout",
           "method" : "POST",
           "path" : "/api/auth/logout",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "register",
           "method" : "POST",
           "path" : "/api/auth/register",
           "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "resume",
           "method" : "POST",
           "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeRememberedDevice",
           "method" : "DELETE",
           "path" : "/api/remembered-devices/{id}",
           "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "setPassword",
           "method" : "POST",
           "path" : "/api/auth/password",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -656,11 +725,20 @@
       ],
       "operations" : [
         {
+          "operationId" : "getJwks",
+          "method" : "GET",
+          "path" : "/jwks",
+          "dto" : "eu.wohlben.qits.idp.control.SigningKeys$SigningKey",
+          "kind" : "body",
+          "cardinality" : "collection"
+        },
+        {
           "operationId" : "issueToken",
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -721,56 +799,64 @@
           "method" : "POST",
           "path" : "/api/tokens",
           "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$CommissionResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "decommissionClient",
           "method" : "DELETE",
           "path" : "/api/clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteServiceClient",
           "method" : "DELETE",
           "path" : "/api/service-clients/{clientId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "deleteToken",
           "method" : "DELETE",
           "path" : "/api/tokens/{tokenId}",
           "dto" : "eu.wohlben.qits.idp.control.IdpClient",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "introspectToken",
           "method" : "POST",
           "path" : "/api/tokens/introspect",
           "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$IntrospectionResponse",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "issueToken",
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listTokens",
           "method" : "GET",
           "path" : "/api/tokens",
           "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$TokenView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "replaceTokenGitRefs",
           "method" : "PUT",
           "path" : "/api/tokens/{tokenId}/git-refs",
           "dto" : "eu.wohlben.qits.idp.api.IdpTokensController$TokenView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         }
       ]
     },
@@ -869,102 +955,124 @@
       ],
       "operations" : [
         {
+          "operationId" : "authorize",
+          "method" : "GET",
+          "path" : "/authorize",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body",
+          "cardinality" : "single"
+        },
+        {
           "operationId" : "deleteUser",
           "method" : "DELETE",
           "path" : "/api/users/{username}",
           "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getRegisterOptions",
           "method" : "POST",
           "path" : "/api/auth/register-options",
           "dto" : "eu.wohlben.qits.idp.api.IdpAuthController$Registrant",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "issueToken",
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listDevices",
           "method" : "GET",
           "path" : "/api/devices",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "listUsers",
           "method" : "GET",
           "path" : "/api/users",
           "dto" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "listWorkstations",
           "method" : "GET",
           "path" : "/api/workstations",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "login",
           "method" : "POST",
           "path" : "/api/auth/login",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "logout",
           "method" : "POST",
           "path" : "/api/auth/logout",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "register",
           "method" : "POST",
           "path" : "/api/auth/register",
           "dto" : "eu.wohlben.qits.idp.api.RegisteredView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "resume",
           "method" : "POST",
           "path" : "/api/auth/resume",
           "dto" : "eu.wohlben.qits.idp.api.AuthExceptionMapper",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeRememberedDevice",
           "method" : "DELETE",
           "path" : "/api/remembered-devices/{id}",
           "dto" : "eu.wohlben.qits.idp.api.IdpRememberedDevicesController$Caller",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "setPassword",
           "method" : "POST",
           "path" : "/api/auth/password",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -993,6 +1101,12 @@
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.Users$Account",
           "site" : "IdpAuthController.login(RoutingContext, LoginRequest)"
+        },
+        {
+          "type" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Account",
+          "site" : "Devices.resume(String)"
         },
         {
           "type" : "eu.wohlben.qits.idp.control.Sessions$Live",
@@ -1027,74 +1141,92 @@
       ],
       "operations" : [
         {
+          "operationId" : "authorize",
+          "method" : "GET",
+          "path" : "/authorize",
+          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
+          "kind" : "body",
+          "cardinality" : "single"
+        },
+        {
           "operationId" : "deleteUser",
           "method" : "DELETE",
           "path" : "/api/users/{username}",
           "dto" : "eu.wohlben.qits.idp.api.AdminCaller$Admin",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "getRegisterOptions",
           "method" : "POST",
           "path" : "/api/auth/register-options",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "introspectSession",
           "method" : "POST",
           "path" : "/api/sessions/introspect",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "issueToken",
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listUsers",
           "method" : "GET",
           "path" : "/api/users",
           "dto" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "login",
           "method" : "POST",
           "path" : "/api/auth/login",
           "dto" : "eu.wohlben.qits.idp.api.SessionView",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "single"
         },
         {
           "operationId" : "logout",
           "method" : "POST",
           "path" : "/api/auth/logout",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "resume",
           "method" : "POST",
           "path" : "/api/auth/resume",
-          "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "dto" : "eu.wohlben.qits.idp.control.Devices$Resumed",
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "revokeDevice",
           "method" : "DELETE",
           "path" : "/api/devices/{familyId}",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "setPassword",
           "method" : "POST",
           "path" : "/api/auth/password",
           "dto" : "eu.wohlben.qits.idp.control.Sessions$Live",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         }
       ]
     },
@@ -1125,7 +1257,8 @@
           "method" : "GET",
           "path" : "/api/passkeys",
           "dto" : "eu.wohlben.qits.idp.api.IdpPasskeysController$Passkey",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         }
       ]
     },
@@ -1168,21 +1301,24 @@
           "method" : "POST",
           "path" : "/token",
           "dto" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
-          "kind" : "body"
+          "kind" : "body",
+          "cardinality" : "single"
         },
         {
           "operationId" : "listDevices",
           "method" : "GET",
           "path" : "/api/devices",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         },
         {
           "operationId" : "listWorkstations",
           "method" : "GET",
           "path" : "/api/workstations",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
-          "kind" : "returns"
+          "kind" : "returns",
+          "cardinality" : "collection"
         }
       ]
     }
