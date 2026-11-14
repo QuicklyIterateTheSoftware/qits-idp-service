@@ -13,26 +13,6 @@
 # decommission the running service and start a stranger beside it.
 application: qits-idp
 
-# WHAT THIS APPLICATION USED TO BE CALLED, and the one thing a rename is allowed to move.
-#
-# A renamed application is a NEW application to the deployer: services are keyed by name, swarm
-# cannot rename one, and pd_service / pd_deployment / pd_resource all hold an application name and no
-# repository identity. So this deploys BESIDE qits-platform-idp and the predecessor is scaled to zero
-# once the successor is healthy. Both read the same database and the same signing keys, so while both
-# run either one answers correctly — which is not true of every service and is why the idp is safe to
-# overlap.
-#
-# What this line moves is the DATABASE CLAIM, and with it the CREDENTIAL. Without it the successor's
-# first deploy is refused — "the database qits_platform_idp is already provisioned for
-# qits-platform-idp" — the right refusal in general, since two unrelated repositories sharing a store
-# is worse than a loud failure. Naming the predecessor narrows that check to this one row.
-#
-# WHY THE SIGNING KEY SURVIVES, which is the thing to get wrong here: the store is pinned below, so
-# the successor opens the SAME database and reads the SAME keypair. An idp that came up on an empty
-# database would mint a new one and invalidate every token in flight, with nothing in any log to say
-# why. The pin is what prevents that, and the claim transfer is what lets the pin be honoured.
-renamed_from: qits-platform-idp
-
 # This is a redirect destination and token/JWKS surface, not a left-navigation destination.
 routes: /idp
 
@@ -50,7 +30,7 @@ health_path: /idp/q/health/ready
 # THE STORE. A role and a database of this service's own on the platform's postgres, created before
 # the successor container starts and injected as QITS_RESOURCE_DB_URL / _USERNAME / _PASSWORD — the
 # generic contract the idp jar's datasource defaults read verbatim. The name is omitted, so the
-# database and the role are both `qits_platform_idp`, derived from the repository name.
+# database and the role are both `qits_idp`, derived from the application name.
 #
 # A CORE SEED SERVICE, WHICH IS WHY THE LINE ALONE IS NOT THE WHOLE ANSWER. This container boots
 # from the bootstrap CLI before any deployer exists, so at bootstrap the CLI provisions the same
@@ -61,18 +41,18 @@ health_path: /idp/q/health/ready
 # generate a new keypair and invalidate every token in flight, everywhere — so the database must be
 # the same one across deployments, which is exactly what a provisioned resource is and what an
 # ephemeral container layer is not.
-# THE DATABASE IS NAMED EXPLICITLY, AND IT IS A SAFETY PIN RATHER THAN A PREFERENCE.
-# `postgresql:db` with no third segment DERIVES the database from the APPLICATION name —
-# `qits_` plus the name minus its `qits-` prefix. This application is STILL TO BE renamed
-# (qits-platform-idp -> qits-idp, blocked on qits-376), and a derived name would follow it: the deployment would provision a
-# BRAND NEW EMPTY `qits_idp` and start against it, on a green deploy, with nothing failing.
-# Naming the database this application already uses makes the rename a rename of the
-# APPLICATION alone, which is the whole intent — and this line has to OUTLIVE the rename rather
-# than merely precede it. Removing it later is not a tidy-up; it is a silent migration to an
-# empty store on a deploy that goes green.
 #
-# VERIFIED AGAINST THE SERVER, not derived: `qits_platform_idp` is in pg_database on
-# qits-oci-postgresql today, and `qits_idp` is not.
+# THE NAMES FOLLOW THE APPLICATION (epic qits-2174, task qits-2194). Until 2026-11-14 both databases
+# were pinned to the predecessor's `qits_platform_idp` and `…_eventstream`, because a changed name
+# used to provision an empty database on a green deploy — and for this service that was more than a
+# cold cache: an idp that came up against an empty database would mint a new signing keypair and
+# invalidate every token in flight, with nothing in any log to say why. Since qits-2175 a change of
+# the effective name is a MOVE: qits-deployments stops the service, copies the WHOLE database —
+# signing keypair included — into the new name, compares every table's rows, and only then starts
+# idp against it; the source is kept for its retention period as the way back. That row comparison
+# is what makes the rename safe without a pin: it is exactly what rules out the empty-database case
+# that used to be the danger. Dropping the pins moved the databases to `qits_idp` and
+# `qits_idp_eventstream` that way.
 #
 # idp:client — THIS APPLICATION'S OWN SERVICE CLIENT, COMMISSIONED LIKE EVERY OTHER SERVICE'S
 # (epic qits-428). qits-deployments creates `<env>-qits-idp` through this service's own commission
@@ -88,9 +68,9 @@ health_path: /idp/q/health/ready
 # announces UserDeleted through qits-eventstream, and that library is a Flyway lineage and a
 # datasource of its own: it reads the `eventstream` name in its shipped defaults, so the deployer
 # injects QITS_RESOURCE_EVENTSTREAM_URL / _USERNAME / _PASSWORD for it and the spelling is not a
-# choice made here. It cannot share qits_platform_idp — two lineages, and the signing key's store is
-# nobody else's. The database is NAMED for the same reason the store above is: a derived name would
-# hang off the application name and move with the next rename. It is a NEW database, so the first
-# deploy of this version provisions an empty one, which is exactly what an outbox starts as. The
-# bearer the library presents to qits-events is the idp:client pair below, minted at itself.
-resources: postgresql:db:qits_platform_idp, postgresql:eventstream:qits_idp_eventstream, idp:client
+# choice made here. It cannot share qits_idp — two lineages, and the signing key's store is
+# nobody else's. The database is NAMED because the default derivation would collide with the
+# store above, not because of any rename. It is a NEW database, so the first deploy of this version
+# provisions an empty one, which is exactly what an outbox starts as. The bearer the library presents
+# to qits-events is the idp:client pair below, minted at itself.
+resources: postgresql:db, postgresql:eventstream:qits_idp_eventstream, idp:client
