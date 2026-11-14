@@ -42,8 +42,8 @@ health_path: /idp/q/health/ready
 # the same one across deployments, which is exactly what a provisioned resource is and what an
 # ephemeral container layer is not.
 #
-# THE NAMES FOLLOW THE APPLICATION (epic qits-2174, task qits-2194). Until 2026-11-14 both databases
-# were pinned to the predecessor's `qits_platform_idp` and `…_eventstream`, because a changed name
+# THE NAME FOLLOWS THE APPLICATION (epic qits-2174, task qits-2194). Until 2026-11-14 the store was
+# pinned to the predecessor's `qits_platform_idp`, because a changed name
 # used to provision an empty database on a green deploy — and for this service that was more than a
 # cold cache: an idp that came up against an empty database would mint a new signing keypair and
 # invalidate every token in flight, with nothing in any log to say why. Since qits-2175 a change of
@@ -51,8 +51,8 @@ health_path: /idp/q/health/ready
 # signing keypair included — into the new name, compares every table's rows, and only then starts
 # idp against it; the source is kept for its retention period as the way back. That row comparison
 # is what makes the rename safe without a pin: it is exactly what rules out the empty-database case
-# that used to be the danger. Dropping the pins moved the databases to `qits_idp` and
-# `qits_idp_eventstream` that way.
+# that used to be the danger. Dropping the pin moved the store to `qits_idp` that way; the
+# eventstream database was already `qits_idp_eventstream` and does not move.
 #
 # idp:client — THIS APPLICATION'S OWN SERVICE CLIENT, COMMISSIONED LIKE EVERY OTHER SERVICE'S
 # (epic qits-428). qits-deployments creates `<env>-qits-idp` through this service's own commission
