@@ -7,6 +7,7 @@ import eu.wohlben.qits.idp.control.ServiceClients.StoredServiceClient;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.CookieParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -39,6 +40,11 @@ import org.jboss.resteasy.reactive.RestResponse;
  * the reads carry no secret, so there is nothing for a bearer to strip. A Basic caller on a read is
  * still held to the service-client rule above, unchanged.
  *
+ * <p><b>The two reads also accept a signed-in browser session</b> whose account holds {@code
+ * qits:admin} (qits-2531), through the session path of {@link AdminCaller}: the idp frontend's
+ * Clients page, shown in the landing app's frame, reads the list with it. The session counts only
+ * when no {@code Authorization} header is sent, as on every admin door. No write accepts it.
+ *
  * <p>{@code source} in a read is always {@code "database"}. It used to say which registry held an
  * id; there is one registry now, and the field stays so a reader that looks for it does not break.
  */
@@ -69,6 +75,8 @@ public class IdpServiceClientsController {
   @Inject BasicCaller caller;
 
   @Inject BearerCaller bearer;
+
+  @Inject AdminCaller admin;
 
   @Inject ServiceClients serviceClients;
 
@@ -139,8 +147,9 @@ public class IdpServiceClientsController {
   @Operation(operationId = "getServiceClient")
   public ServiceClientView get(
       @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @CookieParam(SessionCookie.NAME) String sessionToken,
       @PathParam("clientId") String clientId) {
-    requireReader(authorization);
+    requireReader(authorization, sessionToken);
     return serviceClients
         .find(clientId)
         .map(IdpServiceClientsController::view)
@@ -151,8 +160,9 @@ public class IdpServiceClientsController {
   @GET
   @Operation(operationId = "listServiceClients")
   public List<ServiceClientView> list(
-      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization) {
-    requireReader(authorization);
+      @HeaderParam(HttpHeaders.AUTHORIZATION) String authorization,
+      @CookieParam(SessionCookie.NAME) String sessionToken) {
+    requireReader(authorization, sessionToken);
     return serviceClients.list().stream().map(IdpServiceClientsController::view).toList();
   }
 
@@ -178,9 +188,15 @@ public class IdpServiceClientsController {
 
   /**
    * A read: a bearer holding one of {@link #READ_ROLES}, or the write rule's Basic caller. The
-   * header's scheme decides which; a bearer is never tried as Basic or the other way round.
+   * header's scheme decides which; a bearer is never tried as Basic or the other way round. With
+   * no header at all, a signed-in {@code qits:admin} session ({@link AdminCaller}): 401 without a
+   * challenge when there is none, 403 when its account is not an admin.
    */
-  private void requireReader(String authorization) {
+  private void requireReader(String authorization, String sessionToken) {
+    if (authorization == null || authorization.isBlank()) {
+      admin.require(null, sessionToken, "a commissioned client may not read service clients");
+      return;
+    }
     if (BearerCaller.isBearer(authorization)) {
       bearer.requireAnyRole(authorization, READ_ROLES);
       return;

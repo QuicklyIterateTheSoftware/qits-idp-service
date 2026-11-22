@@ -9,8 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.wohlben.qits.idp.control.Sessions;
 import eu.wohlben.qits.idp.control.SigningKeys;
+import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.entity.IdpServiceClient;
+import eu.wohlben.qits.idp.entity.IdpUser;
+import eu.wohlben.qits.idp.entity.IdpUserRole;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
@@ -19,7 +23,9 @@ import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
 
@@ -41,6 +47,8 @@ public class IdpServiceClientsControllerTest {
   @Inject IdpServiceClientRepository repository;
 
   @Inject SigningKeys signingKeys;
+
+  @Inject Sessions sessions;
 
   @Test
   public void createAnswersOnceAndTheRowHoldsOnlyAHash() {
@@ -467,6 +475,89 @@ public class IdpServiceClientsControllerTest {
     token(id, secret, "&audience=qits-deployments").statusCode(200);
   }
 
+  // --- session reads (qits-2531): the idp frontend's Clients page, signed in in a browser -------
+
+  @Test
+  public void anAdminSessionReadsBothRoutesAndNoSecret() {
+    String id = "svc-session-read";
+    create(id).statusCode(201);
+    String session = sessionWithRoles(List.of("qits:admin"));
+
+    String all =
+        given()
+            .cookie(SessionCookie.NAME, session)
+            .when()
+            .get("/idp/api/service-clients")
+            .then()
+            .statusCode(200)
+            .body("find { it.clientId == '" + id + "' }.source", equalTo("database"))
+            .extract()
+            .asString();
+    String one =
+        given()
+            .cookie(SessionCookie.NAME, session)
+            .when()
+            .get("/idp/api/service-clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("clientId", equalTo(id))
+            .extract()
+            .asString();
+    for (String body : List.of(one, all)) {
+      assertFalse(body.toLowerCase().contains("secret"), "a read never carries a secret: " + body);
+    }
+  }
+
+  @Test
+  public void aSessionWithoutAdminIsForbiddenAndNoSessionIs401WithoutAChallenge() {
+    String plain = sessionWithRoles(List.of());
+    given()
+        .cookie(SessionCookie.NAME, plain)
+        .when()
+        .get("/idp/api/service-clients")
+        .then()
+        .statusCode(403)
+        .body("error", equalTo("access_denied"));
+    for (var spec : List.of(given(), given().cookie(SessionCookie.NAME, "not-a-live-session"))) {
+      spec.when()
+          .get("/idp/api/service-clients")
+          .then()
+          .statusCode(401)
+          .header("WWW-Authenticate", org.hamcrest.Matchers.nullValue());
+    }
+  }
+
+  @Test
+  public void anAdminSessionIsRefusedOnEveryWrite() {
+    String id = "svc-session-write";
+    create(id).statusCode(201);
+    String session = sessionWithRoles(List.of("qits:admin"));
+
+    given()
+        .contentType(ContentType.JSON)
+        .cookie(SessionCookie.NAME, session)
+        .body("{\"clientId\":\"svc-session-created\"}")
+        .when()
+        .post("/idp/api/service-clients")
+        .then()
+        .statusCode(401);
+    given()
+        .cookie(SessionCookie.NAME, session)
+        .when()
+        .post("/idp/api/service-clients/" + id + "/secret")
+        .then()
+        .statusCode(401);
+    given()
+        .cookie(SessionCookie.NAME, session)
+        .when()
+        .delete("/idp/api/service-clients/" + id)
+        .then()
+        .statusCode(401);
+
+    get("svc-session-created").statusCode(404);
+    get(id).statusCode(200).body("rotatedAt", org.hamcrest.Matchers.nullValue());
+  }
+
   // --- helpers --------------------------------------------------------------------------------
 
   private static ValidatableResponse create(String clientId) {
@@ -542,6 +633,29 @@ public class IdpServiceClientsControllerTest {
         .jws()
         .keyId(key.kid())
         .sign(key.privateKey());
+  }
+
+  /** A session for an account made directly in the store, holding exactly these roles. */
+  private String sessionWithRoles(List<String> granted) {
+    UUID id = UUID.randomUUID();
+    String username = "service-clients-reader-" + id;
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              IdpUser row = new IdpUser();
+              row.id = id;
+              row.username = username;
+              row.createdAt = Instant.now();
+              row.persist();
+              for (String role : granted) {
+                IdpUserRole grant = new IdpUserRole();
+                grant.userId = id;
+                grant.role = role;
+                grant.createdAt = Instant.now();
+                grant.persist();
+              }
+            });
+    return sessions.open(new Users.Account(id, username, granted)).token();
   }
 
   private static String bearer(String token) {
