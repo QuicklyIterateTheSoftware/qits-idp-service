@@ -194,6 +194,12 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_DATABASE_SERVICE_CLIENT);
   }
 
+  @State(ProviderStates.A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI)
+  Map<String, String> aDatabaseServiceClientReadByAnAdminSignedInToTheCli() {
+    return states.params(
+        ProviderStates.A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI);
+  }
+
   @State(ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID)
   Map<String, String> noServiceClientWithTheGivenId() {
     return states.params(ProviderStates.NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID);

@@ -730,6 +730,11 @@ class GoldenMasterRecordingTest {
               ProviderStates.A_DATABASE_SERVICE_CLIENT,
               "listServiceClients",
               "/idp/api/service-clients"),
+          // qits service-clients list, with an admin's CLI bearer (qits-2531).
+          list(
+              ProviderStates.A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI,
+              "listServiceClients",
+              "/idp/api/service-clients"),
           send(
               ProviderStates.A_DATABASE_SERVICE_CLIENT,
               "createServiceClient",

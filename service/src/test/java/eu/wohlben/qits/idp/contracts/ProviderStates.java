@@ -90,6 +90,10 @@ public class ProviderStates {
   public static final String A_REMEMBERED_DEVICE = "a remembered device";
   public static final String A_REGISTERED_PASSKEY = "a registered passkey";
   public static final String A_DATABASE_SERVICE_CLIENT = "a database service client";
+
+  /** A service client, read by a person's CLI bearer holding {@code qits:admin} (qits-2531). */
+  public static final String A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI =
+      "a database service client, read by an admin signed in to the CLI";
   public static final String NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID =
       "no service client with the given id";
   public static final String A_SERVICE_CLIENT_NOTHING_CLAIMS = "a service client nothing claims";
@@ -287,6 +291,9 @@ public class ProviderStates {
     states.put(A_REMEMBERED_DEVICE, this::aRememberedDevice);
     states.put(A_REGISTERED_PASSKEY, this::aRegisteredPasskey);
     states.put(A_DATABASE_SERVICE_CLIENT, this::aDatabaseServiceClient);
+    states.put(
+        A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI,
+        this::aDatabaseServiceClientReadByAnAdminSignedInToTheCli);
     states.put(NO_SERVICE_CLIENT_WITH_THE_GIVEN_ID, this::noServiceClientWithTheGivenId);
     states.put(A_SERVICE_CLIENT_NOTHING_CLAIMS, this::aServiceClientNothingClaims);
     states.put(
@@ -931,6 +938,23 @@ public class ProviderStates {
     String clientId = "contract-" + token;
     serviceClients.create(clientId, CALLER);
     return new Setup(with(caller(), "clientId", clientId), List.of(token), List.of(clientId));
+  }
+
+  /**
+   * {@value #A_DATABASE_SERVICE_CLIENT_READ_BY_AN_ADMIN_SIGNED_IN_TO_THE_CLI}: one service client,
+   * and an admin's CLI bearer as {@code authorization} — what {@code qits service-clients list}
+   * sends.
+   */
+  private Setup aDatabaseServiceClientReadByAnAdminSignedInToTheCli() {
+    String token = hex();
+    String clientId = "contract-" + token;
+    serviceClients.create(clientId, CALLER);
+    Setup admin = adminBearer();
+    List<String> unique = new ArrayList<>(admin.uniqueTokens());
+    unique.add(token);
+    List<String> created = new ArrayList<>(admin.created());
+    created.add(clientId);
+    return new Setup(with(admin.params(), "clientId", clientId), unique, created);
   }
 
   private Setup noServiceClientWithTheGivenId() {

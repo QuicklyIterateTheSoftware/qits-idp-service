@@ -570,6 +570,38 @@
       ]
     },
     {
+      "name": "a database service client, read by an admin signed in to the CLI",
+      "slug": "a-database-service-client-read-by-an-admin-signed-in-to-the-cli",
+      "params": {
+        "authorization": "Bearer 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "clientId": "contract-00000002",
+        "userId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "listServiceClients",
+          "method": "GET",
+          "path": "/idp/api/service-clients",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 200,
+          "file": "a-database-service-client-read-by-an-admin-signed-in-to-the-cli/listServiceClients.json",
+          "frozen": {
+            "ids": [],
+            "instants": [
+              "$[*].createdAt"
+            ],
+            "strings": [
+              "$[*].clientId"
+            ],
+            "listFilteredTo": "$"
+          }
+        }
+      ]
+    },
+    {
       "name": "a front desk's token being commissioned",
       "slug": "a-front-desk-s-token-being-commissioned",
       "params": {
