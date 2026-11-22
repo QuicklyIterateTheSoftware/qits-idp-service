@@ -849,6 +849,11 @@ paths:
   /idp/api/service-clients:
     get:
       operationId: listServiceClients
+      parameters:
+      - name: qits-session
+        in: cookie
+        schema:
+          type: string
       responses:
         "200":
           description: OK
@@ -888,6 +893,10 @@ paths:
       - name: clientId
         in: path
         required: true
+        schema:
+          type: string
+      - name: qits-session
+        in: cookie
         schema:
           type: string
       responses:
@@ -1231,4 +1240,4 @@ paths:
       - Idp Token Controller
 info:
   title: qits-idp API
-  version: 2026.1108.190825
+  version: 2026.1122.122747

@@ -180,6 +180,11 @@ against the published signing keys (`BearerCaller`). A bearer holding none of th
 does not verify is 401 `invalid_token`. Every write stays Basic-only, so a bearer there is 401: an
 agent keeps every read and gains no write.
 
+**They also accept a signed-in browser session** (qits-2531) whose account holds `qits:admin`,
+used only when no `Authorization` header is sent — the session path of `AdminCaller`, the same one
+`/idp/api/users` uses. The idp frontend's Clients page reads the list this way. No session is 401
+without a challenge; a session without `qits:admin` is 403. No write accepts a session.
+
     # create — the secret is in this answer and nowhere else
     curl -s -u dev-qits-ci:$SECRET -H 'Content-Type: application/json' \
       -d '{"clientId":"dev-qits-workspaces"}' \
