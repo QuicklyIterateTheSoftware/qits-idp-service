@@ -344,6 +344,11 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.A_CI_RUNS_TOKEN_BEING_COMMISSIONED_WITHOUT_A_GIT_SCOPE);
   }
 
+  @State(ProviderStates.A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED)
+  Map<String, String> aProjectAgentsTokenBeingCommissioned() {
+    return states.params(ProviderStates.A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED);
+  }
+
   @State(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED)
   Map<String, String> aWorkspacesClientBeingCommissioned() {
     return states.params(ProviderStates.A_WORKSPACES_CLIENT_BEING_COMMISSIONED);
