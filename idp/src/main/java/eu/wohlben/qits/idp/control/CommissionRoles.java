@@ -11,7 +11,7 @@ import java.util.Optional;
  * <p><b>A commissioned credential no longer inherits its owner's roles.</b> Under the open calling
  * model {@code qits:system} is for service-to-service calls, and a commission is not a service — it
  * is a dynamic context a service provisioned, so it gets the kind's own role or none at all.
- * Eleven kinds carry a role:
+ * Twelve kinds carry a role:
  *
  * <ul>
  *   <li>{@code workspace}, {@code agent-container}, {@code refinement}, {@code desk-session}
@@ -20,7 +20,10 @@ import java.util.Optional;
  *       principal per named agent of a project — the pilot is {@code ui-builder}, a kept session
  *       beside the desk's — deliberately NOT {@code desk-session}, because tooling treats a
  *       desk-session token as the desk and the platform must tell a named agent's writes from the
- *       desk's by subject) get {@code qits:agent};
+ *       desk's by subject) and {@code project-agent} (qits-2518, one long-running agent of a
+ *       project, commissioned under a fixed subject {@code tok-project-agent-<project>-<agent>}
+ *       and rotated in place by {@link CommissionedTokens} — likewise never {@code named-agent} or
+ *       {@code desk-session}) get {@code qits:agent};
  *   <li>{@code workspace-admin} gets {@code qits:agent} and {@code qits:admin-agent} — the
  *       credential of an ADMIN workspace's container, the one that holds the host's docker socket.
  *       {@code qits:admin-agent} is the owner's role for an admin workspace's agent (qits-628
@@ -118,6 +121,10 @@ public final class CommissionRoles {
           // tooling that treats a desk-session token as the desk cannot mistake a named agent's
           // writes for the desk's.
           Map.entry("named-agent", AGENT),
+          // One long-running agent of a project (qits-2518), under a fixed subject that survives
+          // its container's recreation. qits:agent and nothing else — never named-agent or
+          // desk-session, so its writes are told apart from both by subject and kind.
+          Map.entry("project-agent", AGENT),
           // The project's own delivery loop (qits-1440): an agent, plus qits:desk and (qits-1621)
           // qits:desk-admin. See the class javadoc.
           Map.entry("desk-delivery", DESK_DELIVERY),

@@ -300,8 +300,9 @@ The rules around them:
   owner.
 - **Its roles are its context kind's fixed ones — never its owner's**
   (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles` is a plain code map, not
-  configuration: `workspace`, `agent-container`, `refinement` and `desk-session` (qits-1482, one
-  principal per front-desk session) get `qits:agent`;
+  configuration: `workspace`, `agent-container`, `refinement`, `desk-session` (qits-1482, one
+  principal per front-desk session), `named-agent` (qits-2154) and `project-agent` (qits-2518, one
+  long-running agent of a project) get `qits:agent`;
   `workspace-admin` — the credential of an ADMIN workspace's container, which holds the host's
   docker socket — gets `qits:agent` and `qits:admin-agent`, the role every door that admits
   `qits:admin` also admits by name (qits-628 follow-up); `ci-run` and
@@ -412,6 +413,13 @@ The rules around them:
   The value is returned once and never logged; a caller that lost it deletes and commissions again.
 - **The subject is `tok-<kind>-<context slug>-<random>`**, disjoint from a commissioned client's
   `dyn-…` and from every service client's name.
+- **Except for a fixed-subject kind — today `project-agent` (qits-2518)**, whose subject is
+  `tok-project-agent-<contextId>` verbatim, with `contextId` required to be `<project>-<agent>`
+  (`[a-z][a-z0-9-]{0,62}-[a-z][a-z0-9-]{0,31}`, else 400). There is only ever one row for that
+  subject: the same owner commissioning again **rotates it in place** — new value, claims, Git refs
+  and `createdAt`, same `tokenId` — so the old value stops introspecting at once (the edge's
+  short introspection cache aside); any other owner gets a 409, `subject … is held by another
+  commissioner`.
 - **Its roles are `CommissionRoles.forKind(contextKind)`, never the owner's** — the same code map a
   commissioned client of that kind gets. Its claims and Git refs are only what it stated, checked by
   the same rules as a commissioned client's, each a 400 with nothing written.

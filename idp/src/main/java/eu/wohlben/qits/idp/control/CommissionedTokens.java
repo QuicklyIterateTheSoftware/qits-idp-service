@@ -11,7 +11,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jboss.logging.Logger;
 
 /**
@@ -38,6 +40,13 @@ import org.jboss.logging.Logger;
  *
  * <p><b>The value is never logged, never stored, never announced.</b> It exists in the commission
  * answer and nowhere else; the row holds {@link TokenValue#hash}. Log lines name the subject.
+ *
+ * <p><b>A fixed-subject kind ({@link #FIXED_SUBJECT_KINDS}) is commissioned once and then
+ * rotated</b> (qits-2518). Its subject is {@code tok-<kind>-<contextId>}, verbatim — no slug, no
+ * random tail — because the subject IS the principal other services remember, and it must stay the
+ * same across a container's recreations. A second commission by the same owner replaces the row's
+ * value, claims, Git refs and {@code createdAt} in place, so the old value stops introspecting at
+ * once; a commission by any other owner is a 409, never a second row.
  */
 @ApplicationScoped
 public class CommissionedTokens {
@@ -50,6 +59,22 @@ public class CommissionedTokens {
    * reading {@code sub} — or a self-role {@code clients/tok-…} — can never mistake one for another.
    */
   public static final String SUBJECT_PREFIX = "tok-";
+
+  /**
+   * The kinds whose subject is fixed by the context rather than unique per commission (qits-2518):
+   * {@code project-agent} is one long-running agent of a project, and its subject is the identity
+   * the platform keeps attributing that agent's work to, so it must not change when the agent's
+   * container is recreated and its token commissioned again.
+   */
+  static final Set<String> FIXED_SUBJECT_KINDS = Set.of("project-agent");
+
+  /**
+   * A fixed-subject kind's context id: {@code <project>-<agent>}, each a lowercase slug, the
+   * project at most 63 characters and the agent at most 32 — so the subject always fits its 128-character
+   * column and reads as exactly what it names.
+   */
+  private static final Pattern FIXED_CONTEXT_ID =
+      Pattern.compile("[a-z][a-z0-9-]{0,62}-[a-z][a-z0-9-]{0,31}");
 
   /**
    * A row as everything outside persistence sees it — a record, so nothing caches a live entity.
@@ -98,6 +123,10 @@ public class CommissionedTokens {
     Map<String, String> stated = CommissionedClaims.stated(claims);
     List<String> refs = GitRefs.stated(gitRefs);
 
+    if (FIXED_SUBJECT_KINDS.contains(context.kind())) {
+      return commissionFixed(owner, context, stated, refs);
+    }
+
     String value = TokenValue.mint();
     IdpToken row = new IdpToken();
     row.id = UUID.randomUUID();
@@ -126,6 +155,116 @@ public class CommissionedTokens {
         stated.isEmpty() ? "nothing" : stated.keySet(),
         refs == null ? "not stated" : refs.size() + " entries");
     return new Commissioned(stored, value);
+  }
+
+  /**
+   * Commission — or rotate — the one token of a fixed-subject kind (qits-2518).
+   *
+   * <p>The row is read by its subject under a row lock and, when it is the caller's, rewritten in
+   * the same transaction: a new value hash (so the old value finds nothing on its very next
+   * introspection), the newly stated claims and Git refs, and {@code createdAt} set to now as the
+   * rotation time. The row id stays. When the row is another owner's the answer is a 409 and
+   * nothing is written.
+   *
+   * <p>Two first commissions racing each other both find nothing and both insert; the unique index
+   * on {@code subject} refuses the second, and that one is retried once — finding the row the
+   * first wrote, which it then rotates or is refused, exactly as if it had arrived a moment later.
+   */
+  private Commissioned commissionFixed(
+      String owner, Context context, Map<String, String> stated, List<String> refs) {
+    if (!FIXED_CONTEXT_ID.matcher(context.id()).matches()) {
+      throw OAuthException.invalidRequest(
+          "contextId of a "
+              + context.kind()
+              + " token must be <project>-<agent>: lowercase slugs, the project at most 63"
+              + " characters and the agent at most 32");
+    }
+    String subject = SUBJECT_PREFIX + context.kind() + "-" + context.id();
+    String value = TokenValue.mint();
+    Instant now = Instant.now();
+
+    Fixed outcome;
+    try {
+      outcome = rotateOrInsert(owner, context, subject, value, stated, refs, now);
+    } catch (RuntimeException e) {
+      if (!isConstraintViolation(e)) {
+        throw e;
+      }
+      // Another commission of this subject won the insert between our read and our write.
+      outcome = rotateOrInsert(owner, context, subject, value, stated, refs, now);
+    }
+    if (outcome.heldBy() != null) {
+      LOG.warnf(
+          "token commission refused: %s is held by %s, not %s",
+          LoggableClientId.of(subject),
+          LoggableClientId.of(outcome.heldBy()),
+          LoggableClientId.of(owner));
+      throw OAuthException.conflict("subject " + subject + " is held by another commissioner");
+    }
+    StoredToken stored = outcome.token();
+    LOG.infof(
+        "%s token %s for owner %s, context kind %s, scoped by %s, git refs %s",
+        outcome.rotated() ? "rotated" : "commissioned",
+        LoggableClientId.of(stored.subject()),
+        LoggableClientId.of(owner),
+        stored.contextKind(),
+        stated.isEmpty() ? "nothing" : stated.keySet(),
+        refs == null ? "not stated" : refs.size() + " entries");
+    return new Commissioned(stored, value);
+  }
+
+  /** What one attempt at a fixed-subject commission found: a token, or the owner holding it. */
+  private record Fixed(StoredToken token, boolean rotated, String heldBy) {}
+
+  /**
+   * One transaction: lock the subject's row if there is one, then rotate it, refuse, or insert.
+   * Not retried by {@link DbRetry} past a commit, for the reason {@link #commission} gives.
+   */
+  private Fixed rotateOrInsert(
+      String owner,
+      Context context,
+      String subject,
+      String value,
+      Map<String, String> stated,
+      List<String> refs,
+      Instant now) {
+    return DbRetry.inNewTx(
+        "commission a fixed-subject idp token",
+        () -> {
+          IdpToken row = repository.findBySubjectForUpdate(subject);
+          boolean rotated = row != null;
+          if (rotated && !row.owner.equals(owner)) {
+            return new Fixed(null, false, row.owner);
+          }
+          if (!rotated) {
+            row = new IdpToken();
+            row.id = UUID.randomUUID();
+            row.subject = subject;
+            row.owner = owner;
+            row.contextKind = context.kind();
+            row.contextId = context.id();
+          }
+          row.tokenHash = TokenValue.hash(value);
+          row.claims = CommissionedClaims.format(stated);
+          row.gitRefs = GitRefs.format(refs);
+          row.createdAt = now;
+          if (!rotated) {
+            repository.persist(row);
+          }
+          // Flush inside the body, so a unique-index refusal surfaces here as a statement failure
+          // rather than at commit.
+          repository.flush();
+          return new Fixed(toStored(row), rotated, null);
+        });
+  }
+
+  private static boolean isConstraintViolation(Throwable e) {
+    for (Throwable t = e; t != null; t = t.getCause()) {
+      if (t instanceof org.hibernate.exception.ConstraintViolationException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

@@ -31,6 +31,9 @@ public class CommissionRolesTest {
     // same role as desk-session, deliberately, since what separates a named agent from the desk is
     // its context kind, not a different role. Tooling that tells the two apart does so by kind.
     assertEquals(List.of("qits:agent"), CommissionRoles.forKind("named-agent"));
+    // One long-running agent of a project (qits-2518), under a fixed subject: qits:agent and
+    // nothing else.
+    assertEquals(List.of("qits:agent"), CommissionRoles.forKind("project-agent"));
     // The project's own delivery loop (qits-1440): an agent, plus qits:desk — admitted on
     // dispatch, prompt delivery and approve, always bound to the token's project claim — and
     // (qits-1621) qits:desk-admin, admitted wherever qits:admin-agent is named.
@@ -65,6 +68,7 @@ public class CommissionRolesTest {
             "refinement",
             "desk-session",
             "named-agent",
+            "project-agent",
             "ci-run",
             "bootstrap-publish",
             "target-runner",
@@ -89,6 +93,7 @@ public class CommissionRolesTest {
             "refinement",
             "desk-session",
             "named-agent",
+            "project-agent",
             "ci-run",
             "bootstrap-publish",
             "target-runner",

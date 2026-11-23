@@ -13,6 +13,7 @@ import io.restassured.response.ExtractableResponse;
 import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -534,6 +535,125 @@ public class CommissionedTokensApiTest {
         .post("/idp/api/tokens/introspect")
         .then()
         .statusCode(400);
+  }
+
+  // --- project-agent: one fixed subject, rotated in place (qits-2518) ---------------------------
+
+  @Test
+  public void aProjectAgentTokenHasItsContextAsItsSubjectAndTheAgentRole() throws Exception {
+    ExtractableResponse<?> issued =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"project-agent\",\"contextId\":\"qits-developer\","
+                    + "\"claims\":{\"project\":\"qits\"}}")
+            .statusCode(201)
+            .body("contextKind", equalTo("project-agent"))
+            .body("contextId", equalTo("qits-developer"))
+            .extract();
+    String subject = issued.path("subject");
+    assertEquals("tok-project-agent-qits-developer", subject, "verbatim: no slug, no random tail");
+
+    ExtractableResponse<?> answer =
+        introspect(basic(OWNER, OWNER_SECRET), issued.path("token"))
+            .statusCode(200)
+            .body("subject", equalTo(subject))
+            .body("roles", equalTo(List.of("qits:agent", "clients/" + subject)))
+            .extract();
+    JwtClaims claims = PublishedJwks.verify(answer.path("accessToken"), "qits-platform");
+    assertEquals(subject, claims.getSubject());
+    assertEquals(
+        List.of("qits:agent", "clients/" + subject), claims.getStringListClaimValue("groups"));
+    assertEquals("project-agent", claims.getClaimValueAsString("context_kind"));
+    delete(basic(OWNER, OWNER_SECRET), issued.path("tokenId")).statusCode(204);
+  }
+
+  @Test
+  public void theSameOwnerCommissioningAgainRotatesTheOneRowInPlace() throws Exception {
+    String body =
+        "{\"contextKind\":\"project-agent\",\"contextId\":\"tok-rotate-agent\","
+            + "\"gitRefs\":[\"refs/heads/a\"]}";
+    ExtractableResponse<?> first =
+        commissionRaw(OWNER, OWNER_SECRET, body).statusCode(201).extract();
+    ExtractableResponse<?> second =
+        commissionRaw(
+                OWNER,
+                OWNER_SECRET,
+                "{\"contextKind\":\"project-agent\",\"contextId\":\"tok-rotate-agent\","
+                    + "\"claims\":{\"project\":\"tok-rotate\"},\"gitRefs\":[\"refs/heads/b\"]}")
+            .statusCode(201)
+            .body("subject", equalTo("tok-project-agent-tok-rotate-agent"))
+            .body("tokenId", equalTo(first.<String>path("tokenId")))
+            .body("claims.project", equalTo("tok-rotate"))
+            .body("gitRefs", equalTo(List.of("refs/heads/b")))
+            .extract();
+
+    String oldValue = first.path("token");
+    String newValue = second.path("token");
+    assertFalse(oldValue.equals(newValue), "a rotation answers a new value");
+    assertTrue(tokens.introspect(oldValue).isEmpty(), "the old value stops at once");
+    introspect(basic(OWNER, OWNER_SECRET), oldValue).statusCode(404);
+    JwtClaims claims =
+        PublishedJwks.verify(
+            introspect(basic(OWNER, OWNER_SECRET), newValue)
+                .statusCode(200)
+                .extract()
+                .path("accessToken"),
+            "qits-platform");
+    assertEquals(List.of("refs/heads/b"), claims.getStringListClaimValue("git_refs"));
+    assertEquals("tok-rotate", claims.getClaimValueAsString("project"));
+    assertTrue(
+        Instant.parse(second.path("createdAt")).compareTo(Instant.parse(first.path("createdAt")))
+            >= 0,
+        "createdAt is the rotation time");
+    assertEquals(
+        1,
+        tokens.listOwned(OWNER).stream()
+            .filter(t -> t.subject().equals("tok-project-agent-tok-rotate-agent"))
+            .count(),
+        "never a second row");
+    delete(basic(OWNER, OWNER_SECRET), first.path("tokenId")).statusCode(204);
+  }
+
+  @Test
+  public void anotherOwnerCommissioningTheSameSubjectIsA409() {
+    ExtractableResponse<?> mine =
+        commission(OWNER, OWNER_SECRET, "project-agent", "tok-held-agent");
+
+    commissionRaw(
+            OTHER_OWNER,
+            OTHER_OWNER_SECRET,
+            "{\"contextKind\":\"project-agent\",\"contextId\":\"tok-held-agent\"}")
+        .statusCode(409)
+        .body("error", equalTo("conflict"))
+        .body(
+            "error_description",
+            equalTo("subject tok-project-agent-tok-held-agent is held by another commissioner"));
+
+    assertTrue(tokens.introspect(mine.<String>path("token")).isPresent(), "the holder's is intact");
+    assertEquals(List.of(), listedIds(OTHER_OWNER, OTHER_OWNER_SECRET, "project-agent"));
+    delete(basic(OWNER, OWNER_SECRET), mine.path("tokenId")).statusCode(204);
+  }
+
+  @Test
+  public void aProjectAgentContextIdThatIsNotProjectDashAgentIsA400() {
+    for (String contextId : List.of("Qits-Developer", "qits-Developer", "qitsdeveloper", "-x-y")) {
+      commissionRaw(
+              OWNER,
+              OWNER_SECRET,
+              "{\"contextKind\":\"project-agent\",\"contextId\":\"" + contextId + "\"}")
+          .statusCode(400)
+          .body("error", equalTo("invalid_request"));
+    }
+  }
+
+  @Test
+  public void aLongProjectAgentContextIdKeepsItsWholeSubject() {
+    String contextId = "tok-long-project-agent-context-id-abcdef";
+    assertEquals(40, contextId.length());
+    ExtractableResponse<?> issued = commission(OWNER, OWNER_SECRET, "project-agent", contextId);
+    assertEquals("tok-project-agent-" + contextId, issued.<String>path("subject"));
+    delete(basic(OWNER, OWNER_SECRET), issued.path("tokenId")).statusCode(204);
   }
 
   // --- helpers ------------------------------------------------------------------------------

@@ -119,7 +119,8 @@ for.
 **A commissioned credential's roles are code, not a merge with its owner's**
 (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement`, `desk-session`
-(qits-1482, one principal per front-desk session) (`qits:agent`),
+(qits-1482, one principal per front-desk session), `named-agent` (qits-2154) and `project-agent`
+(qits-2518, one long-running agent of a project) (`qits:agent`),
 `workspace-admin` (`qits:agent` and `qits:admin-agent` — an ADMIN workspace's container credential;
 `qits:admin-agent` is admitted wherever `qits:admin` is, qits-628 follow-up),
 `desk-delivery` (`qits:agent`, `qits:desk` and `qits:desk-admin` — the project's own delivery loop,
@@ -127,7 +128,7 @@ qits-1440; `qits:desk-admin` is admitted wherever `qits:admin-agent` is named, e
 git-receive-pack door, epic qits-1621), `ci-run`
 and `bootstrap-publish` (`qits:ci-run`), `target-runner` (`qits:target-runner`, epic qits-1481, a
 qits-system execution target's own identity) and `target-runner-registration`
-(`qits:target-runner-registration`) are the ten the jar ships — past `Map.of`'s
+(`qits:target-runner-registration`) are the twelve the jar ships — past `Map.of`'s
 ten-argument limit, so the map is `Map.ofEntries` — tested as shipped in
 `CommissionedGitRefsTest` — a change to that map is a change there. `bootstrap-publish` holds the
 CI publisher's role on purpose (user ruling 2026-09-13, "only CI may publish to qits-artifacts"):
