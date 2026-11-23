@@ -820,6 +820,51 @@
       ]
     },
     {
+      "name": "a project agent's token being commissioned",
+      "slug": "a-project-agent-s-token-being-commissioned",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "contextId": "qits-developer",
+        "projectId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "commissionToken",
+          "method": "POST",
+          "path": "/idp/api/tokens",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/json",
+          "body": {
+            "contextKind": "project-agent",
+            "contextId": "{contextId}",
+            "claims": {
+              "project": "{projectId}"
+            },
+            "gitRefs": []
+          },
+          "status": 201,
+          "file": "a-project-agent-s-token-being-commissioned/commissionToken.json",
+          "frozen": {
+            "ids": [
+              "$.tokenId",
+              "$.claims.project"
+            ],
+            "instants": [
+              "$.createdAt"
+            ],
+            "strings": [
+              "$.token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a published signing key",
       "slug": "a-published-signing-key",
       "params": {

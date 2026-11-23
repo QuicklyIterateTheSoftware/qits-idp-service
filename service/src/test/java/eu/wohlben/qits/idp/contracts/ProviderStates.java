@@ -19,6 +19,7 @@ import eu.wohlben.qits.idp.entity.IdpAuthorizationCode;
 import eu.wohlben.qits.idp.entity.IdpDynamicClient;
 import eu.wohlben.qits.idp.entity.IdpSigningKey;
 import eu.wohlben.qits.idp.entity.IdpSigningKeyStatus;
+import eu.wohlben.qits.idp.entity.IdpToken;
 import eu.wohlben.qits.idp.entity.IdpUser;
 import eu.wohlben.qits.idp.entity.IdpUserRole;
 import eu.wohlben.qits.idp.entity.IdpWorkstationRefreshToken;
@@ -26,6 +27,7 @@ import eu.wohlben.qits.idp.persistence.IdpAuthorizationCodeRepository;
 import eu.wohlben.qits.idp.persistence.IdpDynamicClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpServiceClientRepository;
 import eu.wohlben.qits.idp.persistence.IdpSigningKeyRepository;
+import eu.wohlben.qits.idp.persistence.IdpTokenRepository;
 import eu.wohlben.qits.idp.persistence.IdpUserRepository;
 import eu.wohlben.qits.idp.persistence.IdpWebAuthnCredentialRepository;
 import eu.wohlben.qits.idp.persistence.IdpWorkstationRefreshTokenRepository;
@@ -166,11 +168,23 @@ public class ProviderStates {
       "a refinement's client being commissioned";
   public static final String A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED =
       "a front desk's token being commissioned";
+  public static final String A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED =
+      "a project agent's token being commissioned";
 
   /** The calling service client: adopted at start, holds {@code qits:system}. */
   static final String CALLER = "test-broad";
 
   private static final String CALLER_SECRET = "test-broad-secret";
+
+  /**
+   * A project-agent's context id, {@code <project>-<agent>} (qits-2518): fixed, since it is also
+   * what the commission's subject is built from verbatim — {@value #PROJECT_AGENT_SUBJECT} — and
+   * that subject is the one thing a consumer's pact can bind to ahead of time.
+   */
+  static final String PROJECT_AGENT_CONTEXT_ID = "qits-developer";
+
+  /** {@code CommissionedTokens.SUBJECT_PREFIX + "project-agent-" + }{@link #PROJECT_AGENT_CONTEXT_ID}. */
+  static final String PROJECT_AGENT_SUBJECT = "tok-project-agent-" + PROJECT_AGENT_CONTEXT_ID;
 
   /** The context every commission here names. */
   static final String CONTEXT_KIND = "contract";
@@ -274,6 +288,7 @@ public class ProviderStates {
   @Inject Users accounts;
   @Inject IdpWorkstationRefreshTokenRepository refreshTokenRows;
   @Inject IdpWebAuthnCredentialRepository credentialRows;
+  @Inject IdpTokenRepository tokenRows;
 
   private final Map<String, Supplier<Setup>> states = new LinkedHashMap<>();
 
@@ -381,6 +396,8 @@ public class ProviderStates {
         A_REFINEMENTS_CLIENT_BEING_COMMISSIONED,
         () -> commissioning("refinementId", REFINEMENT_ID, "projectId", uuid()));
     states.put(A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED, () -> commissioning("projectId", uuid()));
+    states.put(
+        A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED, this::aProjectAgentsTokenBeingCommissioned);
   }
 
   /** Every state name this provider answers for. */
@@ -1088,6 +1105,36 @@ public class ProviderStates {
       params = with(params, keysAndValues[i], keysAndValues[i + 1]);
     }
     return new Setup(params, List.of(), List.of());
+  }
+
+  /**
+   * {@value #A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED} (qits-2518): {@code project-agent}'s
+   * subject is fixed by its context, {@value #PROJECT_AGENT_SUBJECT}, so unlike every other
+   * commissioner here this one is not "a fresh row every time" — {@link #CALLER} commissioning it
+   * again rotates the same row in place, which is idempotent on its own. The one case that is not
+   * is a row a different owner holds: that 409s the door, so it is cleared here first rather than
+   * left for the next run to trip over.
+   */
+  private Setup aProjectAgentsTokenBeingCommissioned() {
+    clearIfHeldByAnotherOwner(PROJECT_AGENT_SUBJECT);
+    return commissioning("contextId", PROJECT_AGENT_CONTEXT_ID, "projectId", uuid());
+  }
+
+  /**
+   * Deletes {@code subject}'s row when it belongs to someone other than {@link #CALLER} — the
+   * guard {@link #aProjectAgentsTokenBeingCommissioned} needs so a fixed-subject state is
+   * idempotent across runs: {@link #CALLER} itself never needs clearing, because recommissioning
+   * under the same owner rotates the row rather than refusing it.
+   */
+  private void clearIfHeldByAnotherOwner(String subject) {
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              IdpToken row = tokenRows.find("subject", subject).firstResult();
+              if (row != null && !row.owner.equals(CALLER)) {
+                tokenRows.delete(row);
+              }
+            });
   }
 
   private static String uuid() {
