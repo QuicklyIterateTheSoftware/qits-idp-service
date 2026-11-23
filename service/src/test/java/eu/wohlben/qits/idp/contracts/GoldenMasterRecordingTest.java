@@ -252,6 +252,14 @@ class GoldenMasterRecordingTest {
       "{\"contextKind\":\"agent-container\",\"contextId\":\"{projectId}\","
           + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":[]}";
 
+  /**
+   * A project agent's commission (qits-2518): {@code contextId} is the fixed {@code
+   * <project>-<agent>} slug its subject is built from verbatim, never a fresh id per call.
+   */
+  static final String PROJECT_AGENT_COMMISSION_BODY =
+      "{\"contextKind\":\"project-agent\",\"contextId\":\"{contextId}\","
+          + "\"claims\":{\"project\":\"{projectId}\"},\"gitRefs\":[]}";
+
   /** A workspace's commission, client and token alike, stating {@code refs}. */
   private static String workspaceBody(String refs) {
     return "{\"contextKind\":\"workspace\",\"contextId\":\"{workspaceId}\","
@@ -661,6 +669,17 @@ class GoldenMasterRecordingTest {
               ProviderStates.A_FRONT_DESKS_TOKEN_BEING_COMMISSIONED,
               false,
               FRONT_DESK_COMMISSION_BODY),
+          // A fixed-subject commission (qits-2518): unlike every other commissioner here, its
+          // subject is not random, so it is not in the opaque list — only the token value is.
+          send(
+              ProviderStates.A_PROJECT_AGENTS_TOKEN_BEING_COMMISSIONED,
+              "commissionToken",
+              "POST",
+              "/idp/api/tokens",
+              201,
+              JSON_TYPE,
+              PROJECT_AGENT_COMMISSION_BODY,
+              "$.token"),
           // --- commissioned tokens -----------------------------------------------------------
           send(
               ProviderStates.A_SERVICE_CLIENT_WITH_THE_SYSTEM_ROLE,
