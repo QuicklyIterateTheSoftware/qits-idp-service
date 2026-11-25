@@ -1,9 +1,11 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.PublicClients;
 import eu.wohlben.qits.idp.control.PublicClients.PublicClient;
 import eu.wohlben.qits.idp.control.TokenService;
 import eu.wohlben.qits.idp.control.TokenService.IssuedToken;
+import eu.wohlben.qits.idp.control.TokenValue;
 import eu.wohlben.qits.idp.control.WorkstationCredentials;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.inject.Inject;
@@ -22,7 +24,8 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 
 /**
  * The token endpoint: {@code POST /idp/token}, {@code application/x-www-form-urlencoded}, RFC 6749
- * {@code client_credentials}.
+ * {@code client_credentials}, {@code authorization_code} and {@code refresh_token}, and the RFC 8693
+ * token exchange ({@value #GRANT_TOKEN_EXCHANGE}, epic qits-2523).
  *
  * <p>This class does the wire work only — pulling the client's credentials out of whichever of the
  * two supported places they arrived in, and dressing the result as a token response. Who the client
@@ -38,12 +41,20 @@ public class IdpTokenController {
   private static final String GRANT_CLIENT_CREDENTIALS = "client_credentials";
   private static final String GRANT_AUTHORIZATION_CODE = "authorization_code";
   private static final String GRANT_REFRESH_TOKEN = "refresh_token";
+  static final String GRANT_TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange";
+
+  /** RFC 8693 §3: the one subject type accepted, and the one type an exchange issues. */
+  static final String ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
 
   @Inject TokenService tokenService;
 
   @Inject WorkstationCredentials workstations;
 
   @Inject PublicClients publicClients;
+
+  @Inject CommissionedTokens commissionedTokens;
+
+  @Inject BearerCaller bearers;
 
   /**
    * Client authentication is {@code client_secret_basic} or {@code client_secret_post}, never both
@@ -66,7 +77,9 @@ public class IdpTokenController {
       @FormParam("code") String code,
       @FormParam("redirect_uri") String redirectUri,
       @FormParam("code_verifier") String codeVerifier,
-      @FormParam("refresh_token") String refreshToken) {
+      @FormParam("refresh_token") String refreshToken,
+      @FormParam("subject_token") String subjectToken,
+      @FormParam("subject_token_type") String subjectTokenType) {
 
     if (grantType == null || grantType.isBlank()) {
       throw OAuthException.invalidRequest("grant_type is required");
@@ -82,14 +95,66 @@ public class IdpTokenController {
       WorkstationCredentials.RefreshGrant grant = workstations.refresh(client, refreshToken);
       return tokenResponse(mint(client, grant), grant);
     }
+    if (GRANT_TOKEN_EXCHANGE.equals(grantType)) {
+      BasicCredentials credentials = credentials(authorization, clientIdParam, clientSecretParam);
+      String actor = tokenService.exchangeActor(credentials.clientId(), credentials.secret());
+      if (!ACCESS_TOKEN_TYPE.equals(subjectTokenType)) {
+        throw OAuthException.invalidRequest("subject_token_type must be " + ACCESS_TOKEN_TYPE);
+      }
+      return exchangeResponse(tokenService.exchanged(subject(subjectToken), actor));
+    }
     if (!GRANT_CLIENT_CREDENTIALS.equals(grantType)) {
       throw OAuthException.unsupportedGrantType(
-          "supported grants are client_credentials, authorization_code, and refresh_token");
+          "supported grants are client_credentials, authorization_code, refresh_token, and "
+              + GRANT_TOKEN_EXCHANGE);
     }
 
     BasicCredentials credentials = credentials(authorization, clientIdParam, clientSecretParam);
     return tokenResponse(
         tokenService.clientCredentials(credentials.clientId(), credentials.secret()), null);
+  }
+
+  /**
+   * A token-exchange subject's claims: a JWT this idp issued and still honours (signature against
+   * its own published keys, {@code iss}, {@code exp}, {@code aud} — exactly a bearer's check), or a
+   * live commissioned {@code qits_tok_} token, resolved as {@code POST /idp/api/tokens/introspect}
+   * resolves it. Anything else — a session cookie's value, a refresh token, a foreign or expired
+   * JWT, a deleted token — is one {@code invalid_grant}, with no finer answer to probe with.
+   */
+  private Map<String, Object> subject(String subjectToken) {
+    if (subjectToken == null || subjectToken.isBlank()) {
+      throw OAuthException.invalidRequest("subject_token is required");
+    }
+    if (TokenValue.isToken(subjectToken)) {
+      return commissionedTokens
+          .introspect(subjectToken)
+          .flatMap(tokenService::commissionedSubject)
+          .orElseThrow(IdpTokenController::invalidSubject);
+    }
+    return bearers
+        .verifiedToken(subjectToken)
+        .map(claims -> claims.getClaimsMap())
+        .orElseThrow(IdpTokenController::invalidSubject);
+  }
+
+  private static OAuthException invalidSubject() {
+    return OAuthException.invalidGrant("subject_token is not a live token from this idp");
+  }
+
+  /**
+   * RFC 8693 §2.2.1 response: RFC 6749's members plus {@code issued_token_type}, and never a
+   * refresh token — an exchanged token is renewed by exchanging again.
+   */
+  private static Response exchangeResponse(IssuedToken issued) {
+    Map<String, Object> body = new LinkedHashMap<>();
+    body.put("access_token", issued.accessToken());
+    body.put("issued_token_type", ACCESS_TOKEN_TYPE);
+    body.put("token_type", "Bearer");
+    body.put("expires_in", issued.expiresInSeconds());
+    return Response.ok(body)
+        .header(HttpHeaders.CACHE_CONTROL, "no-store")
+        .header("Pragma", "no-cache")
+        .build();
   }
 
   /**

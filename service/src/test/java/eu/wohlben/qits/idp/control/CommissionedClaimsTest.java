@@ -52,6 +52,18 @@ public class CommissionedClaimsTest {
   }
 
   @Test
+  public void noCommissionMayStateTheActorOrAnyOtherMintedClaim() {
+    // act names the client a token was exchanged for (qits-2523); only the token exchange sets it.
+    for (String name : List.of(ClaimNames.ACT, ClaimNames.GIT_REFS, ClaimNames.CONTEXT_KIND)) {
+      OAuthException refused =
+          assertThrows(
+              OAuthException.class,
+              () -> CommissionedClaims.stated(Map.of(name, "dev-qits-egress")));
+      assertEquals("invalid_request", refused.error(), name);
+    }
+  }
+
+  @Test
   public void theWildcardIsRefusedForEveryName() {
     // agent included: a token belongs to one agent, never to every agent.
     for (String name : ClaimNames.GRANTABLE) {

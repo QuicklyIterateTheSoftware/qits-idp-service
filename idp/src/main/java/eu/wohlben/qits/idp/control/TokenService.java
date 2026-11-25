@@ -8,8 +8,10 @@ import io.smallrye.jwt.build.JwtClaimsBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -35,6 +37,9 @@ import org.jboss.logging.Logger;
  * ({@link ClientRoles}). A user credential gets none — {@link #workstation} and {@link #cli} are
  * the other two mints here, and neither stamps a client identity onto a person.
  *
+ * <p><b>And one mint names two parties</b>: {@link #exchanged}, the RFC 8693 token exchange, copies
+ * a subject token's identity onto a fresh token whose {@code act} names the client that asked.
+ *
  * <p><b>A commissioned client mints exactly like a service client.</b> This class asks {@link
  * ClientRegistry} for a client and never learns which half answered — that identity is the whole
  * of the commission model working, because it means docker's Bearer dance, quarkus-oidc-client and
@@ -53,6 +58,26 @@ public class TokenService {
 
   /** {@code aud} of every token, as a list. */
   private static final List<String> AUDIENCES = List.of(PLATFORM_AUDIENCE);
+
+  /**
+   * What an exchanged token copies from its subject (RFC 8693, epic qits-2523), and only these:
+   * the identity and every claim a resource service decides by. {@code groups} is copied as it
+   * stands, so no role is added or dropped and the exchange never widens access. {@code iss},
+   * {@code aud}, {@code iat} and {@code exp} are the exchanged token's own, and {@code act} is the
+   * one claim the exchange adds.
+   */
+  public static final List<String> EXCHANGED_CLAIMS =
+      List.of(
+          "sub",
+          "groups",
+          ClaimNames.PROJECT,
+          ClaimNames.WORKSPACE,
+          ClaimNames.BRANCH,
+          ClaimNames.AGENT,
+          ClaimNames.ENTITY,
+          ClaimNames.CONTEXT_KIND,
+          "credential_type",
+          ClaimNames.GIT_REFS);
 
   /** What a caller gets back, before it is dressed as an RFC 6749 token response. */
   public record IssuedToken(String accessToken, long expiresInSeconds, List<String> audiences) {}
@@ -83,6 +108,14 @@ public class TokenService {
   /** A CLI access token is as short-lived as a workstation's, and configured on its own key. */
   @ConfigProperty(name = "qits.idp.cli.access-token-ttl-seconds")
   long cliAccessTokenTtlSeconds;
+
+  /** The clients that may use the token exchange; anyone else is {@code unauthorized_client}. */
+  @ConfigProperty(name = "qits.idp.token-exchange.actors")
+  List<String> exchangeActors;
+
+  /** The longest an exchanged token lives; it never outlives its subject either. */
+  @ConfigProperty(name = "qits.idp.token-exchange.ttl-seconds")
+  long exchangeTtlSeconds;
 
   @Inject SigningKeys signingKeys;
 
@@ -127,20 +160,27 @@ public class TokenService {
           LoggableClientId.of(token.subject()), LoggableClientId.of(token.owner()));
       return Optional.empty();
     }
-    IdpClient asClient =
-        new IdpClient(
-            token.subject(),
-            // Never authenticated: the value was already matched by its hash in CommissionedTokens.
-            null,
-            CommissionRoles.forKind(token.contextKind()),
-            token.claims(),
-            token.contextKind(),
-            token.gitRefs());
+    IdpClient asClient = asClient(token);
     String jwt = signFor(asClient, introspectionJwtTtlSeconds);
     return Optional.of(
         new CommissionedTokenGrant(
             new IssuedToken(jwt, introspectionJwtTtlSeconds, AUDIENCES),
             List.copyOf(ClientRoles.mintedFor(asClient))));
+  }
+
+  /**
+   * A commissioned token as the client it introspects as: its subject, the kind's roles (never the
+   * owner's), and the row's claims, kind and Git refs.
+   */
+  private static IdpClient asClient(StoredToken token) {
+    return new IdpClient(
+        token.subject(),
+        // Never authenticated: the value was already matched by its hash in CommissionedTokens.
+        null,
+        CommissionRoles.forKind(token.contextKind()),
+        token.claims(),
+        token.contextKind(),
+        token.gitRefs());
   }
 
   /**
@@ -162,19 +202,132 @@ public class TokenService {
             .groups(ClientRoles.mintedFor(client))
             .issuedAt(now)
             .expiresAt(now.plusSeconds(ttlSeconds));
+    identityClaims(client).forEach(token::claim);
+    return token.jws().keyId(key.kid()).sign(key.privateKey());
+  }
+
+  /**
+   * What a client token states beyond {@code sub} and {@code groups}: shared by {@link #signFor}
+   * and {@link #commissionedSubject}, so an exchanged opaque subject carries exactly what its
+   * introspection JWT would.
+   */
+  private static Map<String, Object> identityClaims(IdpClient client) {
+    Map<String, Object> claims = new LinkedHashMap<>();
     // The granted claims, verbatim. The idp does not interpret these values.
-    client.claims().forEach(token::claim);
+    claims.putAll(client.claims());
     // A commissioned client's kind and Git refs (epic qits-543, dossier page "Plan (as of 2026-09-13)", C1).
     // This is not a branch on the kind of client: the fields are null for a service client, so it
     // gets neither, and a commission that stated no list gets no git_refs.
     if (client.contextKind() != null) {
-      token.claim(ClaimNames.CONTEXT_KIND, client.contextKind());
+      claims.put(ClaimNames.CONTEXT_KIND, client.contextKind());
     }
     if (client.gitRefs() != null) {
-      token.claim(ClaimNames.GIT_REFS, client.gitRefs());
+      claims.put(ClaimNames.GIT_REFS, client.gitRefs());
     }
+    return claims;
+  }
 
-    return token.jws().keyId(key.kid()).sign(key.privateKey());
+  /**
+   * A commissioned token as a token-exchange subject: the claims its introspection JWT would carry
+   * ({@link #forCommissionedToken}) — {@code sub}, {@code groups} and the row's claims, kind and
+   * Git refs — with no {@code exp}, because the token has none.
+   *
+   * @return empty when the token's owner is no longer a service client, exactly as introspection
+   *     refuses it
+   */
+  public Optional<Map<String, Object>> commissionedSubject(StoredToken token) {
+    if (!clients.isServiceClient(token.owner())) {
+      LOG.warnf(
+          "token %s refused as an exchange subject: its owner %s no longer exists",
+          LoggableClientId.of(token.subject()), LoggableClientId.of(token.owner()));
+      return Optional.empty();
+    }
+    IdpClient asClient = asClient(token);
+    Map<String, Object> claims = new LinkedHashMap<>();
+    claims.put("sub", asClient.clientId());
+    claims.put("groups", List.copyOf(ClientRoles.mintedFor(asClient)));
+    claims.putAll(identityClaims(asClient));
+    return Optional.of(claims);
+  }
+
+  /**
+   * Authenticate a token-exchange caller: a client that authenticates like any other ({@code
+   * client_credentials}' rule) AND is listed on {@code qits.idp.token-exchange.actors}.
+   *
+   * @return the actor's client id
+   * @throws OAuthException {@code invalid_client} (401) when authentication fails, {@code
+   *     unauthorized_client} (400) when the client is not an actor
+   */
+  public String exchangeActor(String clientId, String secret) {
+    IdpClient client = clients.authenticate(clientId, secret);
+    if (!exchangeActors.contains(client.clientId())) {
+      LOG.infof(
+          "token exchange refused: %s is not a token-exchange actor",
+          LoggableClientId.of(client.clientId()));
+      throw OAuthException.unauthorizedClient("this client may not exchange tokens");
+    }
+    return client.clientId();
+  }
+
+  /**
+   * The RFC 8693 token exchange's mint (epic qits-2523): a token for the subject, naming {@code
+   * actorClientId} as its actor.
+   *
+   * <p><b>It copies, never derives.</b> {@link #EXCHANGED_CLAIMS} come from the subject verbatim and
+   * only when present, so every check a resource service makes — roles, project, workspace, Git
+   * refs — answers exactly as it does for the subject's own token. The exchange adds {@code act:
+   * {"sub": actorClientId}}, which is how a target tells a proxied call from a direct one.
+   *
+   * <p><b>No chains.</b> A subject already carrying {@code act} is refused: an exchanged token is
+   * never itself a subject, so {@code act} always names the one client that asked.
+   *
+   * <p>{@code exp} is the smaller of the subject's {@code exp} and now plus {@code
+   * qits.idp.token-exchange.ttl-seconds}; a subject without one (an opaque commissioned token)
+   * gets the latter.
+   *
+   * @param subjectClaims the subject's verified claims — a JWT this idp issued, or {@link
+   *     #commissionedSubject}
+   * @throws OAuthException {@code invalid_grant} (400) for a chained subject, one with no {@code
+   *     sub}, or one already expired
+   */
+  public IssuedToken exchanged(Map<String, Object> subjectClaims, String actorClientId) {
+    if (subjectClaims.containsKey(ClaimNames.ACT)) {
+      throw OAuthException.invalidGrant(
+          "the subject token is itself exchanged; exchanges do not chain");
+    }
+    if (!(subjectClaims.get("sub") instanceof String subject) || subject.isBlank()) {
+      throw OAuthException.invalidGrant("the subject token names no subject");
+    }
+    Instant now = Instant.now();
+    Instant exp = now.plusSeconds(exchangeTtlSeconds);
+    if (subjectClaims.get("exp") instanceof Number subjectExp) {
+      Instant subjectExpiry = Instant.ofEpochSecond(subjectExp.longValue());
+      if (subjectExpiry.isBefore(exp)) {
+        exp = subjectExpiry;
+      }
+    }
+    if (!exp.isAfter(now)) {
+      throw OAuthException.invalidGrant("the subject token has expired");
+    }
+    SigningKey key = signingKeys.signing();
+    JwtClaimsBuilder token =
+        Jwt.claims()
+            .issuer(issuer.url())
+            .audience(new LinkedHashSet<>(AUDIENCES))
+            .issuedAt(now)
+            .expiresAt(exp);
+    for (String name : EXCHANGED_CLAIMS) {
+      Object value = subjectClaims.get(name);
+      if (value != null) {
+        token.claim(name, value);
+      }
+    }
+    token.claim(ClaimNames.ACT, Map.of("sub", actorClientId));
+    String jwt = token.jws().keyId(key.kid()).sign(key.privateKey());
+    LOG.infof(
+        "token exchanged for %s, actor %s",
+        LoggableClientId.of(subject), LoggableClientId.of(actorClientId));
+    return new IssuedToken(jwt, exp.getEpochSecond() - now.getEpochSecond(), AUDIENCES);
   }
 
   /**

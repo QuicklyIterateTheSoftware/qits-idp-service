@@ -57,6 +57,14 @@ public class OAuthException extends RuntimeException {
     return new OAuthException("unsupported_grant_type", 400, description);
   }
 
+  /**
+   * The client authenticated and is not allowed this grant (RFC 6749 §5.2) — a client that is not
+   * a configured token-exchange actor asking to exchange. 400, as the RFC answers it.
+   */
+  public static OAuthException unauthorizedClient(String description) {
+    return new OAuthException("unauthorized_client", 400, description);
+  }
+
   public static OAuthException invalidGrant(String description) {
     return new OAuthException("invalid_grant", 400, description);
   }

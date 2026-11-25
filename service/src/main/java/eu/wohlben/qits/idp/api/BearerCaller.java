@@ -117,21 +117,36 @@ public class BearerCaller {
       throw OAuthException.invalidToken("a bearer token is required");
     }
     String jwt = authorization.trim().substring(SCHEME.length()).trim();
+    return verifiedToken(jwt)
+        .orElseThrow(
+            () -> OAuthException.invalidToken("the bearer is not a valid token from this idp"));
+  }
+
+  /**
+   * The same verification as a bearer gets, for a bare JWT that did not arrive as one — the token
+   * exchange's {@code subject_token} ({@code IdpTokenController}). Empty for anything that is not a
+   * token this idp issued and still honours; the caller decides what that refusal is called.
+   */
+  public Optional<JwtClaims> verifiedToken(String jwt) {
+    if (jwt == null || jwt.isBlank()) {
+      return Optional.empty();
+    }
     try {
-      return new JwtConsumerBuilder()
-          .setVerificationKeyResolver(new PublishedKeys(signingKeys.published()))
-          .setJwsAlgorithmConstraints(
-              new AlgorithmConstraints(
-                  ConstraintType.PERMIT, AlgorithmIdentifiers.RSA_USING_SHA256))
-          // The one derived issuer. See Issuer#accepted.
-          .setExpectedIssuers(true, issuer.accepted())
-          .setExpectedAudience(TokenService.PLATFORM_AUDIENCE)
-          .setRequireExpirationTime()
-          .setRequireSubject()
-          .build()
-          .processToClaims(jwt);
+      return Optional.of(
+          new JwtConsumerBuilder()
+              .setVerificationKeyResolver(new PublishedKeys(signingKeys.published()))
+              .setJwsAlgorithmConstraints(
+                  new AlgorithmConstraints(
+                      ConstraintType.PERMIT, AlgorithmIdentifiers.RSA_USING_SHA256))
+              // The one derived issuer. See Issuer#accepted.
+              .setExpectedIssuers(true, issuer.accepted())
+              .setExpectedAudience(TokenService.PLATFORM_AUDIENCE)
+              .setRequireExpirationTime()
+              .setRequireSubject()
+              .build()
+              .processToClaims(jwt));
     } catch (InvalidJwtException e) {
-      throw OAuthException.invalidToken("the bearer is not a valid token from this idp");
+      return Optional.empty();
     }
   }
 

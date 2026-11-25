@@ -50,5 +50,14 @@ public final class ClaimNames {
   /** The commission's {@code contextKind}, on every token of a commissioned client. Not grantable. */
   public static final String CONTEXT_KIND = "context_kind";
 
+  /**
+   * The actor of an exchanged token (RFC 8693 §4.1): {@code {"sub": "<actor client id>"}}, the
+   * client that called on the subject's behalf. NOT grantable: only the token exchange sets it
+   * ({@link TokenService#exchanged}), from the client that authenticated there, so no commission,
+   * config line or claims map can ever state it. A subject already carrying it is refused, so it
+   * never nests. qits-auth-core spells the same name {@code QitsClaims.ACT}.
+   */
+  public static final String ACT = "act";
+
   private ClaimNames() {}
 }
