@@ -116,6 +116,22 @@ and a new mint that is not to a client credential must not stamp one — `TokenS
 the standing example, and `@RolesAllowed("clients/<x>")` in a sibling service is what all of it is
 for.
 
+**The token exchange copies, it never derives** (RFC 8693, epic qits-2523; README "Token
+exchange"). `POST /idp/token` takes four grants: `client_credentials`, `authorization_code`,
+`refresh_token` and `urn:ietf:params:oauth:grant-type:token-exchange`. The last is for the clients
+on `qits.idp.token-exchange.actors` only (default `${QITS_ENVIRONMENT:dev}-qits-egress`; anyone else
+is 400 `unauthorized_client`), and `TokenService.exchanged` copies `EXCHANGED_CLAIMS` from the
+subject verbatim and adds `act`. Keep it that way: a claim an exchange computed rather than copied
+would make a proxied call answer differently from a direct one, and the exchange would widen access.
+`act` (`ClaimNames.ACT`) is minted, never granted — it is not in `GRANTABLE`, so a commission stating
+it is refused — and a subject already carrying it is `invalid_grant`, so it never nests. The JWT
+subject is verified by `BearerCaller.verifiedToken`, the bearer check itself; the opaque one goes
+through `CommissionedTokens.introspect` and `TokenService.commissionedSubject`, which shares
+`identityClaims` with the introspection JWT's mint. The four golden-master states
+(`a token-exchange actor …`, `a client that is no token-exchange actor`) seed `dev-qits-egress` as a
+service client with a fixed secret, and pin the contract signing key before minting a subject: the
+frozen JWT keeps its length, which follows the `kid`.
+
 **A commissioned credential's roles are code, not a merge with its owner's**
 (epic qits-540, dossier page "Plan (as of 2026-09-13)", D3/D12). `CommissionRoles.forKind` is a plain, unconfigured
 `Map<String, List<String>>`: `workspace`, `agent-container`, `refinement`, `desk-session`

@@ -24,7 +24,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `GET /idp/.well-known/openid-configuration` | discovery. An OIDC consumer configured with auth-server-url `https://idp.qits.<domain>/idp` derives this URL itself. A caller on the public name is told the public endpoints. |
 | `GET /idp/jwks` | the public signing keys, each with its `kid`. |
 | `GET /idp/authorize` | signed-in browser approval for the public clients' Authorization Code + PKCE (S256) flow: `qits-git-workstation`, `qits-cli`, `qits-spa` (every platform page that signs in with a bearer, callback `https://<host>/auth/callback` where `<host>` is the platform's domain or any name under it — the same anchor as the login page's `return_host` — default port, no query or fragment), and `qits-landing-dev` (the landing SPA under `ng serve`, callback `http://localhost:<port>/auth/callback`). |
-| `POST /idp/token` | `application/x-www-form-urlencoded`: `client_credentials`, workstation `authorization_code`, or rotating workstation `refresh_token`. |
+| `POST /idp/token` | `application/x-www-form-urlencoded`: `client_credentials`, workstation `authorization_code`, rotating workstation `refresh_token`, or the RFC 8693 token exchange (`urn:ietf:params:oauth:grant-type:token-exchange`, configured actors only — see [Token exchange](#token-exchange)). |
 | `POST /idp/api/clients` | commission a credential for one dynamic context. |
 | `GET /idp/api/clients` | the caller's own live commissions. |
 | `DELETE /idp/api/clients/{clientId}` | decommission one. |
@@ -121,7 +121,38 @@ epic qits-540, dossier page "Plan (as of 2026-09-13)"); or — for a commissione
 the `claims` its own commission stated (D3: no owner inheritance).
 
 Refusals are RFC 6749 §5.2: `invalid_client` (401, with a `WWW-Authenticate` challenge),
-`invalid_request` / `unsupported_grant_type` (400).
+`invalid_request` / `unsupported_grant_type` / `unauthorized_client` / `invalid_grant` (400).
+
+### Token exchange
+
+The egress proxy may replace a caller's bearer on its way to a target, but the bearer the target
+receives must still name the original caller (owner rulings 2026-11-22; epic qits-2523). It asks
+here, RFC 8693, authenticating like a `client_credentials` caller:
+
+    curl -s -X POST http://qits-idp:8080/idp/token -u dev-qits-egress:... \
+      -d grant_type=urn:ietf:params:oauth:grant-type:token-exchange \
+      -d subject_token=<the caller's JWT, or its qits_tok_… token> \
+      -d subject_token_type=urn:ietf:params:oauth:token-type:access_token
+
+- **Only an actor may ask**: a client listed on `qits.idp.token-exchange.actors` (comma list,
+  default `${QITS_ENVIRONMENT:dev}-qits-egress`). Any other client that authenticates is `400
+  unauthorized_client`.
+- **The subject** is a JWT this idp issued, verified against its own published keys (signature,
+  `iss`, `exp`, `aud=qits-platform` — a bearer's check), or a live commissioned `qits_tok_` token,
+  resolved as `POST /idp/api/tokens/introspect` resolves it. Anything else — a session cookie's
+  value, a refresh token, a foreign, expired or deleted token — is `400 invalid_grant`, and so is a
+  subject that already carries `act`: exchanges do not chain.
+- **The answer** is `access_token`, `issued_token_type=urn:ietf:params:oauth:token-type:access_token`,
+  `token_type=Bearer` and `expires_in`, never a refresh token. The token (`TokenService.exchanged`)
+  copies `sub`, `groups`, `project`, `workspace`, `branch`, `agent`, `entity`, `context_kind`,
+  `credential_type` and `git_refs` from the subject — only those present, nothing added or dropped,
+  so the exchange never widens access — and adds `act: {"sub": "<actor client id>"}`. `aud`, `iss`
+  and `iat` are as for every token; `exp` is the smaller of the subject's `exp` and now +
+  `qits.idp.token-exchange.ttl-seconds` (300), so an opaque subject's exchange lives 300 s.
+- **`act` is never grantable** (`ClaimNames.ACT`): a commission stating it is refused like any
+  invented claim. A target that wants to tell a proxied call from a direct one reads it with
+  qits-auth-core's `MachineIdentity.actor(JsonWebToken)`; every other check answers as it does for
+  the subject's own token.
 
 ### Local Git workstations
 
