@@ -784,7 +784,7 @@
           "type" : "eu.wohlben.qits.idp.control.IdpClient",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.CommissionedTokens$StoredToken",
-          "site" : "TokenService.forCommissionedToken(StoredToken)"
+          "site" : "TokenService.asClient(StoredToken)"
         },
         {
           "type" : "eu.wohlben.qits.idp.control.TokenService$IssuedToken",
