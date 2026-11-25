@@ -1226,6 +1226,10 @@ paths:
                   type: string
                 refresh_token:
                   type: string
+                subject_token:
+                  type: string
+                subject_token_type:
+                  type: string
         required: true
       responses:
         "200":

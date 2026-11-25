@@ -1,0 +1,4 @@
+{
+  "error": "invalid_grant",
+  "error_description": "the subject token is itself exchanged; exchanges do not chain"
+}

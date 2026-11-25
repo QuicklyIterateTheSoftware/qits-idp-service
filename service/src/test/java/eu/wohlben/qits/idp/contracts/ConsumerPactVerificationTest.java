@@ -277,6 +277,26 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.NO_SESSION_WITH_THE_GIVEN_TOKEN);
   }
 
+  @State(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN)
+  Map<String, String> aTokenExchangeActorExchangingAPersonsToken() {
+    return states.params(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN);
+  }
+
+  @State(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN)
+  Map<String, String> aTokenExchangeActorExchangingACommissionedToken() {
+    return states.params(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN);
+  }
+
+  @State(ProviderStates.A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR)
+  Map<String, String> aClientThatIsNoTokenExchangeActor() {
+    return states.params(ProviderStates.A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR);
+  }
+
+  @State(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN)
+  Map<String, String> aTokenExchangeActorExchangingAnExchangedToken() {
+    return states.params(ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN);
+  }
+
   @State(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN)
   Map<String, String> noSessionWithTheGivenRefreshToken() {
     return states.params(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN);

@@ -17,6 +17,7 @@ import eu.wohlben.qits.idp.control.Users;
 import eu.wohlben.qits.idp.control.WorkstationCredentials;
 import eu.wohlben.qits.idp.entity.IdpAuthorizationCode;
 import eu.wohlben.qits.idp.entity.IdpDynamicClient;
+import eu.wohlben.qits.idp.entity.IdpServiceClient;
 import eu.wohlben.qits.idp.entity.IdpSigningKey;
 import eu.wohlben.qits.idp.entity.IdpSigningKeyStatus;
 import eu.wohlben.qits.idp.entity.IdpToken;
@@ -52,6 +53,9 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
+import org.jose4j.jwt.JwtClaims;
+import org.jose4j.jwt.consumer.InvalidJwtException;
+import org.jose4j.jwt.consumer.JwtConsumerBuilder;
 
 /**
  * <b>The provider states qits-idp answers for</b>: a state name → a setup that seeds what the state
@@ -131,6 +135,16 @@ public class ProviderStates {
   public static final String A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT =
       "a person signed in to the CLI and to git";
 
+  // --- the token exchange (RFC 8693, epic qits-2523): what qits-egress's pact needs ------------
+  public static final String A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN =
+      "a token-exchange actor exchanging a person's token";
+  public static final String A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN =
+      "a token-exchange actor exchanging a commissioned token";
+  public static final String A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR =
+      "a client that is no token-exchange actor";
+  public static final String A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN =
+      "a token-exchange actor exchanging an exchanged token";
+
   // --- one state per commissioner's body (qits-1149 round 3) -----------------------------------
   // A consumer binds a commission by replaying the recorded body exactly, so each caller whose body
   // differs gets its own recording. The values that vary between calls are the state's params.
@@ -185,6 +199,15 @@ public class ProviderStates {
 
   /** {@code CommissionedTokens.SUBJECT_PREFIX + "project-agent-" + }{@link #PROJECT_AGENT_CONTEXT_ID}. */
   static final String PROJECT_AGENT_SUBJECT = "tok-project-agent-" + PROJECT_AGENT_CONTEXT_ID;
+
+  /**
+   * The token-exchange actor: the shipped default of {@code qits.idp.token-exchange.actors} with
+   * {@code QITS_ENVIRONMENT} unset, the suite's case — so no config line makes it one. Seeded as a
+   * service client with {@link #EXCHANGE_ACTOR_SECRET}, fixed so its Basic header records stably.
+   */
+  static final String EXCHANGE_ACTOR = "dev-qits-egress";
+
+  static final String EXCHANGE_ACTOR_SECRET = "dev-qits-egress-secret";
 
   /** The context every commission here names. */
   static final String CONTEXT_KIND = "contract";
@@ -343,6 +366,16 @@ public class ProviderStates {
         A_BROWSER_RETURNING_TO_A_PLATFORM_HOST, this::aBrowserReturningToAPlatformHost);
     states.put(
         A_PERSON_SIGNED_IN_TO_THE_CLI_AND_TO_GIT, this::aPersonSignedInToTheCliAndToGit);
+    states.put(
+        A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN, this::anActorExchangingAPersonsToken);
+    states.put(
+        A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN,
+        this::anActorExchangingACommissionedToken);
+    states.put(
+        A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR, this::aClientThatIsNoTokenExchangeActor);
+    states.put(
+        A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN,
+        this::anActorExchangingAnExchangedToken);
     // The commissioners: each the caller and the context its body names.
     states.put(A_CI_RUNNER_BEING_COMMISSIONED, () -> commissioning("runnerId", uuid()));
     states.put(
@@ -1090,6 +1123,117 @@ public class ProviderStates {
       params = with(params, "audience", AUDIENCE);
     }
     return new Setup(params, List.of(refreshToken), List.of());
+  }
+
+  // --- the token exchange -----------------------------------------------------------------------
+
+  /**
+   * {@value #A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN}: {@code authorization} is the
+   * actor's Basic ({@link #EXCHANGE_ACTOR}), {@code subjectToken} a fresh person's CLI bearer — a
+   * JWT this idp issued, whose fifteen minutes outlast the exchange's five, so the answer's {@code
+   * expires_in} is the exchange's own and stable.
+   */
+  private Setup anActorExchangingAPersonsToken() {
+    String subject = personsToken();
+    return new Setup(
+        exchangeParams(exchangeActor(), EXCHANGE_ACTOR, subject), List.of(subject), List.of());
+  }
+
+  /**
+   * {@value #A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN}: the actor, and {@code
+   * subjectToken} a live commissioned {@code qits_tok_} value, as the edge holds one. It has no
+   * expiry, so the exchanged token lives the exchange's five minutes.
+   */
+  private Setup anActorExchangingACommissionedToken() {
+    CommissionedTokens.Commissioned issued =
+        commissionedTokens.commission(CALLER, CONTEXT_KIND, CONTEXT_ID, null, null);
+    return new Setup(
+        exchangeParams(exchangeActor(), EXCHANGE_ACTOR, issued.value()),
+        // The value's random part only, so the recorded value keeps its qits_tok_ prefix.
+        List.of(issued.value().substring(TOKEN_PREFIX.length())),
+        List.of());
+  }
+
+  /**
+   * {@value #A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR}: {@value #CALLER}, a service client that
+   * authenticates but is not on {@code qits.idp.token-exchange.actors}, asking to exchange a
+   * person's live token. The answer is {@code 400 unauthorized_client}, whatever the subject.
+   */
+  private Setup aClientThatIsNoTokenExchangeActor() {
+    String subject = personsToken();
+    return new Setup(
+        exchangeParams(callerAuthorization(), CALLER, subject), List.of(subject), List.of());
+  }
+
+  /**
+   * {@value #A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN}: the actor, and {@code
+   * subjectToken} a token it already exchanged — it carries {@code act}, so exchanging it again is
+   * a chain, and the answer is {@code 400 invalid_grant}.
+   */
+  private Setup anActorExchangingAnExchangedToken() {
+    String authorization = exchangeActor();
+    String subject =
+        tokenService.exchanged(claimsOf(personsToken()), EXCHANGE_ACTOR).accessToken();
+    return new Setup(
+        exchangeParams(authorization, EXCHANGE_ACTOR, subject), List.of(subject), List.of());
+  }
+
+  /**
+   * A fresh person's CLI bearer, signed by {@link ContractSigningKey}. The JWT is frozen whole, and
+   * its length — which the frozen value keeps — follows the {@code kid} header: signed by whichever
+   * key the run happened to start with, it would record one length when this state runs before
+   * {@value #A_PUBLISHED_SIGNING_KEY} and another after it.
+   */
+  private String personsToken() {
+    aPublishedSigningKey();
+    return tokenService.cli(person()).accessToken();
+  }
+
+  /**
+   * {@link #EXCHANGE_ACTOR} as a service client holding {@link #EXCHANGE_ACTOR_SECRET} — any
+   * earlier row of that id, with whatever secret, replaced — and its Basic header.
+   */
+  private String exchangeActor() {
+    serviceClients.delete(EXCHANGE_ACTOR);
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              IdpServiceClient row = new IdpServiceClient();
+              row.clientId = EXCHANGE_ACTOR;
+              row.secretHash = ClientSecret.hash(EXCHANGE_ACTOR_SECRET);
+              row.createdBy = CALLER;
+              row.createdAt = Instant.now();
+              serviceClientRows.persist(row);
+            });
+    ServiceClientsAccess.reload(serviceClients);
+    return "Basic "
+        + Base64.getEncoder()
+            .encodeToString(
+                (EXCHANGE_ACTOR + ":" + EXCHANGE_ACTOR_SECRET).getBytes(StandardCharsets.UTF_8));
+  }
+
+  /** The exchange's params: who authenticates ({@code callerClientId}) and the subject. */
+  private static Map<String, String> exchangeParams(
+      String authorization, String callerClientId, String subjectToken) {
+    return params(
+        "authorization", authorization,
+        "callerClientId", callerClientId,
+        "subjectToken", subjectToken);
+  }
+
+  /** A JWT's claims, unverified: it was minted here a line earlier. */
+  private static Map<String, Object> claimsOf(String jwt) {
+    try {
+      JwtClaims claims =
+          new JwtConsumerBuilder()
+              .setSkipSignatureVerification()
+              .setSkipAllValidators()
+              .build()
+              .processToClaims(jwt);
+      return claims.getClaimsMap();
+    } catch (InvalidJwtException e) {
+      throw new IllegalStateException("a token minted here does not parse", e);
+    }
   }
 
   /**

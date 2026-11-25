@@ -200,6 +200,36 @@
       ]
     },
     {
+      "name": "a client that is no token-exchange actor",
+      "slug": "a-client-that-is-no-token-exchange-actor",
+      "params": {
+        "authorization": "Basic dGVzdC1icm9hZDp0ZXN0LWJyb2FkLXNlY3JldA==",
+        "callerClientId": "test-broad",
+        "subjectToken": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token={subjectToken}&subject_token_type=urn:ietf:params:oauth:token-type:access_token",
+          "status": 400,
+          "file": "a-client-that-is-no-token-exchange-actor/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a commissioned client",
       "slug": "a-commissioned-client",
       "params": {
@@ -1487,6 +1517,100 @@
           },
           "status": 204,
           "file": null,
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a token-exchange actor exchanging a commissioned token",
+      "slug": "a-token-exchange-actor-exchanging-a-commissioned-token",
+      "params": {
+        "authorization": "Basic ZGV2LXFpdHMtZWdyZXNzOmRldi1xaXRzLWVncmVzcy1zZWNyZXQ=",
+        "callerClientId": "dev-qits-egress",
+        "subjectToken": "qits_tok_0000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token={subjectToken}&subject_token_type=urn:ietf:params:oauth:token-type:access_token",
+          "status": 200,
+          "file": "a-token-exchange-actor-exchanging-a-commissioned-token/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a token-exchange actor exchanging a person's token",
+      "slug": "a-token-exchange-actor-exchanging-a-person-s-token",
+      "params": {
+        "authorization": "Basic ZGV2LXFpdHMtZWdyZXNzOmRldi1xaXRzLWVncmVzcy1zZWNyZXQ=",
+        "callerClientId": "dev-qits-egress",
+        "subjectToken": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token={subjectToken}&subject_token_type=urn:ietf:params:oauth:token-type:access_token",
+          "status": 200,
+          "file": "a-token-exchange-actor-exchanging-a-person-s-token/issueToken.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [
+              "$.access_token"
+            ],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "a token-exchange actor exchanging an exchanged token",
+      "slug": "a-token-exchange-actor-exchanging-an-exchanged-token",
+      "params": {
+        "authorization": "Basic ZGV2LXFpdHMtZWdyZXNzOmRldi1xaXRzLWVncmVzcy1zZWNyZXQ=",
+        "callerClientId": "dev-qits-egress",
+        "subjectToken": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "issueToken",
+          "method": "POST",
+          "path": "/idp/token",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "contentType": "application/x-www-form-urlencoded",
+          "body": "grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token={subjectToken}&subject_token_type=urn:ietf:params:oauth:token-type:access_token",
+          "status": 400,
+          "file": "a-token-exchange-actor-exchanging-an-exchanged-token/issueToken.json",
           "frozen": {
             "ids": [],
             "instants": [],

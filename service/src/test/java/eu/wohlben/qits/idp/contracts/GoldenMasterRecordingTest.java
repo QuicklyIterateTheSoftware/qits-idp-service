@@ -330,6 +330,12 @@ class GoldenMasterRecordingTest {
   static final String REFRESH_FORM =
       "grant_type=refresh_token&client_id={clientId}&refresh_token={refreshToken}";
 
+  /** The egress proxy's exchange: Basic carries the actor's pair, the form the subject. */
+  static final String TOKEN_EXCHANGE_FORM =
+      "grant_type=urn:ietf:params:oauth:grant-type:token-exchange"
+          + "&subject_token={subjectToken}"
+          + "&subject_token_type=urn:ietf:params:oauth:token-type:access_token";
+
   static final String AUTHORIZE_PATH =
       "/idp/authorize?response_type=code&client_id=qits-cli&redirect_uri="
           + URLEncoder.encode(ProviderStates.REDIRECT_URI, StandardCharsets.UTF_8)
@@ -404,6 +410,29 @@ class GoldenMasterRecordingTest {
               "$.access_token",
               "$.refresh_token"),
           token(ProviderStates.NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN, 400, false, REFRESH_FORM),
+          // --- the token exchange (RFC 8693, qits-2523): the egress proxy's ------------------
+          token(
+              ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_PERSONS_TOKEN,
+              200,
+              true,
+              TOKEN_EXCHANGE_FORM,
+              "$.access_token"),
+          token(
+              ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_A_COMMISSIONED_TOKEN,
+              200,
+              true,
+              TOKEN_EXCHANGE_FORM,
+              "$.access_token"),
+          token(
+              ProviderStates.A_CLIENT_THAT_IS_NO_TOKEN_EXCHANGE_ACTOR,
+              400,
+              true,
+              TOKEN_EXCHANGE_FORM),
+          token(
+              ProviderStates.A_TOKEN_EXCHANGE_ACTOR_EXCHANGING_AN_EXCHANGED_TOKEN,
+              400,
+              true,
+              TOKEN_EXCHANGE_FORM),
           // --- the browser's half of the code grant -------------------------------------------
           new Interaction(
               ProviderStates.A_SIGNED_IN_PERSON,
