@@ -463,6 +463,12 @@ The rules around them:
   itself as `Authorization: Bearer qits_tok_…` and may delete only the id it is. Another owner, a
   live token naming a different id, an unknown id and a malformed id are all the same 404; a bearer
   that is no live token is a 401.
+- **Under idp's own route a token is a bearer like any other** (qits-2725). The edge passes
+  `Authorization` to idp untouched, so an agent's or the desk's `QITS_TOKEN` arrives here as the raw
+  `qits_tok_` value, not as an introspection JWT. Every bearer read (`BearerCaller`) resolves a live
+  one exactly as introspection would — same `sub`, same `groups` — and judges its roles: the desk
+  reads `GET /idp/api/user-subjects` and `GET /idp/api/service-clients`, a project agent reads the
+  latter and is 403 on the former. A deleted token, or one whose owner is gone, is 401.
 - **Introspection is the session door's twin, and it also mints.** `POST
   /idp/api/tokens/introspect` takes the caller rule of `POST /idp/api/sessions/introspect` verbatim —
   a service client holding `qits:system`, a commissioned client 403 — and answers one 404, `no live

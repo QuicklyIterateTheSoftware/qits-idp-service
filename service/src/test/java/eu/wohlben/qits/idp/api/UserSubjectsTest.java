@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.Sessions;
 import eu.wohlben.qits.idp.control.SigningKeys;
 import eu.wohlben.qits.idp.control.TokenService;
@@ -49,6 +50,8 @@ public class UserSubjectsTest {
   @Inject Sessions sessions;
 
   @Inject SigningKeys signingKeys;
+
+  @Inject CommissionedTokens commissionedTokens;
 
   /**
    * THE SUBJECT IS THE TOKEN'S SUB. What a toggles USER rule matches is the bearer's {@code sub};
@@ -169,6 +172,57 @@ public class UserSubjectsTest {
     }
   }
 
+  /**
+   * THE OPAQUE TOKEN IS WHAT ARRIVES. An agent's and the desk's {@code QITS_TOKEN} is a commissioned
+   * {@code qits_tok_} value, and the edge passes it to idp's own route unexchanged. Live, it
+   * authenticated: the desk's reads the roster and a project agent's is 403, not the 401 it got
+   * while the bearer check knew only JWTs. A deleted one did not authenticate and stays 401.
+   */
+  @Test
+  public void aCommissionedTokenIsJudgedByItsRolesNotRefusedAsUnauthenticated() {
+    UUID plain = person("subjects-opaque-", List.of());
+    String desk = opaqueToken("desk-delivery", "subjects-" + UUID.randomUUID());
+    List<Map<String, Object>> rows =
+        given()
+            .header("Authorization", "Bearer " + desk)
+            .when()
+            .get(DOOR)
+            .then()
+            .statusCode(200)
+            .extract()
+            .jsonPath()
+            .getList("$");
+    assertEquals(plain.toString(), rowFor(rows, plain).get("subject"));
+    given().header("Authorization", "Bearer " + desk).when().get("/idp/api/users")
+        .then().statusCode(403).body("error", equalTo("access_denied"));
+
+    String agentContext = "qits-a" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+    for (String agent :
+        List.of(
+            opaqueToken("project-agent", agentContext),
+            opaqueToken("workspace-admin", "subjects-" + UUID.randomUUID()))) {
+      given()
+          .header("Authorization", "Bearer " + agent)
+          .when()
+          .get(DOOR)
+          .then()
+          .statusCode(403)
+          .body("error", equalTo("access_denied"));
+    }
+
+    CommissionedTokens.Commissioned gone =
+        commissionedTokens.commission(
+            SYSTEM, "desk-delivery", "subjects-" + UUID.randomUUID(), Map.of(), List.of());
+    assertTrue(commissionedTokens.delete(gone.token().id(), SYSTEM));
+    given()
+        .header("Authorization", "Bearer " + gone.value())
+        .when()
+        .get(DOOR)
+        .then()
+        .statusCode(401)
+        .body("error", equalTo("invalid_token"));
+  }
+
   @Test
   public void aCommissionedBasicClientIsRefusedAndNoCredentialIs401() {
     Response commissioned = commission("workspace");
@@ -276,6 +330,11 @@ public class UserSubjectsTest {
         .statusCode(200)
         .extract()
         .path("access_token");
+  }
+
+  /** A commissioned opaque {@code qits_tok_} value of this kind — what QITS_TOKEN holds. */
+  private String opaqueToken(String kind, String contextId) {
+    return commissionedTokens.commission(SYSTEM, kind, contextId, Map.of(), List.of()).value();
   }
 
   private static String basic(String clientId, String secret) {

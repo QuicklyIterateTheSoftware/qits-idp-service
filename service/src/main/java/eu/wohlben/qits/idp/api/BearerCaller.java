@@ -1,14 +1,17 @@
 package eu.wohlben.qits.idp.api;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.Issuer;
 import eu.wohlben.qits.idp.control.SigningKeys;
 import eu.wohlben.qits.idp.control.SigningKeys.SigningKey;
 import eu.wohlben.qits.idp.control.TokenService;
+import eu.wohlben.qits.idp.control.TokenValue;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.security.Key;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.jose4j.jwa.AlgorithmConstraints;
 import org.jose4j.jwa.AlgorithmConstraints.ConstraintType;
@@ -23,7 +26,18 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
 
 /**
  * "Who is calling", for a <b>read</b> route that accepts a bearer beside {@link BasicCaller}'s pair:
- * a JWT this idp itself issued, verified in-process.
+ * a JWT this idp itself issued, verified in-process, or a live commissioned {@code qits_tok_} token.
+ *
+ * <p><b>A commissioned token arrives here raw</b> (qits-2725). Every other service sees an agent's
+ * or the desk's {@code QITS_TOKEN} as the short JWT the edge's introspection mints for it, but under
+ * idp's own route the edge passes {@code Authorization} through untouched, so the opaque value is
+ * what reaches this class. It is resolved the way {@code POST /idp/api/tokens/introspect} resolves
+ * it ({@link CommissionedTokens#introspect}) into the claims that introspection JWT would carry
+ * ({@link TokenService#commissionedSubject}): the same {@code sub} and {@code groups} a door behind
+ * the edge would see, so every role check below answers exactly as it would there. Before this, a
+ * live token was refused as {@code invalid_token} (401) on every bearer door — an agent was told it
+ * had not authenticated where the design says 403, and the desk was refused reads it is admitted to.
+ * A deleted token, or one whose owner is gone, is still 401.
  *
  * <p><b>In-process, against {@link SigningKeys#published()}</b> — the exact key list {@code GET
  * /idp/jwks} serves, resolved by the token's {@code kid} — with no OIDC stack and no HTTP call to
@@ -68,6 +82,10 @@ public class BearerCaller {
   @Inject SigningKeys signingKeys;
 
   @Inject Issuer issuer;
+
+  @Inject CommissionedTokens commissionedTokens;
+
+  @Inject TokenService tokenService;
 
   /** True when the header is a {@code Bearer} one — the caller routes on this, before verifying. */
   public static boolean isBearer(String authorization) {
@@ -121,6 +139,14 @@ public class BearerCaller {
       throw OAuthException.invalidToken("a bearer token is required");
     }
     String jwt = authorization.trim().substring(SCHEME.length()).trim();
+    if (TokenValue.isToken(jwt)) {
+      return commissionedTokens
+          .introspect(jwt)
+          .flatMap(tokenService::commissionedSubject)
+          .map(BearerCaller::claimsOf)
+          .orElseThrow(
+              () -> OAuthException.invalidToken("the bearer is not a live token from this idp"));
+    }
     return verifiedToken(jwt)
         .orElseThrow(
             () -> OAuthException.invalidToken("the bearer is not a valid token from this idp"));
@@ -152,6 +178,13 @@ public class BearerCaller {
     } catch (InvalidJwtException e) {
       return Optional.empty();
     }
+  }
+
+  /** A commissioned token's claims, as the JWT its introspection mints would carry them. */
+  private static JwtClaims claimsOf(Map<String, Object> claims) {
+    JwtClaims jwt = new JwtClaims();
+    claims.forEach(jwt::setClaim);
+    return jwt;
   }
 
   /** The published key whose {@code kid} the token names; no kid, or an unknown one, verifies nothing. */

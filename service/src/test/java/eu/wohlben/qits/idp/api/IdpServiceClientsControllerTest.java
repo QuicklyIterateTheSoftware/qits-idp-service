@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import eu.wohlben.qits.idp.control.CommissionedTokens;
 import eu.wohlben.qits.idp.control.Sessions;
 import eu.wohlben.qits.idp.control.SigningKeys;
 import eu.wohlben.qits.idp.control.Users;
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jose4j.jwt.JwtClaims;
 import org.junit.jupiter.api.Test;
@@ -49,6 +51,8 @@ public class IdpServiceClientsControllerTest {
   @Inject SigningKeys signingKeys;
 
   @Inject Sessions sessions;
+
+  @Inject CommissionedTokens commissionedTokens;
 
   @Test
   public void createAnswersOnceAndTheRowHoldsOnlyAHash() {
@@ -384,6 +388,34 @@ public class IdpServiceClientsControllerTest {
         .get("/idp/api/service-clients")
         .then()
         .statusCode(200);
+  }
+
+  @Test
+  public void anAgentsOpaqueTokenReadsAndWritesNothing() {
+    // qits-2725: an agent's or the desk's QITS_TOKEN is a qits_tok_ value, and the edge passes it
+    // to idp's own route unexchanged. It reads like the JWT its introspection mints, not a 401.
+    for (String kind : List.of("project-agent", "desk-delivery")) {
+      String contextId =
+          "project-agent".equals(kind)
+              ? "qits-r" + UUID.randomUUID().toString().replace("-", "").substring(0, 16)
+              : "bearer-opaque-" + UUID.randomUUID();
+      String token =
+          commissionedTokens.commission("test-broad", kind, contextId, Map.of(), List.of()).value();
+      given()
+          .header("Authorization", bearer(token))
+          .when()
+          .get("/idp/api/service-clients")
+          .then()
+          .statusCode(200);
+      given()
+          .contentType(ContentType.JSON)
+          .header("Authorization", bearer(token))
+          .body("{\"clientId\":\"svc-opaque-created\"}")
+          .when()
+          .post("/idp/api/service-clients")
+          .then()
+          .statusCode(401);
+    }
   }
 
   @Test

@@ -228,7 +228,8 @@ public class TokenService {
   }
 
   /**
-   * A commissioned token as a token-exchange subject: the claims its introspection JWT would carry
+   * A commissioned token as a token-exchange subject, or as a bearer on a read door ({@code
+   * BearerCaller}, qits-2725): the claims its introspection JWT would carry
    * ({@link #forCommissionedToken}) — {@code sub}, {@code groups} and the row's claims, kind and
    * Git refs — with no {@code exp}, because the token has none.
    *
@@ -238,7 +239,7 @@ public class TokenService {
   public Optional<Map<String, Object>> commissionedSubject(StoredToken token) {
     if (!clients.isServiceClient(token.owner())) {
       LOG.warnf(
-          "token %s refused as an exchange subject: its owner %s no longer exists",
+          "token %s refused as an exchange subject or a bearer: its owner %s no longer exists",
           LoggableClientId.of(token.subject()), LoggableClientId.of(token.owner()));
       return Optional.empty();
     }
