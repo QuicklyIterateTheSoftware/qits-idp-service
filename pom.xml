@@ -50,7 +50,7 @@
         <!-- CallerServerFilter/CallerClientFilter: jandex-indexed filters that record inbound
              X-Qits-Caller as the qits.caller span attribute and stamp it on outgoing REST-client
              calls. Also published by qits-integrations-quarkus. -->
-        <qits.http-core.version>2026.1127.155354</qits.http-core.version>
+        <qits.http-core.version>2026.1127.174457</qits.http-core.version>
         <!-- qits-telemetry-core (epic qits-428): the three OTLP/HTTP exporters as CDI beans whose
              header supplier carries the `qits` oidc client's current bearer, so spans, logs and
              metrics reach qits-observability at its edge host. Published by
@@ -79,7 +79,7 @@
              qits-eventstream-contracts, its pact kit, is always the same version and test scope in
              `service` (EventstreamPactTest). Published out of qits-eventstream-javalib into the same
              platform repository as the jars above; the pin follows qits-edge-service's. -->
-        <qits.eventstream.version>2026.1127.170050</qits.eventstream.version>
+        <qits.eventstream.version>2026.1127.184243</qits.eventstream.version>
         <!-- THE CONSUMER PACTS this provider verifies (epic qits-546, ticket qits-1149): one jar
              per consumer, each carrying `pacts/<consumer>_qits-idp-service.json`, and
              ConsumerPactVerificationTest loads every such resource off the test classpath. Test
