@@ -893,6 +893,12 @@
           "site" : "IdpRememberedDevicesController.caller(String, String)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.api.IdpUserSubjectsController$SubjectView",
+          "kind" : "via",
+          "via" : "eu.wohlben.qits.idp.control.Users$Subject",
+          "site" : "IdpUserSubjectsController.list(String, String)"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.api.IdpUsersController$UserView",
           "kind" : "via",
           "via" : "eu.wohlben.qits.idp.control.Users$Summary",
@@ -947,6 +953,12 @@
           "site" : "Users.accountOf(IdpUser)"
         },
         {
+          "type" : "eu.wohlben.qits.idp.control.Users$Subject",
+          "kind" : "assembler",
+          "via" : null,
+          "site" : "Users.subjects()"
+        },
+        {
           "type" : "eu.wohlben.qits.idp.control.Users$Summary",
           "kind" : "assembler",
           "via" : null,
@@ -999,6 +1011,14 @@
           "method" : "GET",
           "path" : "/api/devices",
           "dto" : "eu.wohlben.qits.idp.api.IdpWorkstationController$Device",
+          "kind" : "returns",
+          "cardinality" : "collection"
+        },
+        {
+          "operationId" : "listUserSubjects",
+          "method" : "GET",
+          "path" : "/api/user-subjects",
+          "dto" : "eu.wohlben.qits.idp.api.IdpUserSubjectsController$SubjectView",
           "kind" : "returns",
           "cardinality" : "collection"
         },
