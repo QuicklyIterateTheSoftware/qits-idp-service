@@ -55,6 +55,10 @@ import org.jose4j.keys.resolvers.VerificationKeyResolver;
  * included.
  *
  * <p>Do not widen any of the three exceptions to any other write, or to any other caller.
+ *
+ * <p>{@code GET /idp/api/user-subjects} (qits-2725) is a read, so it is none of the three: it takes
+ * a {@code qits:admin} person's bearer or a {@code qits:desk-admin} one ({@link
+ * AdminCaller#requireConfiguring}).
  */
 @ApplicationScoped
 public class BearerCaller {

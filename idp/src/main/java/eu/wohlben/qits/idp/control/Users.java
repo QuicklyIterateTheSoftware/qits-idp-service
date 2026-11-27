@@ -69,6 +69,12 @@ public class Users {
   public record Summary(String username, Instant createdAt, List<String> roles) {}
 
   /**
+   * One account as the toggles rule editor picks it (qits-2725): the id every token the person is
+   * minted carries as its {@code sub}, and the name it is known by. No roles, no instant.
+   */
+  public record Subject(UUID id, String username) {}
+
+  /**
    * One stored authenticator, in the shape quarkus-security-webauthn needs it back in. It carries
    * the username as well as the user id because the extension's own credential record is keyed by
    * name.
@@ -174,6 +180,20 @@ public class Users {
               .sorted(Comparator.comparing(Summary::username))
               .toList();
         });
+  }
+
+  /**
+   * Every account's subject (qits-2725), sorted by username in the same order as {@link #list()}.
+   * One read of the accounts, none of the roles: the answer carries none.
+   */
+  public List<Subject> subjects() {
+    return DbRetry.inNewTx(
+        "list idp user subjects",
+        () ->
+            users.listAll().stream()
+                .map(user -> new Subject(user.id, user.username))
+                .sorted(Comparator.comparing(Subject::username))
+                .toList());
   }
 
   /**

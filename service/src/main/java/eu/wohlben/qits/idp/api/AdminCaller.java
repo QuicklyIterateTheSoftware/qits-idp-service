@@ -8,6 +8,7 @@ import eu.wohlben.qits.idp.error.AuthException;
 import eu.wohlben.qits.idp.error.OAuthException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.jose4j.jwt.JwtClaims;
@@ -52,6 +53,12 @@ public class AdminCaller {
 
   /** The role every admin door requires of a person. */
   public static final String ADMIN = "qits:admin";
+
+  /**
+   * The delivery desk's commissioned role (epic qits-1621). It changes toggle rules beside {@link
+   * #ADMIN}, so {@link #requireConfiguring} admits it; the admin doors themselves never do.
+   */
+  public static final String DESK_ADMIN = "qits:desk-admin";
 
   /**
    * Who passed an admin door.
@@ -106,6 +113,47 @@ public class AdminCaller {
       throw OAuthException.accessDenied("the signed-in account lacks role " + ADMIN);
     }
     return new Admin(RegisterTokens.mintedByPerson(session.userId()), session.userId());
+  }
+
+  /**
+   * "Who is calling" for a <b>configuring read</b> (qits-2725): {@code GET /idp/api/user-subjects},
+   * which the toggles rule editor picks people from. Its callers are exactly the ones that may change
+   * a toggle's rules in qits-toggles: everything {@link #require} admits, plus a bearer whose {@code
+   * groups} hold {@link #DESK_ADMIN} — the delivery desk's commissioned token, verified the way
+   * {@code IdpServiceClientsController}'s reads verify it.
+   *
+   * <p>The desk is admitted here and not on {@code GET /idp/api/users}: that listing is user
+   * administration (roles, creation instants) and keeps the mint's callers, while this one answers
+   * only an id and a name. {@code qits:agent} and {@code qits:admin-agent} stay refused (403): the
+   * installation's roster of people is still no agent's business.
+   *
+   * @return the admin calling, or for the desk an {@link Admin} naming its client and no account
+   * @throws OAuthException 401 for a Basic pair or bearer that does not authenticate, 403 for one
+   *     that does and is not allowed here
+   * @throws AuthException 401 for no header and no live session
+   */
+  public Admin requireConfiguring(String authorization, String sessionToken, String refusal) {
+    if (BearerCaller.isBearer(authorization)) {
+      JwtClaims claims = bearerCaller.requireAnyRole(authorization, ADMIN, DESK_ADMIN);
+      if (!holds(claims, ADMIN)) {
+        try {
+          return new Admin(claims.getSubject(), null);
+        } catch (MalformedClaimException e) {
+          throw OAuthException.invalidToken("the bearer's sub is not a string");
+        }
+      }
+      return person(claims);
+    }
+    return require(authorization, sessionToken, refusal);
+  }
+
+  private static boolean holds(JwtClaims claims, String role) {
+    try {
+      List<String> groups = claims.getStringListClaimValue("groups");
+      return groups != null && groups.contains(role);
+    } catch (MalformedClaimException e) {
+      return false;
+    }
   }
 
   /** A verified bearer holding {@code qits:admin}: it must name a person who still holds it. */

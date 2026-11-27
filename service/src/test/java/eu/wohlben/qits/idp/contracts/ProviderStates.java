@@ -125,6 +125,13 @@ public class ProviderStates {
   public static final String NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN =
       "no session with the given refresh token";
   public static final String AN_ADMIN_SIGNED_IN_TO_THE_CLI = "an admin signed in to the CLI";
+
+  /**
+   * A person's CLI bearer whose account holds no role (qits-2725): the caller the configuring
+   * reads refuse with 403, which the toggles rule editor pacts as "type the ids instead".
+   */
+  public static final String A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI =
+      "a person without the admin role signed in to the CLI";
   public static final String NO_USER_WITH_THE_GIVEN_NAME = "no user with the given name";
   public static final String AN_UNSPENT_REGISTER_TOKEN = "an unspent register token";
   public static final String NO_REGISTER_TOKEN_WITH_THE_GIVEN_VALUE =
@@ -357,6 +364,9 @@ public class ProviderStates {
     states.put(
         NO_SESSION_WITH_THE_GIVEN_REFRESH_TOKEN, this::noSessionWithTheGivenRefreshToken);
     states.put(AN_ADMIN_SIGNED_IN_TO_THE_CLI, this::anAdminSignedInToTheCli);
+    states.put(
+        A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI,
+        this::aPersonWithoutTheAdminRoleSignedInToTheCli);
     states.put(NO_USER_WITH_THE_GIVEN_NAME, this::noUserWithTheGivenName);
     states.put(AN_UNSPENT_REGISTER_TOKEN, this::anUnspentRegisterToken);
     states.put(
@@ -764,6 +774,25 @@ public class ProviderStates {
     String username = "contract-" + other;
     return new Setup(
         with(admin.params(), "username", username), admin.uniqueTokens(), List.of(username));
+  }
+
+  /** {@value #A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI}: an account with no role. */
+  private Setup aPersonWithoutTheAdminRoleSignedInToTheCli() {
+    UUID id = UUID.randomUUID();
+    QuarkusTransaction.requiringNew()
+        .run(
+            () -> {
+              IdpUser row = new IdpUser();
+              row.id = id;
+              row.username = "contract-" + id;
+              row.createdAt = Instant.now();
+              users.persist(row);
+            });
+    String bearer = tokenService.cli(id).accessToken();
+    return new Setup(
+        params("authorization", "Bearer " + bearer, "userId", id.toString()),
+        List.of(bearer),
+        List.of(id.toString()));
   }
 
   /** {@value #AN_ADMIN_SIGNED_IN_TO_THE_CLI}'s bearer, and a username no account holds. */

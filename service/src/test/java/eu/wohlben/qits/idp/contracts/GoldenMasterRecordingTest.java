@@ -854,6 +854,16 @@ class GoldenMasterRecordingTest {
               null,
               "$.token"),
           list(ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI, "listUsers", "/idp/api/users"),
+          // --- the toggles rule editor's people (qits-2725): landing and the CLI -------------------
+          list(
+              ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI,
+              "listUserSubjects",
+              "/idp/api/user-subjects"),
+          get(
+              ProviderStates.A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI,
+              "listUserSubjects",
+              "/idp/api/user-subjects",
+              403),
           delete(
               ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI,
               "deleteUser",

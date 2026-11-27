@@ -366,6 +366,13 @@ components:
             type: string
         expiresAt:
           type: string
+    SubjectView:
+      type: object
+      properties:
+        subject:
+          type: string
+        username:
+          type: string
     TokenView:
       type: object
       properties:
@@ -1067,6 +1074,26 @@ paths:
       summary: Replace Git Refs
       tags:
       - Idp Tokens Controller
+  /idp/api/user-subjects:
+    get:
+      operationId: listUserSubjects
+      parameters:
+      - name: qits-session
+        in: cookie
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubjectView"
+      summary: List
+      tags:
+      - Idp User Subjects Controller
   /idp/api/users:
     get:
       operationId: listUsers

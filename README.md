@@ -47,6 +47,7 @@ Everything is served under `/idp`, the segment the gateway routes verbatim.
 | `POST /idp/api/sessions/introspect` | what the edge asks a cookie about. Basic, a service client. |
 | `POST /idp/api/register-tokens` | mint a one-time register token. An admin caller (below). |
 | `GET /idp/api/users` | every account, `[{username, createdAt, roles}]`, sorted by username. An admin caller. |
+| `GET /idp/api/user-subjects` | every account, `[{subject, username}]`, sorted by username; `subject` is the account id, the `sub` of the person's tokens and what a toggles USER rule matches (qits-2725). An admin caller or the delivery desk (`qits:desk-admin`); `qits:agent` and `qits:admin-agent` are 403. |
 | `DELETE /idp/api/users/{username}` | 204, the account and everything keyed to it; 404 unknown; 409 for the caller's own account. An admin caller. |
 | `GET /idp/api/remembered-devices` | the signed-in person's remembered browsers. A session, or the person's CLI bearer; every other bearer 403. |
 | `DELETE /idp/api/remembered-devices/{id}` | forget one and end the sessions it opened; 404 foreign or unknown. |
