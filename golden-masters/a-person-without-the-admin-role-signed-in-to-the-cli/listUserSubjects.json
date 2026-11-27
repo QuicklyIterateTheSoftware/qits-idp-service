@@ -1,0 +1,4 @@
+{
+  "error": "access_denied",
+  "error_description": "the bearer lacks every role of [qits:admin, qits:desk-admin]"
+}

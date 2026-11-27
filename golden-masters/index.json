@@ -850,6 +850,33 @@
       ]
     },
     {
+      "name": "a person without the admin role signed in to the CLI",
+      "slug": "a-person-without-the-admin-role-signed-in-to-the-cli",
+      "params": {
+        "authorization": "Bearer 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "userId": "00000000-0000-4000-8000-000000000001"
+      },
+      "dependsOn": [],
+      "operations": [
+        {
+          "operationId": "listUserSubjects",
+          "method": "GET",
+          "path": "/idp/api/user-subjects",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 403,
+          "file": "a-person-without-the-admin-role-signed-in-to-the-cli/listUserSubjects.json",
+          "frozen": {
+            "ids": [],
+            "instants": [],
+            "strings": [],
+            "listFilteredTo": null
+          }
+        }
+      ]
+    },
+    {
       "name": "a project agent's token being commissioned",
       "slug": "a-project-agent-s-token-being-commissioned",
       "params": {
@@ -1998,6 +2025,26 @@
             "instants": [],
             "strings": [],
             "listFilteredTo": null
+          }
+        },
+        {
+          "operationId": "listUserSubjects",
+          "method": "GET",
+          "path": "/idp/api/user-subjects",
+          "headers": {
+            "Authorization": "{authorization}"
+          },
+          "status": 200,
+          "file": "an-admin-signed-in-to-the-cli/listUserSubjects.json",
+          "frozen": {
+            "ids": [
+              "$[*].subject"
+            ],
+            "instants": [],
+            "strings": [
+              "$[*].username"
+            ],
+            "listFilteredTo": "$"
           }
         },
         {

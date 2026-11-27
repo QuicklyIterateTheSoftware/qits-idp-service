@@ -175,6 +175,12 @@ A machine bearer (`qits:system`, `qits:agent`) is 403 there. **`GET /api/users` 
 refuses `qits:agent`**, a deliberate exception to the rule above like `/api/service-clients`: it is
 the installation's roster of people, and its contract is "the same callers as the mint".
 
+**`GET /api/user-subjects` admits the desk and still refuses `qits:agent`** (qits-2725,
+`AdminCaller.requireConfiguring`). It is the toggles rule editor's picker: each account's id (the
+`sub` of its tokens) and username, nothing else. Its callers are the ones that may change a
+toggle's rules — the admin callers above plus a `qits:desk-admin` bearer. Do not widen `GET
+/api/users` to the desk instead: that one carries roles and keeps the mint's callers.
+
 **`POST /api/gc/service-clients` is the other write that takes a bearer** (qits-878,
 `IdpGcController`): a `qits:system` bearer from this idp whose `sub` is a service client, beside the
 usual Basic pair. It is safe there and nowhere else because the door can only remove credentials —

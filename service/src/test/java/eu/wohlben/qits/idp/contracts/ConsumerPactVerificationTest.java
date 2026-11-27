@@ -307,6 +307,11 @@ class ConsumerPactVerificationTest {
     return states.params(ProviderStates.AN_ADMIN_SIGNED_IN_TO_THE_CLI);
   }
 
+  @State(ProviderStates.A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI)
+  Map<String, String> aPersonWithoutTheAdminRoleSignedInToTheCli() {
+    return states.params(ProviderStates.A_PERSON_WITHOUT_THE_ADMIN_ROLE_SIGNED_IN_TO_THE_CLI);
+  }
+
   @State(ProviderStates.NO_USER_WITH_THE_GIVEN_NAME)
   Map<String, String> noUserWithTheGivenName() {
     return states.params(ProviderStates.NO_USER_WITH_THE_GIVEN_NAME);
